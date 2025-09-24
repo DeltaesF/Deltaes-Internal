@@ -1,16 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Individual from "./(dashboard)/individual/page";
 import Total from "./(totalboard)/total/page";
 import Organization from "./organization/page";
 import Work from "./work/page";
-import User from "./(vacation)/user/page";
 import Posts from "./(report)/posts/page";
 import Approvals from "./(workoutside)/approvals/page";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import UserV from "./(vacation)/user/page";
+import { logOut } from "@/lib/auth";
+import { useRouter } from "next/navigation";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+interface Employee {
+  userName: string;
+  email: string;
+  role: string;
+}
 
 export default function Main() {
   const [selectMenu, setSelectMenu] = useState("대쉬보드 이동");
+  const [employee, setEmployee] = useState<Employee | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user?.email) {
+        const q = query(
+          collection(db, "employee"),
+          where("email", "==", user.email)
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          setEmployee(snap.docs[0].data() as Employee);
+        }
+        console.log(snap.docs[0]);
+      } else {
+        setEmployee(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const renderContent = () => {
     if (selectMenu === "대쉬보드 이동") {
@@ -24,19 +58,33 @@ export default function Main() {
     } else if (selectMenu === "보고서") {
       return <Posts />;
     } else if (selectMenu === "휴가원") {
-      return <User />;
+      return <UserV />;
     } else if (selectMenu === "조직도") {
       return <Organization />;
     }
   };
+
+  const logout = async () => {
+    const confirmLogout = window.confirm("로그아웃을 하시겠습니까?");
+    if (!confirmLogout) return;
+
+    try {
+      await logOut();
+      alert("로그아웃이 되었습니다.");
+      router.push("/");
+    } catch (err) {
+      console.error("로그아웃 실패:", err);
+    }
+  };
+
   return (
     <div className="flex w-full h-screen overflow-x-hidden box-border">
       <div className="w-[10%] h-full gap-6 p-4 flex flex-col bg-[#f0f0f0] text-center">
         <span
-          className="mt-3 cursor-pointer"
+          className="mt-3 cursor-pointer font-semibold"
           onClick={() => setSelectMenu("대쉬보드 이동")}
         >
-          000 프로님
+          {employee?.userName || "사용자"}님
         </span>
         <button
           className={`cursor-pointer p-2 rounded-xl transition-all duration-100
@@ -103,6 +151,9 @@ export default function Main() {
           onClick={() => setSelectMenu("조직도")}
         >
           조직도
+        </button>
+        <button onClick={logout} className={"cursor-pointer border"}>
+          로그아웃
         </button>
       </div>
       <div className="w-[90%] p-6 ">{renderContent()}</div>

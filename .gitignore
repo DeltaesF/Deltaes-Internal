@@ -1,4 +1,10 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+.env
+internalKey.json
+uploadOrgData.ts
+orgData.ts
+seedFirestore.ts
+collection.ts
 
 # dependencies
 /node_modules
