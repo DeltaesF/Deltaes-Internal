@@ -4,47 +4,37 @@ import { useEffect, useState } from "react";
 import Individual from "./(dashboard)/individual/page";
 import Total from "./(totalboard)/total/page";
 import Organization from "./organization/page";
-import Work from "./work/page";
 import Posts from "./(report)/posts/page";
 import Approvals from "./(workoutside)/approvals/page";
-import { auth } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
 import UserV from "./(vacation)/user/page";
-import { logOut } from "@/lib/auth";
 import { useRouter } from "next/navigation";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
+import { AppDispatch, RootState } from "@/store";
+import Work from "./(work)/page";
 
-interface Employee {
-  userName: string;
-  email: string;
-  role: string;
-}
+const initAuth = () => ({ type: "auth/initAuth" });
+const logoutUser = () => ({ type: "auth/logoutUser" });
 
 export default function Main() {
   const [selectMenu, setSelectMenu] = useState("대쉬보드 이동");
-  const [employee, setEmployee] = useState<Employee | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user?.email) {
-        const q = query(
-          collection(db, "employee"),
-          where("email", "==", user.email)
-        );
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          setEmployee(snap.docs[0].data() as Employee);
-        }
-        console.log(snap.docs[0]);
-      } else {
-        setEmployee(null);
-      }
-    });
+  // Redux dispatch 함수 가져오기
+  const dispatch = useDispatch<AppDispatch>();
 
-    return () => unsubscribe();
-  }, []);
+  // Redux store에서 auth 상태 가져오기
+  // 임시로 기본값을 제공합니다.
+  const { userName } = useSelector(
+    (state: RootState) => state.auth || { userName: "사용자" }
+  );
+
+  // 컴포넌트 마운트 시 initAuth 액션을 디스패치하여 인증 상태 초기화
+  useEffect(() => {
+    // 실제 앱에서는 dispatch(initAuth())가 비동기 thunk를 호출합니다.
+    console.log("인증 초기화 액션 디스패치");
+    dispatch(initAuth());
+  }, [dispatch]);
 
   const renderContent = () => {
     if (selectMenu === "대쉬보드 이동") {
@@ -64,16 +54,21 @@ export default function Main() {
     }
   };
 
-  const logout = async () => {
+  // logoutUser thunk를 사용하도록 로그아웃 함수 수정
+  const handleLogout = async () => {
     const confirmLogout = window.confirm("로그아웃을 하시겠습니까?");
     if (!confirmLogout) return;
 
     try {
-      await logOut();
+      // 실제 앱에서는 `unwrap()`을 사용하여 promise를 처리합니다.
+      // await dispatch(logoutUser()).unwrap();
+      console.log("로그아웃 액션 디스패치");
+      dispatch(logoutUser());
       alert("로그아웃이 되었습니다.");
       router.push("/");
     } catch (err) {
       console.error("로그아웃 실패:", err);
+      alert("로그아웃에 실패했습니다.");
     }
   };
 
@@ -84,7 +79,7 @@ export default function Main() {
           className="mt-3 cursor-pointer font-semibold"
           onClick={() => setSelectMenu("대쉬보드 이동")}
         >
-          {employee?.userName || "사용자"}님
+          {userName || "사용자"}님
         </span>
         <button
           className={`cursor-pointer p-2 rounded-xl transition-all duration-100
@@ -152,7 +147,7 @@ export default function Main() {
         >
           조직도
         </button>
-        <button onClick={logout} className={"cursor-pointer border"}>
+        <button onClick={handleLogout} className={"cursor-pointer border"}>
           로그아웃
         </button>
       </div>
