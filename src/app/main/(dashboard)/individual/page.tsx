@@ -111,7 +111,6 @@ export default function Individual() {
 
   return (
     <div className="flex flex-col gap-12 mt-6 items-center">
-      {/* 상단 카드 */}
       <div className="flex justify-center gap-30">
         <div className="bg-white shadow-md border rounded-2xl p-6 w-80 text-center">
           <span className="text-gray-600 font-medium">결재 요청</span>
@@ -127,7 +126,6 @@ export default function Individual() {
         </div>
       </div>
 
-      {/* 캘린더 컨테이너 (가운데 정렬) */}
       <div className="bg-white shadow-md border rounded-2xl p-6 w-[1200px] mx-auto">
         <h2 className="text-lg font-semibold mb-4">
           📅 {userName ? `${userName}님의 일정 캘린더` : "내 일정"}

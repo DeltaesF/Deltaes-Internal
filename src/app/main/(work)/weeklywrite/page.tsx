@@ -18,7 +18,7 @@ export default function ReportWeekly({ onCancel }: Props) {
         ◀ 나가기
       </button>
 
-      <h2>📊 주간업무 작성</h2>
+      <h2>📊 주간 업무 보고서 작성</h2>
 
       <form className="flex flex-col gap-4 mt-4">
         <input

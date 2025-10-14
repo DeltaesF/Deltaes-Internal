@@ -3,20 +3,20 @@
 import { useState } from "react";
 import Daily from "./daily/page";
 import Weekly from "./weekly/page";
-import ReportWrite from "./dailywrite/page";
+import ReportDaily from "./dailywrite/page";
 import ReportWeekly from "./weeklywrite/page";
 
 export default function Work() {
   const [activeTab, setActiveTab] = useState<
     "daily" | "weekly" | "reportWrite" | "weeklyWrite"
   >("daily");
-  const [isWriteOpen, setIsWriteOpen] = useState(false); // 글작성 드롭다운 열림
+  const [isWriteOpen, setIsWriteOpen] = useState(false);
 
   const renderContent = () => {
     if (activeTab === "daily") return <Daily />;
     if (activeTab === "weekly") return <Weekly />;
     if (activeTab === "reportWrite")
-      return <ReportWrite onCancel={() => setActiveTab("daily")} />;
+      return <ReportDaily onCancel={() => setActiveTab("daily")} />;
     if (activeTab === "weeklyWrite")
       return <ReportWeekly onCancel={() => setActiveTab("weekly")} />;
     return null;
@@ -24,7 +24,6 @@ export default function Work() {
 
   return (
     <div className="flex flex-col w-full">
-      {/* 상단 버튼 */}
       <div className="flex gap-4 mb-6 items-center relative">
         {/* Daily / Weekly 버튼: 작성 화면이면 숨김 */}
         {activeTab !== "reportWrite" && activeTab !== "weeklyWrite" && (
@@ -88,7 +87,6 @@ export default function Work() {
         )}
       </div>
 
-      {/* 선택된 컴포넌트 */}
       <div className="w-full">{renderContent()}</div>
     </div>
   );

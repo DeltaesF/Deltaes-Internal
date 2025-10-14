@@ -7,7 +7,7 @@ import authReducer from "./slices/authSlice";
 export const store = configureStore({
   reducer: {
     // 상태관리 담당하는 slice 등록
-    auth: authReducer,
+    auth: authReducer, // 로그인/유저 상태 담당 slice
   },
 });
 
