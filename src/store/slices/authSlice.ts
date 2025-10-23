@@ -29,6 +29,7 @@ type AuthState = {
   user: PlainUser | null; // Firebase User 객체 대신 PlainUser 객체를 사용합니다.
   userDocId: string | null;
   userName: string | null;
+  role: string | null;
   loading: boolean;
   error?: string | null;
 };
@@ -37,12 +38,14 @@ interface AuthPayload {
   user: PlainUser | null;
   userDocId: string | null;
   userName: string | null;
+  role: string | null;
 }
 
 const initialState: AuthState = {
   user: null,
   userDocId: null,
   userName: null,
+  role: null,
   loading: true,
   error: null,
 };
@@ -68,9 +71,19 @@ export const loginUser = createAsyncThunk<
     const doc = snap.docs[0];
     const data = doc.data() as EmployeeDoc;
     const userDocId = doc.id;
-    return { user: serializableUser, userDocId, userName: data.userName };
+    return {
+      user: serializableUser,
+      userDocId,
+      userName: data.userName,
+      role: data.role || null,
+    };
   } else {
-    return { user: serializableUser, userDocId: null, userName: null };
+    return {
+      user: serializableUser,
+      userDocId: null,
+      userName: null,
+      role: null,
+    };
   }
 });
 
@@ -104,16 +117,18 @@ export const initAuth = createAsyncThunk<AuthPayload, void>(
               user: serializableUser,
               userDocId: doc.id,
               userName: data.userName,
+              role: data.role || null,
             });
           } else {
             resolve({
               user: serializableUser,
               userDocId: null,
               userName: null,
+              role: null,
             });
           }
         } else {
-          resolve({ user: null, userDocId: null, userName: null });
+          resolve({ user: null, userDocId: null, userName: null, role: null });
         }
         unsubscribe();
       });
@@ -137,6 +152,7 @@ const authSlice = createSlice({
       state.user = action.payload.user;
       state.userDocId = action.payload.userDocId;
       state.userName = action.payload.userName;
+      state.role = action.payload.role;
       state.loading = false;
       state.error = null;
     });
@@ -163,6 +179,7 @@ const authSlice = createSlice({
       state.user = action.payload.user;
       state.userDocId = action.payload.userDocId;
       state.userName = action.payload.userName;
+      state.role = action.payload.role;
       state.loading = false;
       state.error = null;
     });

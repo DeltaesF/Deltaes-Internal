@@ -74,7 +74,7 @@ export default function Main() {
 
   return (
     <div className="flex w-full h-screen overflow-x-hidden box-border">
-      <div className="w-[10%] h-full gap-6 p-4 flex flex-col bg-[#f0f0f0] text-center">
+      <div className="w-[10%] h-full gap-6 p-4 flex flex-col bg-[#e0e0e0] text-center">
         <span
           className="mt-3 cursor-pointer font-semibold"
           onClick={() => setSelectMenu("대쉬보드 이동")}

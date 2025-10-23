@@ -16,7 +16,8 @@ const db = admin.firestore();
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userDocId, startDate, endDate, types, days, reason } = body;
+    const { userDocId, startDate, endDate, types, days, reason, approvers } =
+      body;
 
     if (!userDocId) {
       return NextResponse.json(
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
       daysUsed: days,
       reason,
       status: "대기", // 승인 전
+      approvers,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 

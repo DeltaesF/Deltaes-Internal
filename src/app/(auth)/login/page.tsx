@@ -8,9 +8,6 @@ export default function Login() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const temporary = () => {
-    router.push("/main");
-  };
 
   const handleEmailLogin = async () => {
     try {
@@ -45,12 +42,6 @@ export default function Login() {
           onClick={handleEmailLogin}
         >
           로그인
-        </button>
-      </div>
-      <div>
-        <div>로그인 페이지 입니다.</div> <br />
-        <button onClick={temporary} className="cursor-pointer border">
-          임시 로그인 개인 대시보드 페이지 이동
         </button>
       </div>
     </div>
