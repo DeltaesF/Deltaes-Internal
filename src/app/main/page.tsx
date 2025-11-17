@@ -12,12 +12,17 @@ import { useDispatch } from "react-redux";
 import { useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/store";
 import Work from "./(work)/page";
+import Notice from "./notice/page";
+import Resources from "./resources/page";
 
 const initAuth = () => ({ type: "auth/initAuth" });
 const logoutUser = () => ({ type: "auth/logoutUser" });
 
 export default function Main() {
   const [selectMenu, setSelectMenu] = useState("대쉬보드 이동");
+  const [workDefaultTab, setWorkDefaultTab] = useState<"daily" | "weekly">(
+    "daily"
+  );
   const router = useRouter();
 
   // Redux dispatch 함수 가져오기
@@ -40,9 +45,14 @@ export default function Main() {
     if (selectMenu === "대쉬보드 이동") {
       return <Individual />;
     } else if (selectMenu === "게시판") {
-      return <Total />;
+      return (
+        <Total
+          setSelectMenu={setSelectMenu}
+          setWorkDefaultTab={setWorkDefaultTab}
+        />
+      );
     } else if (selectMenu === "업무보고") {
-      return <Work />;
+      return <Work defaultTab={workDefaultTab} />;
     } else if (selectMenu === "품의서") {
       return <Approvals />;
     } else if (selectMenu === "보고서") {
@@ -51,6 +61,10 @@ export default function Main() {
       return <UserV />;
     } else if (selectMenu === "조직도") {
       return <Organization />;
+    } else if (selectMenu === "공지사항") {
+      return <Notice />;
+    } else if (selectMenu === "자료실") {
+      return <Resources />;
     }
   };
 

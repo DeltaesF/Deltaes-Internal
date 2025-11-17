@@ -13,43 +13,80 @@ interface VacationRequest {
   userId: string;
 }
 
+// [2] POST 핸들러의 admin 필터링을 위한 타입을 추가합니다.
+type ApprovalHistoryEntry = {
+  approver: string;
+  status: string;
+  approvedAt: FirebaseFirestore.Timestamp;
+};
+
+type VacationDoc = {
+  id: string;
+  approvalHistory?: ApprovalHistoryEntry[];
+  // ... (userName, startDate 등 VacationRequest의 모든 필드)
+};
+
 export async function POST(req: Request) {
   try {
-    const { role, userName } = await req.json(); // 클라이언트에서 보내줌
-    const vacationRef = db.collection("vacations");
-    let query;
+    const { role, userName } = await req.json();
 
-    // ✅ role에 따라 다른 쿼리
+    // ✅ 모든 vacation/{userDocId}/requests 컬렉션을 통합 조회
+    const requestsRef = db.collectionGroup("requests");
+    let snapshot;
+
     if (role === "user") {
-      // 내가 작성한 문서 중 '대기' 상태
-      query = vacationRef
+      // 일반 사용자는 "대기" 중인 자기 요청을 봅니다.
+      snapshot = await requestsRef
+        .where("status", "==", "대기")
         .where("userName", "==", userName)
-        .where("status", "==", "대기");
+        .get();
     } else if (role === "admin") {
-      // 1차 결재자 리스트 중 나 포함 && '대기'
-      query = vacationRef
+      // [3] 1차 결재자는 '대기' 상태 + 'approvers.first'에 내가 포함된 것 일단 모두 조회
+      snapshot = await requestsRef
+        .where("status", "==", "대기")
         .where("approvers.first", "array-contains", userName)
-        .where("status", "==", "대기");
+        .get();
     } else if (role === "ceo") {
-      // 2차 결재자 리스트 중 나 포함 && '1차 승인 완료'
-      query = vacationRef
+      // 2차 결재자는 "1차 결재 완료"된 요청을 봅니다.
+      snapshot = await requestsRef
+        .where("status", "==", "1차 결재 완료")
         .where("approvers.second", "array-contains", userName)
-        .where("status", "==", "1차 승인 완료");
+        .get();
     } else {
-      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+      return NextResponse.json({ list: [] });
     }
 
-    const snapshot = await query.get();
+    // [4] snapshot.docs를 바로 list로 만들기 전에 후처리합니다.
+    let docsToMap = snapshot.docs;
 
-    const pendingList = snapshot.docs.map((doc) => ({
+    // [5] admin 역할일 경우, JS로 필터링을 추가합니다.
+    if (role === "admin") {
+      docsToMap = snapshot.docs.filter((doc) => {
+        // 타입을 VacationDoc으로 지정
+        const data = doc.data() as VacationDoc;
+        const history = data.approvalHistory || [];
+
+        // 'approvalHistory'에 'approver'가 'userName'(현재 사용자)과
+        // 일치하는 기록이 있는지 확인합니다.
+        const alreadyApproved = history.some(
+          (entry) => entry.approver === userName
+        );
+
+        // [6] 내가 승인한 기록이 '없는' 항목만 반환합니다.
+        return !alreadyApproved;
+      });
+    }
+
+    // [7] 필터링된 docsToMap을 최종 list로 만듭니다.
+    const list = docsToMap.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
 
-    return NextResponse.json(pendingList);
+    return NextResponse.json({ list });
   } catch (err) {
-    console.error("대기 문서 조회 오류:", err);
-    return NextResponse.json({ error: "서버 오류" }, { status: 500 });
+    console.error("휴가 리스트 조회 오류:", err);
+    return NextResponse.json({ error: "서버 오류 발생" }, { status: 500 });
   }
 }
 

@@ -33,19 +33,29 @@ export default function Individual() {
 
   const [events, setEvents] = useState<EventType[]>([]);
   const [pendingList, setPendingList] = useState<VacationType[]>([]);
+  const [completedCount, setCompletedCount] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [selectedVacation, setSelectedVacation] = useState<VacationType | null>(
     null
   );
 
+  // 🔽 결재 완료 목록을 위한 state 추가
+  const [completedList, setCompletedList] = useState<VacationType[]>([]);
+  const [showCompletedModal, setShowCompletedModal] = useState(false);
+
+  // 🔽 "공유 내용"을 위한 새 state 추가
+  const [sharedList, setSharedList] = useState<VacationType[]>([]);
+  const [sharedCount, setSharedCount] = useState(0);
+  const [showSharedModal, setShowSharedModal] = useState(false);
+
   // ✅ 결재 대기 리스트 불러오기
   const fetchPending = async () => {
-    if (!userName) return;
+    if (!userDocId) return;
     try {
       const res = await fetch("/api/vacation/list", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, userName }), // ✅ role 추가
+        body: JSON.stringify({ role, userName: userDocId }), // ✅ role 추가
       });
       const data = await res.json();
       if (res.ok) setPendingList(data.list || []);
@@ -64,32 +74,92 @@ export default function Individual() {
     setEvents(data);
   };
 
+  // 👈 결재 완료 건수 불러오기 (신규)
+  const fetchCompletedData = async () => {
+    if (!userDocId) return;
+    try {
+      // '/approved-count' 대신 새 API 호출
+      const res = await fetch("/api/vacation/approve-list", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userName: userDocId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        // list와 count를 동시에 세팅
+        setCompletedList(data.list || []);
+        setCompletedCount((data.list || []).length);
+      }
+    } catch (err) {
+      console.error("결재 완료 데이터 조회 실패:", err);
+    }
+  };
+
+  // 🔽 "공유 내용" 데이터를 가져오는 새 함수 추가
+  const fetchSharedData = async () => {
+    if (!userDocId) return;
+    try {
+      const res = await fetch("/api/vacation/shared-list", {
+        // 👈 새 API 호출
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userName: userDocId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSharedList(data.list || []);
+        setSharedCount((data.list || []).length);
+      }
+    } catch (err) {
+      console.error("공유 목록 데이터 조회 실패:", err);
+    }
+  };
+
   // userDocId가 바뀌면(로그인 또는 initAuth 완료 시) 이벤트를 불러옵니다.
   useEffect(() => {
     if (!loading) {
       fetchEvents();
       fetchPending();
+      fetchCompletedData();
+      fetchSharedData();
     }
   }, [loading, userDocId]);
 
   // ✅ 승인 처리
-  const handleApprove = async (vacationId: string) => {
+  const handleApprove = async (
+    vacationId: string,
+    applicantUserName: string
+  ) => {
     try {
       const res = await fetch("/api/vacation/approve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           vacationId,
-          approverName: userName,
+          approverName: userDocId, // 👈 결재하는 사람 (현재 로그인 유저)
+          applicantUserName: applicantUserName, // 👈 휴가 신청한 사람
         }),
       });
 
-      if (!res.ok) throw new Error("승인 실패");
+      if (!res.ok) {
+        // 🔽 서버에서 보낸 에러 메시지를 alert에 표시 (디버깅에 유용)
+        const errorData = await res.json();
+        throw new Error(errorData.error || "승인 실패");
+      }
+
       alert("승인되었습니다.");
       fetchPending(); // 새로고침
+      fetchCompletedData(); // 👈 결재 완료 건수도 새로고침
       setSelectedVacation(null);
     } catch (err) {
-      console.error("승인 오류:", err);
+      // 🔽 에러 메시지를 콘솔에 더 명확하게 표시
+      console.error(
+        "승인 오류:",
+        err instanceof Error ? err.message : String(err)
+      );
+      alert(
+        err instanceof Error ? err.message : "승인 처리 중 오류가 발생했습니다."
+      );
     }
   };
 
@@ -166,17 +236,23 @@ export default function Individual() {
           <span className="text-gray-600 font-medium">결재 요청</span>
           <p className="text-4xl font-bold">{pendingList.length} 건</p>
         </div>
-        <div className="bg-white shadow-md border rounded-2xl p-6 w-80 text-center">
+        <div
+          className="bg-white shadow-md border rounded-2xl p-6 w-80 text-center cursor-pointer"
+          onClick={() => setShowCompletedModal(true)}
+        >
           <span className="text-gray-600 font-medium">결재 완료</span>
-          <p className="text-4xl font-bold">0 건</p>
+          <p className="text-4xl font-bold">{completedCount} 건</p>
         </div>
-        <div className="bg-white shadow-md border rounded-2xl p-6 w-80 text-center">
-          <span className="text-gray-600 font-medium">오늘</span>
-          <p className="text-4xl font-bold">0 건</p>
+        <div
+          className="bg-white shadow-md border rounded-2xl p-6 w-80 text-center cursor-pointer"
+          onClick={() => setShowSharedModal(true)}
+        >
+          <span className="text-gray-600 font-medium">공유 내용</span>
+          <p className="text-4xl font-bold">{sharedCount} 건</p>
         </div>
       </div>
 
-      {/* 🔹 모달: 결재 요청 목록 */}
+      {/* 🔹 결재 요청 목록 */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
           <div className="bg-white rounded-xl p-6 w-[600px]">
@@ -214,7 +290,7 @@ export default function Individual() {
 
       {/* 🔹 승인 상세 모달 */}
       {selectedVacation && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
           <div className="bg-white rounded-xl p-6 w-[500px]">
             <h3 className="text-lg font-bold mb-3">휴가 승인</h3>
             <p>
@@ -233,7 +309,9 @@ export default function Individual() {
 
             <div className="flex gap-4 mt-6">
               <button
-                onClick={() => handleApprove(selectedVacation.id)}
+                onClick={() =>
+                  handleApprove(selectedVacation.id, selectedVacation.userName)
+                }
                 className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
               >
                 승인
@@ -245,6 +323,82 @@ export default function Individual() {
                 닫기
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 결재 완료 목록 모달  */}
+      {showCompletedModal && (
+        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl p-6 w-[600px]">
+            <h3 className="text-lg font-bold mb-4">결재 완료 목록 (오늘)</h3>
+            <ul className="divide-y">
+              {completedList.length > 0 ? (
+                completedList.map((v) => (
+                  <li key={v.id} className="py-3 px-2">
+                    <p className="font-semibold">{v.userName}</p>
+                    <p className="text-sm text-gray-600">
+                      {v.startDate} ~ {v.endDate} ({v.reason})
+                    </p>
+                    <span className="text-xs text-green-600">{v.status}</span>
+                  </li>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">
+                  오늘 완료한 결재가 없습니다.
+                </p>
+              )}
+            </ul>
+            <button
+              onClick={() => setShowCompletedModal(false)}
+              className="mt-4 bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 공유 내용 목록 모달  */}
+      {showSharedModal && (
+        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl p-6 w-[600px]">
+            <h3 className="text-lg font-bold mb-4">공유 목록</h3>
+            <ul className="divide-y">
+              {sharedList.length > 0 ? (
+                sharedList.map((v) => (
+                  <li key={v.id} className="py-3 px-2">
+                    <p className="font-semibold">{v.userName}</p>
+                    <p className="text-sm text-gray-600">
+                      {v.startDate} ~ {v.endDate} ({v.reason})
+                    </p>
+                    <span
+                      className={`text-xs font-medium ${
+                        v.status === "대기"
+                          ? "text-blue-500"
+                          : v.status === "1차 결재 완료"
+                          ? "text-yellow-600"
+                          : v.status === "최종 승인 완료"
+                          ? "text-green-600"
+                          : "text-gray-500"
+                      }`}
+                    >
+                      {v.status}
+                    </span>
+                  </li>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">
+                  공유된 휴가 내역이 없습니다.
+                </p>
+              )}
+            </ul>
+            <button
+              onClick={() => setShowSharedModal(false)}
+              className="mt-4 bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+            >
+              닫기
+            </button>
           </div>
         </div>
       )}

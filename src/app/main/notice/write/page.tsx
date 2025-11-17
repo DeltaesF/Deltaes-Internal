@@ -2,7 +2,7 @@ type Props = {
   onCancel: () => void;
 };
 
-export default function ReportWrite({ onCancel }: Props) {
+export default function NoticeWrite({ onCancel }: Props) {
   const handleCancel = () => {
     const confirmExit = window.confirm(
       "작성 중인 내용이 저장되지 않을 수 있습니다. 정말 나가시겠습니까?"
@@ -21,16 +21,12 @@ export default function ReportWrite({ onCancel }: Props) {
         ◀ 나가기
       </button>
 
-      <h2>📊 보고서 작성</h2>
+      <h2>공지사항 작성</h2>
 
       <form className="flex flex-col gap-4 mt-4">
-        <input
-          type="text"
-          placeholder="보고서 제목"
-          className="border p-2 rounded"
-        />
+        <input type="text" placeholder="제목" className="border p-2 rounded" />
         <textarea
-          placeholder="보고서 내용"
+          placeholder="내용"
           className="border p-2 rounded h-40"
         ></textarea>
         <button

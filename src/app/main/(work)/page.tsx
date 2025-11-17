@@ -6,10 +6,14 @@ import Weekly from "./weekly/page";
 import ReportDaily from "./dailywrite/page";
 import ReportWeekly from "./weeklywrite/page";
 
-export default function Work() {
+export default function Work({
+  defaultTab = "daily",
+}: {
+  defaultTab?: "daily" | "weekly";
+}) {
   const [activeTab, setActiveTab] = useState<
     "daily" | "weekly" | "reportWrite" | "weeklyWrite"
-  >("daily");
+  >(defaultTab);
   const [isWriteOpen, setIsWriteOpen] = useState(false);
 
   const renderContent = () => {

@@ -35,7 +35,7 @@ export default function VacationWrite({ onCancel }: Props) {
     "민동호 연구소장",
     "박병우 영업본부장",
     "원인영 경영부장",
-    "정두원 책임",
+    "정두원 프로",
   ];
 
   // ✅ 넣기 버튼
@@ -135,6 +135,7 @@ export default function VacationWrite({ onCancel }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userDocId,
+          userName,
           startDate,
           endDate,
           types,
