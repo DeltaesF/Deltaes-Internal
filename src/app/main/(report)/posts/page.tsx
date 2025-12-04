@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ReportWrite from "../write/page";
-import ReportDetail from "./ReportDetail";
+import ReportDetail from "./reportDetail";
 // import WorkOutsideWrite2 from "../write2/page";
 // import WorkOutsideWrite3 from "../write3/page";
 
@@ -10,6 +10,7 @@ type Report = {
   id: string;
   title: string;
   content: string;
+  userName: string;
   fileUrl?: string | null;
   createdAt: number;
 };

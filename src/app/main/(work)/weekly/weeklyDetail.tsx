@@ -1,7 +1,7 @@
 "use client";
 
-type ReportDetailProps = {
-  report: {
+type WeeklyDetailProps = {
+  weekly: {
     id: string;
     title: string;
     content: string;
@@ -13,7 +13,7 @@ type ReportDetailProps = {
   onBack: () => void;
 };
 
-export default function ReportDetail({ report, onBack }: ReportDetailProps) {
+export default function WeeklyDetail({ weekly, onBack }: WeeklyDetailProps) {
   return (
     <div className="p-6 border rounded-xl bg-white shadow-sm">
       <button
@@ -23,26 +23,26 @@ export default function ReportDetail({ report, onBack }: ReportDetailProps) {
         ← 뒤로가기
       </button>
 
-      <h2 className="text-2xl font-bold mb-3">{report.title}</h2>
+      <h2 className="text-2xl font-bold mb-3">{weekly.title}</h2>
       <div className="flex items-center text-sm text-gray-500 mb-6 pb-4 border-b gap-4">
         <div className="flex items-center gap-1">
           <span className="font-semibold text-gray-700">작성자:</span>
-          <span className="text-gray-900">{report.userName}</span>
+          <span className="text-gray-900">{weekly.userName}</span>
         </div>
         <div className="w-[1px] h-3 bg-gray-300"></div>
-        <div>{new Date(report.createdAt).toLocaleString()}</div>
+        <div>{new Date(weekly.createdAt).toLocaleString()}</div>
       </div>
 
       <div
         className="prose"
-        dangerouslySetInnerHTML={{ __html: report.content }}
+        dangerouslySetInnerHTML={{ __html: weekly.content }}
       />
 
-      {report.fileUrl && (
+      {weekly.fileUrl && (
         <div className="mt-8 pt-4 border-t">
           <p className="text-sm text-gray-600 mb-2 font-semibold">첨부파일</p>
           <a
-            href={report.fileUrl}
+            href={weekly.fileUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-blue-700 rounded-lg transition-colors no-underline"
@@ -64,7 +64,7 @@ export default function ReportDetail({ report, onBack }: ReportDetailProps) {
 
             {/* [수정] 파일 이름이 있으면 이름 표시, 없으면 '첨부파일 다운로드' */}
             <span className="truncate max-w-xs">
-              {report.fileName || "첨부파일 다운로드"}
+              {weekly.fileName || "첨부파일 다운로드"}
             </span>
           </a>
         </div>

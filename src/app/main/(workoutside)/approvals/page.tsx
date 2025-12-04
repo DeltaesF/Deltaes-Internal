@@ -1,9 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import WorkOutsideWrite from "../write/page";
+import ApprovalsDetail from "./approvalsDetail";
 // import WorkOutsideWrite2 from "../write2/page";
 // import WorkOutsideWrite3 from "../write3/page";
+
+type Approvals = {
+  id: string;
+  title: string;
+  content: string;
+  userName: string;
+  fileUrl?: string | null;
+  createdAt: number;
+};
 
 export default function Approvals() {
   const [activeTab, setActiveTab] = useState<
@@ -11,8 +21,21 @@ export default function Approvals() {
   >("list");
 
   const [isWriteOpen, setIsWriteOpen] = useState(false);
+  const [approvals, setApprovals] = useState<Approvals[]>([]);
+  const [selectedApproval, setSelectedApproval] = useState<Approvals | null>(
+    null
+  );
 
   const renderContent = () => {
+    if (selectedApproval) {
+      return (
+        <ApprovalsDetail
+          approval={selectedApproval}
+          onBack={() => setSelectedApproval(null)}
+        />
+      );
+    }
+
     if (activeTab === "write")
       return <WorkOutsideWrite onCancel={() => setActiveTab("list")} />;
     // if (activeTab === "write2")
@@ -20,6 +43,30 @@ export default function Approvals() {
     // if (activeTab === "write3")
     //   return <WorkOutsideWrite3 onCancel={() => setActiveTab("list")} />;
     return null;
+  };
+
+  const loadReports = async () => {
+    try {
+      const res = await fetch("/api/approvals/list");
+      const data = await res.json();
+      setApprovals(Array.isArray(data) ? data : []);
+      console.log("Loaded approvals:", data);
+    } catch (error) {
+      console.error("Failed to load approvals:", error);
+      setApprovals([]);
+    }
+  };
+
+  useEffect(() => {
+    loadReports();
+  }, []);
+
+  // 날짜 포맷팅 헬퍼
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString("ko-KR", {
+      month: "2-digit",
+      day: "2-digit",
+    });
   };
 
   return (
@@ -44,7 +91,7 @@ export default function Approvals() {
                   }}
                   className="px-4 py-2 text-left hover:bg-[#B1B1B1] hover:text-black rounded-t cursor-pointer"
                 >
-                  Write 1
+                  품의서 작성
                 </button>
                 <button
                   onClick={() => {
@@ -71,7 +118,7 @@ export default function Approvals() {
       )}
 
       <div className="w-full">
-        {activeTab === "list" && (
+        {activeTab === "list" && !selectedApproval && (
           <div className="border rounded-2xl shadow-sm p-4 bg-white">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-[20px] font-semibold">품의서</h3>
@@ -79,10 +126,27 @@ export default function Approvals() {
                 + 더보기
               </span>
             </div>
+
             <ul>
-              <li className="py-2 border-b">품의서 내용 1</li>
-              <li className="py-2 border-b">품의서 내용 2</li>
-              <li className="py-2 border-b">품의서 내용 3</li>
+              {approvals?.map((item) => (
+                <li
+                  key={item.id}
+                  className="py-2 border-b flex justify-between items-center cursor-pointer hover:bg-gray-50 group"
+                  onClick={() => setSelectedApproval(item)}
+                >
+                  <p className="hover:text-purple-400 transition-colors">
+                    {item.title}
+                  </p>
+                  <span className="text-xs text-gray-400">
+                    {formatDate(item.createdAt)}
+                  </span>
+                </li>
+              ))}
+              {approvals.length === 0 && (
+                <li className="py-2 text-gray-400">
+                  등록된 품의서가 없습니다.
+                </li>
+              )}
             </ul>
           </div>
         )}

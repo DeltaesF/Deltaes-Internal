@@ -17,11 +17,11 @@ const db = getFirestore();
 
 export async function GET() {
   try {
-    // [중요] collectionGroup을 사용해야 하위 컬렉션(userReports)을 모두 뒤져서 가져옵니다.
+    // [중요] collectionGroup을 사용해야 하위 컬렉션(userDailys)을 모두 뒤져서 가져옵니다.
     // 주의: orderBy를 사용하려면 Firestore 콘솔에서 '색인(Index)'을 만들어야 할 수도 있습니다.
     // 색인 에러가 나면 터미널에 뜨는 URL을 클릭해서 생성해주세요.
     const snapshot = await db
-      .collectionGroup("userReports")
+      .collectionGroup("userDailys")
       .orderBy("createdAt", "desc") // 최신순 정렬
       .get();
 

@@ -25,9 +25,9 @@ export async function POST(req: Request) {
       );
 
     const docRef = db
-      .collection("reports")
+      .collection("resources")
       .doc(userName)
-      .collection("userReports")
+      .collection("userResources")
       .doc();
 
     await docRef.set({
