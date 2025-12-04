@@ -48,29 +48,6 @@ export async function POST(req: NextRequest) {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    // ✅ employee/{userDocId} 문서 참조
-    const employeeRef = db.collection("employee").doc(userDocId);
-    const employeeSnap = await employeeRef.get();
-
-    if (employeeSnap.exists) {
-      const data = employeeSnap.data();
-      const currentUsed = data?.usedVacation ?? 0;
-      const currentRemaining = data?.remainingVacation ?? 0;
-
-      // ✅ 새로운 값 계산
-      const newUsed = currentUsed + days;
-      const newRemaining = Math.max(currentRemaining - days, 0); // 음수 방지
-
-      // ✅ 업데이트 반영
-      await employeeRef.update({
-        usedVacation: newUsed,
-        remainingVacation: newRemaining,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    } else {
-      console.warn(`⚠️ employee 문서(${userDocId})가 존재하지 않습니다.`);
-    }
-
     return NextResponse.json({
       success: true,
       message: "휴가 신청 및 잔여일수 업데이트 완료",

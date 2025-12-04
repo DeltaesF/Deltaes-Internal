@@ -23,6 +23,7 @@ type VacationType = {
   reason: string;
   status: string;
   approvers: { first?: string[]; second?: string[] };
+  daysUsed: number;
 };
 
 export default function Individual() {
@@ -267,7 +268,7 @@ export default function Individual() {
                   >
                     <p className="font-semibold">{v.userName}</p>
                     <p className="text-sm text-gray-600">
-                      {v.startDate} ~ {v.endDate} ({v.reason})
+                      {v.startDate} ~ {v.endDate} ({v.daysUsed}일)
                     </p>
                     <span className="text-xs text-blue-500">{v.status}</span>
                   </li>
@@ -280,7 +281,7 @@ export default function Individual() {
             </ul>
             <button
               onClick={() => setShowModal(false)}
-              className="mt-4 bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+              className="mt-4 bg-gray-300 px-4 py-2 rounded hover:bg-gray-400 cursor-pointer"
             >
               닫기
             </button>
@@ -298,7 +299,7 @@ export default function Individual() {
             </p>
             <p>
               <strong>기간:</strong> {selectedVacation.startDate} ~{" "}
-              {selectedVacation.endDate}
+              {selectedVacation.endDate} ({selectedVacation.daysUsed}일)
             </p>
             <p>
               <strong>사유:</strong> {selectedVacation.reason}
@@ -312,13 +313,13 @@ export default function Individual() {
                 onClick={() =>
                   handleApprove(selectedVacation.id, selectedVacation.userName)
                 }
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer"
               >
                 승인
               </button>
               <button
                 onClick={() => setSelectedVacation(null)}
-                className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400 cursor-pointer"
               >
                 닫기
               </button>
@@ -351,7 +352,7 @@ export default function Individual() {
             </ul>
             <button
               onClick={() => setShowCompletedModal(false)}
-              className="mt-4 bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+              className="mt-4 bg-gray-300 px-4 py-2 rounded hover:bg-gray-400 cursor-pointer"
             >
               닫기
             </button>
@@ -370,7 +371,7 @@ export default function Individual() {
                   <li key={v.id} className="py-3 px-2">
                     <p className="font-semibold">{v.userName}</p>
                     <p className="text-sm text-gray-600">
-                      {v.startDate} ~ {v.endDate} ({v.reason})
+                      {v.startDate} ~ {v.endDate} ({v.daysUsed}일)
                     </p>
                     <span
                       className={`text-xs font-medium ${
@@ -395,7 +396,7 @@ export default function Individual() {
             </ul>
             <button
               onClick={() => setShowSharedModal(false)}
-              className="mt-4 bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+              className="mt-4 bg-gray-300 px-4 py-2 rounded hover:bg-gray-400 cursor-pointer"
             >
               닫기
             </button>

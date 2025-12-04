@@ -1,9 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ReportWrite from "../write/page";
+import ReportDetail from "./ReportDetail";
 // import WorkOutsideWrite2 from "../write2/page";
 // import WorkOutsideWrite3 from "../write3/page";
+
+type Report = {
+  id: string;
+  title: string;
+  content: string;
+  fileUrl?: string | null;
+  createdAt: number;
+};
 
 export default function Posts() {
   const [activeTab, setActiveTab] = useState<
@@ -11,8 +20,19 @@ export default function Posts() {
   >("list");
 
   const [isWriteOpen, setIsWriteOpen] = useState(false);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
   const renderContent = () => {
+    if (selectedReport) {
+      return (
+        <ReportDetail
+          report={selectedReport}
+          onBack={() => setSelectedReport(null)}
+        />
+      );
+    }
+
     if (activeTab === "write")
       return <ReportWrite onCancel={() => setActiveTab("list")} />;
     // if (activeTab === "write2")
@@ -21,6 +41,22 @@ export default function Posts() {
     //   return <WorkOutsideWrite3 onCancel={() => setActiveTab("list")} />;
     return null;
   };
+
+  const loadReports = async () => {
+    try {
+      const res = await fetch("/api/report/list");
+      const data = await res.json();
+      setReports(Array.isArray(data) ? data : []);
+      console.log("Loaded reports:", data);
+    } catch (error) {
+      console.error("Failed to load reports:", error);
+      setReports([]);
+    }
+  };
+
+  useEffect(() => {
+    loadReports();
+  }, []);
 
   return (
     <div className="flex flex-col w-full">
@@ -44,7 +80,7 @@ export default function Posts() {
                   }}
                   className="px-4 py-2 text-left hover:bg-[#B1B1B1] hover:text-black rounded-t cursor-pointer"
                 >
-                  Write 1
+                  보고서 작성
                 </button>
                 <button
                   onClick={() => {
@@ -70,8 +106,9 @@ export default function Posts() {
         </div>
       )}
 
+      {/* 리스트 */}
       <div className="w-full">
-        {activeTab === "list" && (
+        {activeTab === "list" && !selectedReport && (
           <div className="border rounded-2xl shadow-sm p-4 bg-white">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-[20px] font-semibold">보고서</h3>
@@ -79,10 +116,24 @@ export default function Posts() {
                 + 더보기
               </span>
             </div>
+
             <ul>
-              <li className="py-2 border-b">보고서 내용 1</li>
-              <li className="py-2 border-b">보고서 내용 2</li>
-              <li className="py-2 border-b">보고서 내용 3</li>
+              {reports?.map((item) => (
+                <li
+                  key={item.id}
+                  className="py-2 border-b cursor-pointer "
+                  onClick={() => setSelectedReport(item)}
+                >
+                  <p className="hover:text-purple-400 transition-colors">
+                    {item.title}
+                  </p>
+                </li>
+              ))}
+              {reports.length === 0 && (
+                <li className="py-2 text-gray-400">
+                  등록된 보고서가 없습니다.
+                </li>
+              )}
             </ul>
           </div>
         )}

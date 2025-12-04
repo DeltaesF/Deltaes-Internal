@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebaseAdmin";
+import { FieldValue } from "firebase-admin/firestore";
 
 export async function POST(req: Request) {
   try {
@@ -12,42 +13,56 @@ export async function POST(req: Request) {
       );
     }
 
-    // 휴가 문서의 직접 경로를 찾습니다.
     const vacationRef = db
       .collection("vacation")
       .doc(applicantUserName)
       .collection("requests")
       .doc(vacationId);
 
-    const doc = await vacationRef.get();
+    // 🔽 [변경] runTransaction을 사용하여 데이터 복구 및 삭제를 원자적으로 처리
+    await db.runTransaction(async (transaction) => {
+      const doc = await transaction.get(vacationRef);
 
-    if (!doc.exists) {
-      return NextResponse.json(
-        { error: "삭제할 휴가 신청을 찾을 수 없습니다." },
-        { status: 404 }
-      );
-    }
+      if (!doc.exists) {
+        throw new Error("삭제할 휴가 신청을 찾을 수 없습니다.");
+      }
 
-    const vacationData = doc.data();
+      const vacationData = doc.data();
+      const status = vacationData?.status;
+      const daysUsed = vacationData?.daysUsed || 0;
 
-    // 서버 측에서 '대기' 상태인지 한 번 더 확인합니다.
-    if (vacationData?.status !== "대기") {
-      return NextResponse.json(
-        {
-          error: `이미 '${vacationData?.status}' 상태인 요청은 취소할 수 없습니다.`,
-        },
-        { status: 403 } // 403 Forbidden (권한 없음/부적절한 요청)
-      );
-    }
+      // 🔽 [수정] 취소 가능 상태 확인
+      // '대기' 또는 '최종 승인 완료' 상태일 때만 취소/삭제 가능하도록 허용
+      // (1차 결재 완료 상태에서 취소 시에도 삭제 가능)
+      if (
+        status !== "대기" &&
+        status !== "최종 승인 완료" &&
+        status !== "1차 결재 완료"
+      ) {
+        // 이미 반려되었거나 다른 상태라면 에러 처리
+        throw new Error(`'${status}' 상태인 요청은 취소할 수 없습니다.`);
+      }
 
-    // 문서 삭제
-    await vacationRef.delete();
+      // 🔽 [추가] 이미 '최종 승인 완료'되어 차감된 건이라면 -> 휴가 일수 원상복구(환불)
+      if (status === "최종 승인 완료") {
+        const employeeRef = db.collection("employee").doc(applicantUserName);
+
+        transaction.update(employeeRef, {
+          usedVacation: FieldValue.increment(-daysUsed), // 사용일수 감소 (복구)
+          remainingVacation: FieldValue.increment(daysUsed), // 잔여일수 증가 (복구)
+        });
+      }
+
+      // [문서 삭제]
+      transaction.delete(vacationRef);
+    });
 
     return NextResponse.json({
       message: "휴가 요청이 성공적으로 취소되었습니다.",
     });
   } catch (err) {
     console.error("휴가 취소 오류:", err);
-    return NextResponse.json({ error: "서버 오류 발생" }, { status: 500 });
+    const message = err instanceof Error ? err.message : "서버 오류 발생";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

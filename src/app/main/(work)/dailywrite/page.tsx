@@ -14,7 +14,10 @@ export default function ReportDaily({ onCancel }: Props) {
 
   return (
     <div>
-      <button onClick={handleCancel} className="mb-4 px-4 py-2 border rounded">
+      <button
+        onClick={handleCancel}
+        className="mb-4 px-4 py-2 border rounded cursor-pointer"
+      >
         ◀ 나가기
       </button>
 

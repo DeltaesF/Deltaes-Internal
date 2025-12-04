@@ -13,7 +13,6 @@ interface VacationRequest {
   userId: string;
 }
 
-// [2] POST 핸들러의 admin 필터링을 위한 타입을 추가합니다.
 type ApprovalHistoryEntry = {
   approver: string;
   status: string;
@@ -22,62 +21,99 @@ type ApprovalHistoryEntry = {
 
 type VacationDoc = {
   id: string;
+  approvers: { first?: string[]; second?: string[] };
+  status: string;
   approvalHistory?: ApprovalHistoryEntry[];
-  // ... (userName, startDate 등 VacationRequest의 모든 필드)
 };
 
 export async function POST(req: Request) {
   try {
     const { role, userName } = await req.json();
-
-    // ✅ 모든 vacation/{userDocId}/requests 컬렉션을 통합 조회
     const requestsRef = db.collectionGroup("requests");
     let snapshot;
 
+    // ------------------------------------------------------------------
+    // [1] DB 조회 단계 (역할별로 가져올 데이터 범위 설정)
+    // ------------------------------------------------------------------
     if (role === "user") {
-      // 일반 사용자는 "대기" 중인 자기 요청을 봅니다.
-      snapshot = await requestsRef
-        .where("status", "==", "대기")
-        .where("userName", "==", userName)
-        .get();
+      // 내 문서 전체 조회
+      snapshot = await requestsRef.where("userName", "==", userName).get();
     } else if (role === "admin") {
-      // [3] 1차 결재자는 '대기' 상태 + 'approvers.first'에 내가 포함된 것 일단 모두 조회
+      // 1차 결재자: 내가 'first'에 포함된 '대기' 상태 문서
       snapshot = await requestsRef
         .where("status", "==", "대기")
         .where("approvers.first", "array-contains", userName)
         .get();
     } else if (role === "ceo") {
-      // 2차 결재자는 "1차 결재 완료"된 요청을 봅니다.
-      snapshot = await requestsRef
-        .where("status", "==", "1차 결재 완료")
-        .where("approvers.second", "array-contains", userName)
-        .get();
+      // 🔽 [수정] CEO는 1차 결재자일 수도 있고, 2차 결재자일 수도 있습니다.
+      // 따라서 두 경우를 모두 조회해서 하나로 합칩니다.
+      const [firstSnap, secondSnap] = await Promise.all([
+        // 내가 1차 결재자에 포함된 경우 조회
+        requestsRef.where("approvers.first", "array-contains", userName).get(),
+        // 내가 2차 결재자에 포함된 경우 조회
+        requestsRef.where("approvers.second", "array-contains", userName).get(),
+      ]);
+
+      // 문서 ID를 키로 사용하여 중복 제거 (Map 사용)
+      const mergedDocs = new Map();
+      firstSnap.docs.forEach((doc) => mergedDocs.set(doc.id, doc));
+      secondSnap.docs.forEach((doc) => mergedDocs.set(doc.id, doc));
+
+      // 합쳐진 결과를 snapshot 형태로 모방
+      snapshot = { docs: Array.from(mergedDocs.values()) };
     } else {
       return NextResponse.json({ list: [] });
     }
 
-    // [4] snapshot.docs를 바로 list로 만들기 전에 후처리합니다.
+    // ------------------------------------------------------------------
+    // [2] 필터링 단계 (상세 조건 체크)
+    // ------------------------------------------------------------------
     let docsToMap = snapshot.docs;
 
-    // [5] admin 역할일 경우, JS로 필터링을 추가합니다.
+    // [Admin 필터] 내가 이미 승인한 건 제외
     if (role === "admin") {
       docsToMap = snapshot.docs.filter((doc) => {
-        // 타입을 VacationDoc으로 지정
         const data = doc.data() as VacationDoc;
         const history = data.approvalHistory || [];
-
-        // 'approvalHistory'에 'approver'가 'userName'(현재 사용자)과
-        // 일치하는 기록이 있는지 확인합니다.
         const alreadyApproved = history.some(
           (entry) => entry.approver === userName
         );
-
-        // [6] 내가 승인한 기록이 '없는' 항목만 반환합니다.
         return !alreadyApproved;
       });
     }
+    // [CEO 필터] 내가 결재해야 할 문서인지 확인
+    else if (role === "ceo") {
+      docsToMap = snapshot.docs.filter((doc) => {
+        const data = doc.data() as VacationDoc;
+        const status = data.status;
+        const history = data.approvalHistory || [];
+        const firstApprovers = data.approvers?.first || [];
+        const secondApprovers = data.approvers?.second || [];
 
-    // [7] 필터링된 docsToMap을 최종 list로 만듭니다.
+        // 1. 이미 내가 승인했으면 목록에서 제외
+        if (history.some((entry) => entry.approver === userName)) {
+          return false;
+        }
+
+        // 2. [CASE A] 내가 1차 결재자로 지정된 경우 (안 보이던 건 해결)
+        if (firstApprovers.includes(userName)) {
+          // 대기 상태면 내가 결재해야 함
+          if (status === "대기") return true;
+        }
+
+        // 3. [CASE B] 내가 2차 결재자로 지정된 경우
+        if (secondApprovers.includes(userName)) {
+          // 1차 결재가 끝난 건 (정상 흐름)
+          if (status === "1차 결재 완료") return true;
+          // 1차 결재자가 아예 없는 건 (바로 넘어옴)
+          if (status === "대기" && firstApprovers.length === 0) return true;
+        }
+
+        return false;
+      });
+    }
+
+    // [3] 최종 결과 반환
     const list = docsToMap.map((doc) => ({
       id: doc.id,
       ...doc.data(),
@@ -90,6 +126,7 @@ export async function POST(req: Request) {
   }
 }
 
+// GET 핸들러 (캘린더용)
 export async function GET() {
   try {
     const employeesSnap = await db.collection("employee").get();

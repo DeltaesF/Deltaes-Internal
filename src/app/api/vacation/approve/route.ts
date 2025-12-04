@@ -1,4 +1,3 @@
-// /api/vacation/approve/route.ts
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -9,137 +8,141 @@ type ApprovalHistoryEntry = {
   approvedAt: Date | FirebaseFirestore.Timestamp;
 };
 
-// [1] 휴가 문서의 타입을 정의하여 'data possibly undefined' 오류를 해결합니다.
 type VacationDoc = {
   approvers: { first?: string[]; second?: string[] };
   status: string;
   userName: string;
   approvalStep?: number;
   approvalHistory?: ApprovalHistoryEntry[];
+  daysUsed: number; // 👈 휴가 사용 일수 (필수)
 };
 
 export async function POST(req: Request) {
   try {
     const { vacationId, approverName, applicantUserName } = await req.json();
 
-    // ✅ vacation/{userDocId}/requests 하위 컬렉션 전체 검색
     if (!vacationId || !approverName || !applicantUserName) {
       return NextResponse.json(
-        {
-          error:
-            "필수 인자(vacationId, approverName, applicantUserName)가 누락되었습니다.",
-        },
+        { error: "필수 정보가 누락되었습니다." },
         { status: 400 }
       );
     }
 
-    // 🔽 [2] collectionGroup 쿼리 대신, 문서의 '직접 경로'를 지정합니다.
     const vacationRef = db
       .collection("vacation")
-      .doc(applicantUserName) // 예: "홍성원 프로"
+      .doc(applicantUserName)
       .collection("requests")
-      .doc(vacationId); // 예: "zZaTC0oF7g611NC3Sfbe"
+      .doc(vacationId);
 
-    // 🔽 [3] 해당 문서를 직접 .get() 합니다.
-    const doc = await vacationRef.get();
+    // 🔽 [변경] runTransaction을 사용하여 데이터 무결성 보장
+    await db.runTransaction(async (transaction) => {
+      const doc = await transaction.get(vacationRef);
 
-    if (!doc.exists) {
-      // 👈 .empty 대신 .exists로 체크
-      return NextResponse.json(
-        { error: "해당 휴가 신청을 찾을 수 없습니다." },
-        { status: 404 }
-      );
-    }
-
-    // const doc = snapshot.docs[0];
-    // const vacationRef = doc.ref;
-    const vacationData = doc.data() as VacationDoc;
-
-    const { approvers, status } = vacationData;
-    let newStatus = status;
-    let approvalStep = vacationData.approvalStep || 0;
-
-    // 🔽 [1] 새 히스토리 항목의 상태를 미리 정의
-    let newHistoryStatus = "";
-
-    // ✅ 1차 결재자 승인
-    if (status === "대기" && approvers.first?.includes(approverName)) {
-      // 🔽 [2] 현재까지 1차 승인한 사람들 목록 (방금 승인한 사람 포함)
-      const firstApproversInHistory = (vacationData.approvalHistory || [])
-        // 1차 결재자 목록에 있으면서 '대기' 상태일 때 승인한 기록만 필터링
-        .filter(
-          (entry) =>
-            approvers.first?.includes(entry.approver) &&
-            (entry.status === "1차 승인 (진행중)" ||
-              entry.status === "1차 결재 완료")
-        )
-        .map((entry) => entry.approver);
-
-      const allApprovedFirst = [
-        ...new Set([...firstApproversInHistory, approverName]),
-      ];
-
-      // 🔽 [3] 필수 1차 결재자 목록
-      const requiredFirst = approvers.first || [];
-
-      // 🔽 [4] 필수 1차 결재자 모두가 승인했는지 확인
-      const allFirstHaveApproved = requiredFirst.every((name) =>
-        allApprovedFirst.includes(name)
-      );
-
-      if (allFirstHaveApproved) {
-        // [5-A] 모두 승인함 -> 1차 결재 완료
-        newStatus = "1차 결재 완료";
-        newHistoryStatus = "1차 결재 완료"; // 히스토리에도 기록
-        approvalStep = 1;
-      } else {
-        // [5-B] 아직 모두 승인 안 함 -> '대기' 상태 유지
-        newStatus = "대기";
-        newHistoryStatus = "1차 승인 (진행중)"; // 히스토리에만 기록
-        approvalStep = 0;
+      if (!doc.exists) {
+        throw new Error("해당 휴가 신청을 찾을 수 없습니다.");
       }
-    }
 
-    // ✅ 2차 결재자 승인 (최종 승인)
-    else if (
-      status === "1차 결재 완료" &&
-      approvers.second?.includes(approverName)
-    ) {
-      newStatus = "최종 승인 완료";
-      newHistoryStatus = "최종 승인 완료";
-      approvalStep = 2;
-    }
+      const vacationData = doc.data() as VacationDoc;
+      const { approvers, status, daysUsed } = vacationData; // daysUsed 가져오기
+      let newStatus = status;
+      let approvalStep = vacationData.approvalStep || 0;
+      let newHistoryStatus = "";
 
-    // 권한 없음
-    else {
-      return NextResponse.json(
-        { error: "승인 권한이 없거나 이미 처리된 요청입니다." },
-        { status: 403 }
-      );
-    }
+      // 1차 결재자가 존재하는지, 2차 결재자가 존재하는지 체크
+      const hasFirstApprovers = approvers.first && approvers.first.length > 0;
+      const hasSecondApprovers =
+        approvers.second && approvers.second.length > 0;
 
-    // [6] 승인 기록 객체 생성
-    const approvalTime = new Date();
-    const newHistoryEntry = {
-      approver: approverName,
-      status: newHistoryStatus, // 🔽 newStatus 대신 newHistoryStatus 사용
-      approvedAt: approvalTime,
-    };
+      // ✅ 1차 결재자 승인
+      if (approvers.first?.includes(approverName)) {
+        if (status !== "대기") throw new Error("이미 처리된 요청입니다.");
 
-    // [7] 상태 업데이트
-    await vacationRef.update({
-      status: newStatus, // 👈 '대기' 또는 '1차 결재 완료'
-      approvalStep,
-      lastApprovedAt: approvalTime,
-      approvalHistory: FieldValue.arrayUnion(newHistoryEntry),
+        // (기존 로직: 1차 결재자들 모두 승인했는지 확인)
+        const firstApproversInHistory = (vacationData.approvalHistory || [])
+          .filter((entry) => approvers.first?.includes(entry.approver))
+          .map((entry) => entry.approver);
+        const allApprovedFirst = [
+          ...new Set([...firstApproversInHistory, approverName]),
+        ];
+        const allFirstHaveApproved = approvers.first!.every((name) =>
+          allApprovedFirst.includes(name)
+        );
+
+        if (allFirstHaveApproved) {
+          // 🔽 [수정] 2차 결재자가 없으면 바로 최종 승인, 있으면 1차 완료
+          if (!hasSecondApprovers) {
+            newStatus = "최종 승인 완료";
+            newHistoryStatus = "최종 승인 완료 (1차 전결)";
+            approvalStep = 2;
+          } else {
+            newStatus = "1차 결재 완료";
+            newHistoryStatus = "1차 결재 완료";
+            approvalStep = 1;
+          }
+        } else {
+          newStatus = "대기";
+          newHistoryStatus = "1차 승인 (진행중)";
+          approvalStep = 0;
+        }
+      }
+      // ✅ 2차 결재자 승인 (최종 승인)
+      else if (approvers.second?.includes(approverName)) {
+        // 2-A: 정상적인 흐름 (1차 결재 완료 -> 2차 승인)
+        if (status === "1차 결재 완료") {
+          newStatus = "최종 승인 완료";
+          newHistoryStatus = "최종 승인 완료";
+          approvalStep = 2;
+        }
+        // 🔽 2-B: [신규 기능] 1차 결재자가 아예 없는 경우 (대기 -> 바로 최종 승인)
+        else if (status === "대기" && !hasFirstApprovers) {
+          newStatus = "최종 승인 완료";
+          newHistoryStatus = "최종 승인 완료 (즉시 승인)";
+          approvalStep = 2;
+        } else {
+          throw new Error(
+            "아직 1차 결재가 완료되지 않았거나 이미 처리된 요청입니다."
+          );
+        }
+      }
+      // 권한 없음
+      else {
+        throw new Error("승인 권한이 없습니다.");
+      }
+
+      // [승인 기록 생성]
+      const approvalTime = new Date();
+      const newHistoryEntry = {
+        approver: approverName,
+        status: newHistoryStatus,
+        approvedAt: approvalTime,
+      };
+
+      // [문서 업데이트]
+      transaction.update(vacationRef, {
+        status: newStatus,
+        approvalStep,
+        lastApprovedAt: approvalTime,
+        approvalHistory: FieldValue.arrayUnion(newHistoryEntry),
+      });
+
+      // 🔽 [추가] 최종 승인 시, employee 컬렉션의 휴가 일수 자동 차감
+      if (newStatus === "최종 승인 완료") {
+        // employee 문서 ID가 applicantUserName(예: "홍성원 프로")과 같다고 가정
+        const employeeRef = db.collection("employee").doc(applicantUserName);
+
+        transaction.update(employeeRef, {
+          usedVacation: FieldValue.increment(daysUsed), // 사용일수 증가 (+)
+          remainingVacation: FieldValue.increment(-daysUsed), // 잔여일수 감소 (-)
+        });
+      }
     });
 
     return NextResponse.json({
-      message: "결재 승인 완료",
-      status: newStatus,
+      message: "결재 승인 및 휴가 일수 반영 완료",
     });
   } catch (err) {
     console.error("승인 오류:", err);
-    return NextResponse.json({ error: "서버 오류 발생" }, { status: 500 });
+    const message = err instanceof Error ? err.message : "서버 오류 발생";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
