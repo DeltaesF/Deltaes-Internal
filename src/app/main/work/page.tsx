@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Daily from "./daily/page";
 import Weekly from "./weekly/page";
-import ReportDaily from "./dailywrite/page";
-import ReportWeekly from "./weeklywrite/page";
+import ReportDaily from "./dailywrite/dailyWrite";
+import ReportWeekly from "./weeklywrite/weeklyWrite";
 
 export default function Work({
   defaultTab = "daily",

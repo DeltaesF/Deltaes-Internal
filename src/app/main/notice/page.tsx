@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import NoticeWrite from "./write/page";
+import NoticeWrite from "./write/noticeWrite";
 import NoticeDetail from "./noticeDetail";
 
 type Notice = {

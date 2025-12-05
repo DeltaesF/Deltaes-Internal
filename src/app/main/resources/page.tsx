@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import ResourcesWrite from "./write/page";
+import ResourcesWrite from "./write/resourcesWrite";
 import ResourcesDetail from "./resourcesDetail";
 
 type Resources = {

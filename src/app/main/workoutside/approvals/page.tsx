@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import WorkOutsideWrite from "../write/page";
+import WorkOutsideWrite from "../write/approvalsWrite";
 import ApprovalsDetail from "./approvalsDetail";
 // import WorkOutsideWrite2 from "../write2/page";
 // import WorkOutsideWrite3 from "../write3/page";

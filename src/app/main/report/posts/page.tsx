@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import ReportWrite from "../write/page";
+import ReportWrite from "../write/reportWrite";
 import ReportDetail from "./reportDetail";
 // import WorkOutsideWrite2 from "../write2/page";
 // import WorkOutsideWrite3 from "../write3/page";

@@ -2,9 +2,9 @@
 
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
-import interactionPlugin, { DateClickArg } from "@fullcalendar/interaction";
+import interactionPlugin from "@fullcalendar/interaction";
 import { useEffect, useState } from "react";
-import VacationWrite from "../write/page";
+import VacationWrite from "../write/vacationWrite";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 
