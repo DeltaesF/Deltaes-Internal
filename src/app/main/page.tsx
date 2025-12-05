@@ -1,17 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Individual from "./(dashboard)/individual/page";
-import Total from "./(totalboard)/total/page";
+import Individual from "./dashboard/individual/page";
+import Total from "./totalboard/total/page";
 import Organization from "./organization/page";
-import Posts from "./(report)/posts/page";
-import Approvals from "./(workoutside)/approvals/page";
-import UserV from "./(vacation)/user/page";
+import Posts from "./report/posts/page";
+import Approvals from "./workoutside/approvals/page";
+import UserV from "./vacation/user/page";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/store";
-import Work from "./(work)/page";
+import Work from "./work/page";
 import Notice from "./notice/page";
 import Resources from "./resources/page";
 
