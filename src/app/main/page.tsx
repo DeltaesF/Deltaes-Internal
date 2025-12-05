@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/store";
-import Work from "./work/page";
+import Work from "./work/workContent";
 import Notice from "./notice/page";
 import Resources from "./resources/page";
 
