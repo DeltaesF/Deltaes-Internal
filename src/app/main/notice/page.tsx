@@ -89,12 +89,16 @@ export default function Notice() {
                   className="py-2 border-b flex justify-between items-center cursor-pointer hover:bg-gray-50 group"
                   onClick={() => setSelectedNotice(item)}
                 >
-                  <p className="hover:text-purple-400 transition-colors">
+                  <p className="hover:text-purple-400 transition-colors truncate">
                     {item.title}
                   </p>
-                  <span className="text-xs text-gray-400">
-                    {formatDate(item.createdAt)}
-                  </span>
+
+                  <div className="flex items-center gap-[15px] text-xs text-gray-500 flex-shrink-0">
+                    <span className="font-medium text-gray-500">
+                      {item.userName}
+                    </span>
+                    <span>{formatDate(item.createdAt)}</span>
+                  </div>
                 </li>
               ))}
               {notices.length === 0 && (

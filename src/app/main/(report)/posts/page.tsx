@@ -59,6 +59,14 @@ export default function Posts() {
     loadReports();
   }, []);
 
+  // 날짜 포맷팅 헬퍼
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString("ko-KR", {
+      month: "2-digit",
+      day: "2-digit",
+    });
+  };
+
   return (
     <div className="flex flex-col w-full">
       {activeTab === "list" && (
@@ -122,12 +130,19 @@ export default function Posts() {
               {reports?.map((item) => (
                 <li
                   key={item.id}
-                  className="py-2 border-b cursor-pointer "
+                  className="py-2 border-b flex justify-between items-center cursor-pointer hover:bg-gray-50 group"
                   onClick={() => setSelectedReport(item)}
                 >
-                  <p className="hover:text-purple-400 transition-colors">
+                  <p className="hover:text-purple-400 transition-colors truncate">
                     {item.title}
                   </p>
+
+                  <div className="flex items-center gap-[15px] text-xs text-gray-500 flex-shrink-0">
+                    <span className="font-medium text-gray-500">
+                      {item.userName}
+                    </span>
+                    <span>{formatDate(item.createdAt)}</span>
+                  </div>
                 </li>
               ))}
               {reports.length === 0 && (

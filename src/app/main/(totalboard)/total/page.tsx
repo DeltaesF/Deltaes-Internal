@@ -7,6 +7,7 @@ type Post = {
   id: string;
   title: string;
   createdAt: number;
+  userName: string;
 };
 
 export default function Total({
@@ -91,12 +92,14 @@ export default function Total({
             className="py-2 border-b flex justify-between items-center cursor-pointer hover:bg-gray-50 group"
             onClick={onItemClick}
           >
-            <span className="truncate w-[70%] group-hover:text-purple-500 transition-colors">
+            <p className="hover:text-purple-400 transition-colors truncate">
               {item.title}
-            </span>
-            <span className="text-xs text-gray-400">
-              {formatDate(item.createdAt)}
-            </span>
+            </p>
+
+            <div className="flex items-center gap-[15px] text-xs text-gray-500 flex-shrink-0">
+              <span className="font-medium text-gray-500">{item.userName}</span>
+              <span>{formatDate(item.createdAt)}</span>
+            </div>
           </li>
         ))}
       </ul>
