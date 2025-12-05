@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Individual from "./dashboard/individual/page";
-import Total from "./totalboard/total/page";
+import Total from "./totalboard/total/totalBoard";
 import Organization from "./organization/page";
 import Posts from "./report/posts/page";
 import Approvals from "./workoutside/approvals/page";
