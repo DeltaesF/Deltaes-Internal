@@ -1,59 +1,53 @@
-"use client";
+import { db } from "@/lib/firebaseAdmin";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 
-import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation"; // useParams 추가
+// DB 데이터 조회 함수
+async function getWeeklyDetail(id: string) {
+  try {
+    // userDailys 컬렉션 그룹 전체 스캔 (ID 매칭)
+    const snapshot = await db.collectionGroup("userDailys").get();
+    const doc = snapshot.docs.find((d) => d.id === id);
 
-type DailyDetailType = {
-  id: string;
-  title: string;
-  content: string;
-  userName: string;
-  fileUrl?: string | null;
-  fileName?: string | null;
-  createdAt: number;
-};
+    if (!doc) return null;
 
-export default function DailyDetail() {
-  const router = useRouter();
-  const params = useParams(); // URL에서 [id] 값을 가져옴
-  const id = params.id as string; // 타입 단언
-
-  const [daily, setDaily] = useState<DailyDetailType | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    if (!id) return;
-
-    const fetchDetail = async () => {
-      try {
-        // 상세 조회 API 호출 (아래 4번에서 만듭니다)
-        const res = await fetch(`/api/daily/${id}`);
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = await res.json();
-        setDaily(data);
-      } catch (error) {
-        console.error(error);
-        alert("데이터를 불러오는데 실패했습니다.");
-        router.push("/work/daily"); // 에러 시 목록으로 이동
-      } finally {
-        setIsLoading(false);
-      }
+    const data = doc.data();
+    return {
+      id: doc.id,
+      title: data.title || "제목 없음",
+      content: data.content || "",
+      userName: data.userName || "작성자",
+      fileUrl: data.fileUrl || null,
+      fileName: data.fileName || null,
+      createdAt:
+        data.createdAt && typeof data.createdAt.toMillis === "function"
+          ? data.createdAt.toMillis()
+          : data.createdAt || Date.now(),
     };
+  } catch (error) {
+    console.error("Error fetching daily detail:", error);
+    return null;
+  }
+}
 
-    fetchDetail();
-  }, [id, router]);
+export default async function WeeklyDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const daily = await getWeeklyDetail(id);
 
-  if (isLoading) return <div className="p-6">로딩 중...</div>;
-  if (!daily) return null;
+  if (!daily) return notFound();
 
   return (
-    <div className="p-6 border rounded-xl bg-white shadow-sm">
-      <button
-        onClick={() => router.back()}
-        className="mb-4 px-3 py-1 border rounded-lg hover:bg-gray-300 cursor-pointer"
+    <div className="p-6 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6">
+      <Link
+        href="/main/work/daily"
+        className="inline-block mb-4 px-3 py-1 border rounded-lg hover:bg-gray-100 text-sm"
       >
         ← 뒤로가기
-      </button>
+      </Link>
 
       <h2 className="text-2xl font-bold mb-3">{daily.title}</h2>
       <div className="flex items-center text-sm text-gray-500 mb-6 pb-4 border-b gap-4">
@@ -66,7 +60,7 @@ export default function DailyDetail() {
       </div>
 
       <div
-        className="prose"
+        className="prose max-w-none whitespace-pre-wrap text-gray-800 leading-relaxed"
         dangerouslySetInnerHTML={{ __html: daily.content }}
       />
 
@@ -79,22 +73,6 @@ export default function DailyDetail() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-blue-700 rounded-lg transition-colors no-underline"
           >
-            {/* 파일 아이콘 (선택사항) */}
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
-
-            {/* [수정] 파일 이름이 있으면 이름 표시, 없으면 '첨부파일 다운로드' */}
             <span className="truncate max-w-xs">
               {daily.fileName || "첨부파일 다운로드"}
             </span>

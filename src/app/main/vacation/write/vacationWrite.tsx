@@ -4,13 +4,16 @@ import VacationModal from "@/components/vacationModal";
 import { RootState } from "@/store";
 import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
+import { useRouter } from "next/navigation";
 
-type Props = { onCancel: () => void };
 type DayType = "연차" | "반차" | "병가" | "공가";
 
 type ApproverType = "first" | "second" | "shared";
 
-export default function VacationWrite({ onCancel }: Props) {
+export default function VacationWrite() {
+  const router = useRouter(); // 라우터 사용
+  const { userDocId, userName } = useSelector((state: RootState) => state.auth);
+
   const [reason, setReason] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -58,9 +61,6 @@ export default function VacationWrite({ onCancel }: Props) {
     setApprovers((prev) => ({ ...prev, [selectedBox]: [] })); // 전체 제거
   };
 
-  // Redux에서 로그인된 사용자 정보
-  const { userDocId, userName } = useSelector((state: RootState) => state.auth);
-
   const getDayUnit = (type: DayType) => (type === "반차" ? 0.5 : 1);
 
   const getDatesArray = (start: string, end: string) => {
@@ -98,11 +98,11 @@ export default function VacationWrite({ onCancel }: Props) {
 
   const handleCancel = () => {
     if (
-      window.confirm(
+      confirm(
         "작성 중인 내용이 저장되지 않을 수 있습니다. 정말 나가시겠습니까?"
       )
     ) {
-      onCancel();
+      router.back();
     }
   };
 
@@ -149,7 +149,7 @@ export default function VacationWrite({ onCancel }: Props) {
 
       if (res.ok && result.success) {
         alert(`${userName}님의 휴가 신청이 완료되었습니다.\n총 ${days}일 사용`);
-        onCancel();
+        router.push("/main/vacation/user");
       } else {
         alert(result.error || "휴가 신청 중 오류가 발생했습니다.");
       }

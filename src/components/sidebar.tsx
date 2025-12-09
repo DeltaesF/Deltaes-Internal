@@ -25,7 +25,7 @@ export default function Sidebar() {
   // 메뉴 버튼 스타일 헬퍼
   const getLinkClass = (path: string) => {
     // 현재 URL이 path를 포함하면 활성화 스타일
-    const isActive = pathname.startsWith(path);
+    const isActive = pathname === path || pathname.startsWith(`${path}/`);
     return `cursor-pointer p-2 rounded-xl transition-all duration-100 w-full block ${
       isActive
         ? "text-white bg-[#519d9e] border-transparent"
