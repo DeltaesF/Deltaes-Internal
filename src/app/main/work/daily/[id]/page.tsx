@@ -1,23 +1,55 @@
 "use client";
 
-type DailyDetailProps = {
-  daily: {
-    id: string;
-    title: string;
-    content: string;
-    userName: string;
-    fileUrl?: string | null;
-    fileName?: string | null;
-    createdAt: number;
-  };
-  onBack: () => void;
+import { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation"; // useParams 추가
+
+type DailyDetailType = {
+  id: string;
+  title: string;
+  content: string;
+  userName: string;
+  fileUrl?: string | null;
+  fileName?: string | null;
+  createdAt: number;
 };
 
-export default function DailyDetail({ daily, onBack }: DailyDetailProps) {
+export default function DailyDetail() {
+  const router = useRouter();
+  const params = useParams(); // URL에서 [id] 값을 가져옴
+  const id = params.id as string; // 타입 단언
+
+  const [daily, setDaily] = useState<DailyDetailType | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+
+    const fetchDetail = async () => {
+      try {
+        // 상세 조회 API 호출 (아래 4번에서 만듭니다)
+        const res = await fetch(`/api/daily/${id}`);
+        if (!res.ok) throw new Error("Failed to fetch");
+        const data = await res.json();
+        setDaily(data);
+      } catch (error) {
+        console.error(error);
+        alert("데이터를 불러오는데 실패했습니다.");
+        router.push("/work/daily"); // 에러 시 목록으로 이동
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDetail();
+  }, [id, router]);
+
+  if (isLoading) return <div className="p-6">로딩 중...</div>;
+  if (!daily) return null;
+
   return (
     <div className="p-6 border rounded-xl bg-white shadow-sm">
       <button
-        onClick={onBack}
+        onClick={() => router.back()}
         className="mb-4 px-3 py-1 border rounded-lg hover:bg-gray-300 cursor-pointer"
       >
         ← 뒤로가기

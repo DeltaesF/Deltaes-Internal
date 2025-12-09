@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import DailyDetail from "./dailyDetail";
+import Link from "next/link";
 
 type Daily = {
   id: string;
@@ -14,7 +14,6 @@ type Daily = {
 
 export default function Daily() {
   const [daily, setDaily] = useState<Daily[]>([]);
-  const [selectedDaily, setSelectedDaily] = useState<Daily | null>(null);
 
   // 데이터 불러오기
   const loadDailys = async () => {
@@ -34,15 +33,6 @@ export default function Daily() {
   useEffect(() => {
     loadDailys();
   }, []);
-
-  if (selectedDaily) {
-    return (
-      <DailyDetail
-        daily={selectedDaily}
-        onBack={() => setSelectedDaily(null)}
-      />
-    );
-  }
 
   // 날짜 포맷팅 헬퍼
   const formatDate = (timestamp: number) => {
@@ -66,16 +56,22 @@ export default function Daily() {
           <li
             key={item.id}
             className="py-2 border-b flex justify-between items-center cursor-pointer hover:bg-gray-50 group"
-            onClick={() => setSelectedDaily(item)}
           >
-            <p className="hover:text-purple-400 transition-colors truncate">
-              {item.title}
-            </p>
+            <Link
+              href={`/main/work/daily/${item.id}`}
+              className="py-2 flex justify-between items-center block w-full h-full"
+            >
+              <p className="hover:text-purple-400 transition-colors truncate">
+                {item.title}
+              </p>
 
-            <div className="flex items-center gap-[15px] text-xs text-gray-500 flex-shrink-0">
-              <span className="font-medium text-gray-500">{item.userName}</span>
-              <span>{formatDate(item.createdAt)}</span>
-            </div>
+              <div className="flex items-center gap-[15px] text-xs text-gray-500 flex-shrink-0">
+                <span className="font-medium text-gray-500">
+                  {item.userName}
+                </span>
+                <span>{formatDate(item.createdAt)}</span>
+              </div>
+            </Link>
           </li>
         ))}
 

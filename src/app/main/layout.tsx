@@ -5,6 +5,7 @@ import { store } from "@/store";
 import { useEffect } from "react";
 import { initAuth } from "@/store/slices/authSlice";
 import { Geist, Geist_Mono } from "next/font/google";
+import Sidebar from "@/components/sidebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,7 +33,17 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {/* Provider로 store 주입 */}
-        <Provider store={store}>{children}</Provider>
+        <Provider store={store}>
+          <div className="flex w-full min-h-screen">
+            {/* 사이드바는 항상 왼쪽에 고정 */}
+            <Sidebar />
+
+            {/* 오른쪽 90% 영역에 페이지 내용(children)이 바뀜 */}
+            <div className="flex-1 ml-[10%] w-[90%] p-6 bg-gray-50 h-screen overflow-y-auto">
+              {children}
+            </div>
+          </div>
+        </Provider>
       </body>
     </html>
   );

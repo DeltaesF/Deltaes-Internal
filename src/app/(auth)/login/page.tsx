@@ -14,7 +14,7 @@ export default function Login() {
     try {
       await login(email, password);
       alert("로그인 성공!");
-      router.push("/main");
+      router.push("/");
     } catch (err) {
       const error = err as FirebaseError;
       alert("로그인 실패: " + error.message);

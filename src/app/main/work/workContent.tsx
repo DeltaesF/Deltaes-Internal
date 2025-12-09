@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Daily from "./daily/page";
 import Weekly from "./weekly/page";
-import ReportDaily from "./dailywrite/dailyWrite";
-import ReportWeekly from "./weeklywrite/weeklyWrite";
+import DailyWritePage from "./dailywrite/page";
+import ReportWeekly from "./weeklywrite/page";
 
 export default function Work({
   defaultTab = "daily",
@@ -19,10 +19,8 @@ export default function Work({
   const renderContent = () => {
     if (activeTab === "daily") return <Daily />;
     if (activeTab === "weekly") return <Weekly />;
-    if (activeTab === "reportWrite")
-      return <ReportDaily onCancel={() => setActiveTab("daily")} />;
-    if (activeTab === "weeklyWrite")
-      return <ReportWeekly onCancel={() => setActiveTab("weekly")} />;
+    if (activeTab === "reportWrite") return <DailyWritePage />;
+    if (activeTab === "weeklyWrite") return <ReportWeekly />;
     return null;
   };
 

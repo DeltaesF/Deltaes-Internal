@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link"; // [변경] Link 컴포넌트 import
 
-// 공통으로 사용할 데이터 타입 정의
 type Post = {
   id: string;
   title: string;
@@ -10,35 +10,28 @@ type Post = {
   userName: string;
 };
 
-export default function Total({
-  setSelectMenu,
-  setWorkDefaultTab,
-}: {
-  setSelectMenu: (menu: string) => void;
-  setWorkDefaultTab: (tab: "daily" | "weekly") => void;
-}) {
+// [변경] Props(setSelectMenu 등) 제거 -> Page는 Props를 받지 않음
+export default function TotalBoardPage() {
   // 각 섹션별 상태 관리
   const [dailyList, setDailyList] = useState<Post[]>([]);
   const [weeklyList, setWeeklyList] = useState<Post[]>([]);
-  const [approvalList, setApprovalList] = useState<Post[]>([]); // 품의서
-  const [reportList, setReportList] = useState<Post[]>([]); // 보고서
-  const [noticeList, setNoticeList] = useState<Post[]>([]); // 공지사항
-  const [resourceList, setResourceList] = useState<Post[]>([]); // 자료실
+  const [approvalList, setApprovalList] = useState<Post[]>([]);
+  const [reportList, setReportList] = useState<Post[]>([]);
+  const [noticeList, setNoticeList] = useState<Post[]>([]);
+  const [resourceList, setResourceList] = useState<Post[]>([]);
 
-  // 데이터 로드 함수 (API 주소는 실제 백엔드 설정에 맞게 수정 필요)
+  // 데이터 로드 함수
   const loadAllData = async () => {
     try {
-      // Promise.allSettled를 사용하여 하나가 실패해도 나머지는 로드되도록 처리
       const results = await Promise.allSettled([
-        fetch("/api/daily/list").then((res) => res.json()), // 일일
-        fetch("/api/weekly/list").then((res) => res.json()), // 주간
-        fetch("/api/approvals/list").then((res) => res.json()), // 품의서 (가정)
-        fetch("/api/report/list").then((res) => res.json()), // 보고서
-        fetch("/api/notice/list").then((res) => res.json()), // 공지사항 (가정)
-        fetch("/api/resources/list").then((res) => res.json()), // 자료실 (가정)
+        fetch("/api/daily/list").then((res) => res.json()),
+        fetch("/api/weekly/list").then((res) => res.json()),
+        fetch("/api/approvals/list").then((res) => res.json()),
+        fetch("/api/report/list").then((res) => res.json()),
+        fetch("/api/notice/list").then((res) => res.json()),
+        fetch("/api/resources/list").then((res) => res.json()),
       ]);
 
-      // 결과 할당
       if (results[0].status === "fulfilled")
         setDailyList(results[0].value || []);
       if (results[1].status === "fulfilled")
@@ -60,7 +53,6 @@ export default function Total({
     loadAllData();
   }, []);
 
-  // 날짜 포맷팅 헬퍼
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString("ko-KR", {
       month: "2-digit",
@@ -68,13 +60,13 @@ export default function Total({
     });
   };
 
-  // 리스트 렌더링 헬퍼 컴포넌트 (중복 코드 제거)
+  // [변경] 리스트 렌더링 헬퍼: basePath를 받아 Link href를 생성
   const RenderList = ({
     items,
-    onItemClick,
+    basePath, // 이동할 상세 페이지의 기본 경로 (예: /main/work/daily)
   }: {
     items: Post[];
-    onItemClick: () => void;
+    basePath: string;
   }) => {
     if (!items || items.length === 0) {
       return (
@@ -89,17 +81,24 @@ export default function Total({
         {items.slice(0, 5).map((item) => (
           <li
             key={item.id}
-            className="py-2 border-b flex justify-between items-center cursor-pointer hover:bg-gray-50 group"
-            onClick={onItemClick}
+            className="border-b hover:bg-gray-50 group transition-colors"
           >
-            <p className="hover:text-purple-400 transition-colors truncate">
-              {item.title}
-            </p>
+            {/* [변경] onClick -> Link 사용 */}
+            <Link
+              href={`${basePath}/${item.id}`}
+              className="py-2 flex justify-between items-center w-full h-full cursor-pointer"
+            >
+              <p className="hover:text-purple-400 transition-colors truncate max-w-[60%]">
+                {item.title}
+              </p>
 
-            <div className="flex items-center gap-[15px] text-xs text-gray-500 flex-shrink-0">
-              <span className="font-medium text-gray-500">{item.userName}</span>
-              <span>{formatDate(item.createdAt)}</span>
-            </div>
+              <div className="flex items-center gap-[15px] text-xs text-gray-500 flex-shrink-0">
+                <span className="font-medium text-gray-500">
+                  {item.userName}
+                </span>
+                <span>{formatDate(item.createdAt)}</span>
+              </div>
+            </Link>
           </li>
         ))}
       </ul>
@@ -112,114 +111,86 @@ export default function Total({
       <div className="border rounded-2xl shadow-sm p-4 bg-white">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-[20px] font-semibold">일일 업무 보고서</h3>
-          <span
+          {/* [변경] 더보기 버튼 -> Link */}
+          <Link
+            href="/main/work" // 업무보고 메인 페이지 경로
             className="text-sm text-blue-500 cursor-pointer hover:underline"
-            onClick={() => {
-              setSelectMenu("업무보고");
-              setWorkDefaultTab("daily");
-            }}
           >
             + 더보기
-          </span>
+          </Link>
         </div>
-        <RenderList
-          items={dailyList}
-          onItemClick={() => {
-            setSelectMenu("업무보고");
-            setWorkDefaultTab("daily");
-          }}
-        />
+        {/* [변경] basePath 전달: 클릭 시 /main/work/daily/{id} 로 이동 */}
+        <RenderList items={dailyList} basePath="/main/work/daily" />
       </div>
 
       {/* 2. 주간 업무 보고서 */}
       <div className="border rounded-2xl shadow-sm p-4 bg-white">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-[20px] font-semibold">주간 업무 보고서</h3>
-          <span
+          <Link
+            href="/main/work" // (주간 탭이 기본이면 query string 등 활용 가능)
             className="text-sm text-blue-500 cursor-pointer hover:underline"
-            onClick={() => {
-              setSelectMenu("업무보고");
-              setWorkDefaultTab("weekly");
-            }}
           >
             + 더보기
-          </span>
+          </Link>
         </div>
-        <RenderList
-          items={weeklyList}
-          onItemClick={() => {
-            setSelectMenu("업무보고");
-            setWorkDefaultTab("weekly");
-          }}
-        />
+        <RenderList items={weeklyList} basePath="/main/work/weekly" />
       </div>
 
       {/* 3. 품의서 */}
       <div className="border rounded-2xl shadow-sm p-4 bg-white">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-[20px] font-semibold">품의서</h3>
-          <span
+          <Link
+            href="/main/approvals" // 품의서 페이지 경로
             className="text-sm text-blue-500 cursor-pointer hover:underline"
-            onClick={() => setSelectMenu("품의서")}
           >
             + 더보기
-          </span>
+          </Link>
         </div>
-        <RenderList
-          items={approvalList}
-          onItemClick={() => setSelectMenu("품의서")}
-        />
+        <RenderList items={approvalList} basePath="/main/approvals" />
       </div>
 
       {/* 4. 보고서 */}
       <div className="border rounded-2xl shadow-sm p-4 bg-white">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-[20px] font-semibold">보고서</h3>
-          <span
+          <Link
+            href="/main/report" // 보고서 페이지 경로
             className="text-sm text-blue-500 cursor-pointer hover:underline"
-            onClick={() => setSelectMenu("보고서")}
           >
             + 더보기
-          </span>
+          </Link>
         </div>
-        <RenderList
-          items={reportList}
-          onItemClick={() => setSelectMenu("보고서")}
-        />
+        <RenderList items={reportList} basePath="/main/report/posts" />
       </div>
 
       {/* 5. 공지사항 */}
       <div className="border rounded-2xl shadow-sm p-4 bg-white">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-[20px] font-semibold">공지사항</h3>
-          <span
+          <Link
+            href="/main/notice" // 공지사항 페이지 경로
             className="text-sm text-blue-500 cursor-pointer hover:underline"
-            onClick={() => setSelectMenu("공지사항")}
           >
             + 더보기
-          </span>
+          </Link>
         </div>
-        <RenderList
-          items={noticeList}
-          onItemClick={() => setSelectMenu("공지사항")}
-        />
+        <RenderList items={noticeList} basePath="/main/notice" />
       </div>
 
       {/* 6. 자료실 */}
       <div className="border rounded-2xl shadow-sm p-4 bg-white">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-[20px] font-semibold">자료실</h3>
-          <span
+          <Link
+            href="/main/resources" // 자료실 페이지 경로
             className="text-sm text-blue-500 cursor-pointer hover:underline"
-            onClick={() => setSelectMenu("자료실")}
           >
             + 더보기
-          </span>
+          </Link>
         </div>
-        <RenderList
-          items={resourceList}
-          onItemClick={() => setSelectMenu("자료실")}
-        />
+        <RenderList items={resourceList} basePath="/main/resources" />
       </div>
     </div>
   );

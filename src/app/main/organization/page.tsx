@@ -21,7 +21,7 @@ export default function Organization() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch("api/org");
+        const res = await fetch("/api/org");
         if (!res.ok) throw new Error("API 요청 실패");
         const data: Department[] = await res.json();
         setOrgData(data);

@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useSelector } from "react-redux"; // Redux 연결
-import { RootState } from "@/store"; // store 경로 (Main.tsx와 동일하게 맞춤)
+import { useRouter } from "next/navigation"; // router 사용
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 
-type Props = {
-  onCancel: () => void;
-};
+// Props 타입 정의 제거 (page.tsx는 props를 받지 않음)
 
-export default function ReportDaily({ onCancel }: Props) {
+export default function DailyWritePage() {
+  const router = useRouter(); // 라우터 훅 사용
   const { userName } = useSelector(
     (state: RootState) => state.auth || { userName: "사용자" }
   );
@@ -18,19 +18,18 @@ export default function ReportDaily({ onCancel }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // [수정] onCancel 대신 router.back() 사용
   const handleCancel = () => {
     const confirmExit = window.confirm(
       "작성 중인 내용이 저장되지 않을 수 있습니다. 정말 나가시겠습니까?"
     );
     if (confirmExit) {
-      onCancel();
+      router.back(); // 뒤로가기 (리스트로 이동)
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // 유효성 검사
     if (!userName) return alert("로그인 정보가 없습니다.");
     if (!title) return alert("제목을 입력해주세요.");
 
@@ -38,31 +37,24 @@ export default function ReportDaily({ onCancel }: Props) {
 
     try {
       let fileUrl = "";
-
-      // 1. 파일 업로드 로직 (파일이 있을 때만)
+      // 1. 파일 업로드
       if (file) {
         const formData = new FormData();
         formData.append("file", file);
-
         const uploadRes = await fetch("/api/daily/upload", {
           method: "POST",
           body: formData,
         });
-
-        if (!uploadRes.ok) {
-          throw new Error(`파일 업로드 실패: ${uploadRes.status}`);
-        }
-
+        if (!uploadRes.ok) throw new Error("파일 업로드 실패");
         const uploadData = await uploadRes.json();
         fileUrl = uploadData.fileUrl;
       }
 
-      // 2. 보고서 저장 API 호출
-      // userName은 Redux에서 가져온 값을 그대로 보냅니다.
+      // 2. 게시글 저장
       const createRes = await fetch("/api/daily/create", {
         method: "POST",
         body: JSON.stringify({
-          userName, // 로그인된 사용자 이름 자동 입력
+          userName,
           title,
           content,
           fileUrl,
@@ -70,65 +62,59 @@ export default function ReportDaily({ onCancel }: Props) {
         }),
       });
 
-      if (!createRes.ok) {
-        const errData = await createRes.json();
-        throw new Error(errData.error || "일일 업무 보고서 저장 실패");
-      }
+      if (!createRes.ok) throw new Error("저장 실패");
 
-      alert("일일 업무 보고서가 저장되었습니다!");
-      onCancel(); // 목록으로 돌아가기
+      alert("보고서가 저장되었습니다!");
+
+      // [수정] 작성 완료 후 리스트 페이지로 이동
+      router.push("/work/daily");
+      // router.refresh(); // 필요하다면 데이터 갱신을 위해 추가
     } catch (error) {
       console.error(error);
-      alert("오류가 발생했습니다: " + error);
+      alert("오류가 발생했습니다.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div>
+    <div className="p-6 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6">
       <button
         onClick={handleCancel}
-        className="mb-4 px-4 py-2 border rounded cursor-pointer hover:bg-gray-100"
+        className="mb-4 px-4 py-2 border rounded hover:bg-gray-100 cursor-pointer text-sm"
       >
-        ◀ 나가기
+        ◀ 취소하고 돌아가기
       </button>
 
-      <h2>📅 일일 업무 보고서 작성</h2>
+      <h2 className="text-2xl font-bold mb-6">📅 일일 업무 보고서 작성</h2>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {/* 입력 폼 내용 (기존과 동일) */}
         <input
           type="text"
-          placeholder="일일 업무 보고서 제목"
+          placeholder="제목"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="border p-2 rounded"
         />
         <textarea
-          placeholder="일일 업무 보고서 내용"
+          placeholder="내용"
           value={content}
           onChange={(e) => setContent(e.target.value)}
           className="border p-2 rounded h-40 resize-none"
         ></textarea>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-semibold text-gray-600">
-            첨부파일
-          </label>
-          <input
-            type="file"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="border p-2 rounded cursor-pointer bg-white"
-          />
-        </div>
+        <input
+          type="file"
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          className="border p-2 rounded"
+        />
 
         <button
           type="submit"
           disabled={isLoading}
-          className={`px-4 py-2 rounded text-white font-bold transition-colors ${
-            isLoading
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-[#519d9e] hover:bg-[#407f80] cursor-pointer"
+          className={`px-4 py-3 rounded text-white font-bold transition-colors ${
+            isLoading ? "bg-gray-400" : "bg-[#519d9e] hover:bg-[#407f80]"
           }`}
         >
           {isLoading ? "저장 중..." : "작성 완료"}
