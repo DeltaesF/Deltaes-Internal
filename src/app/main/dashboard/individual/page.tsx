@@ -1,18 +1,21 @@
-// src/app/individual/Individual.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { DateClickArg } from "@fullcalendar/interaction";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-type EventType = {
-  id?: string;
+// 타입 정의 (기존과 동일)
+type EventType = { id?: string; title: string; start: string; end?: string };
+
+type NewEventType = {
+  docId: string;
   title: string;
   start: string;
-  end?: string;
+  end: string;
 };
 
 type VacationType = {
@@ -26,244 +29,207 @@ type VacationType = {
   daysUsed: number;
 };
 
-export default function Individual() {
-  // Redux로부터 userDocId(예: "홍성원 프로"), userName(예: "홍성원"), loading 상태를 가져옵니다.
-  const { userDocId, userName, loading, role } = useSelector(
-    (state: RootState) => state.auth
-  );
+// API 호출 함수들 (fetcher)
+const fetchPending = async (userDocId: string, role: string | null) => {
+  const res = await fetch("/api/vacation/list", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role, userName: userDocId }),
+  });
+  const data = await res.json();
+  return data.list || [];
+};
 
-  const [events, setEvents] = useState<EventType[]>([]);
-  const [pendingList, setPendingList] = useState<VacationType[]>([]);
-  const [completedCount, setCompletedCount] = useState(0);
+const fetchCompleted = async (userDocId: string) => {
+  const res = await fetch("/api/vacation/approve-list", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userName: userDocId }),
+  });
+  const data = await res.json();
+  return data.list || [];
+};
+
+const fetchShared = async (userDocId: string) => {
+  const res = await fetch("/api/vacation/shared-list", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userName: userDocId }),
+  });
+  const data = await res.json();
+  return data.list || [];
+};
+
+const fetchEvents = async (userDocId: string) => {
+  const res = await fetch(
+    `/api/today/list?docId=${encodeURIComponent(userDocId)}`
+  );
+  return res.json();
+};
+
+export default function Individual() {
+  const { userDocId, userName, role } = useSelector(
+    (state: RootState) =>
+      state.auth || { userDocId: null, userName: "사용자", role: null }
+  );
+  const queryClient = useQueryClient();
+
   const [showModal, setShowModal] = useState(false);
+  const [showCompletedModal, setShowCompletedModal] = useState(false);
+  const [showSharedModal, setShowSharedModal] = useState(false);
   const [selectedVacation, setSelectedVacation] = useState<VacationType | null>(
     null
   );
 
-  // 🔽 결재 완료 목록을 위한 state 추가
-  const [completedList, setCompletedList] = useState<VacationType[]>([]);
-  const [showCompletedModal, setShowCompletedModal] = useState(false);
+  // ✅ 1. React Query: 데이터 조회 (자동 캐싱 & 리패칭)
+  const { data: pendingList = [] } = useQuery({
+    queryKey: ["vacations", "pending", userDocId],
+    queryFn: () => fetchPending(userDocId!, role),
+    enabled: !!userDocId, // userDocId가 있을 때만 실행
+  });
 
-  // 🔽 "공유 내용"을 위한 새 state 추가
-  const [sharedList, setSharedList] = useState<VacationType[]>([]);
-  const [sharedCount, setSharedCount] = useState(0);
-  const [showSharedModal, setShowSharedModal] = useState(false);
+  const { data: completedList = [] } = useQuery({
+    queryKey: ["vacations", "completed", userDocId],
+    queryFn: () => fetchCompleted(userDocId!),
+    enabled: !!userDocId,
+  });
 
-  // ✅ 결재 대기 리스트 불러오기
-  const fetchPending = async () => {
-    if (!userDocId) return;
-    try {
-      const res = await fetch("/api/vacation/list", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, userName: userDocId }), // ✅ role 추가
-      });
-      const data = await res.json();
-      if (res.ok) setPendingList(data.list || []);
-    } catch (err) {
-      console.error("결재 대기 조회 실패:", err);
-    }
-  };
+  const { data: sharedList = [] } = useQuery({
+    queryKey: ["vacations", "shared", userDocId],
+    queryFn: () => fetchShared(userDocId!),
+    enabled: !!userDocId,
+  });
 
-  // ✅ 이벤트 불러오기 (기존)
-  const fetchEvents = async () => {
-    if (!userDocId) return;
-    const res = await fetch(
-      `/api/today/list?docId=${encodeURIComponent(userDocId)}`
-    );
-    const data = await res.json();
-    setEvents(data);
-  };
+  const { data: events = [] } = useQuery<EventType[]>({
+    queryKey: ["events", userDocId],
+    queryFn: () => fetchEvents(userDocId!),
+    enabled: !!userDocId,
+  });
 
-  // 👈 결재 완료 건수 불러오기 (신규)
-  const fetchCompletedData = async () => {
-    if (!userDocId) return;
-    try {
-      // '/approved-count' 대신 새 API 호출
-      const res = await fetch("/api/vacation/approve-list", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userName: userDocId }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        // list와 count를 동시에 세팅
-        setCompletedList(data.list || []);
-        setCompletedCount((data.list || []).length);
-      }
-    } catch (err) {
-      console.error("결재 완료 데이터 조회 실패:", err);
-    }
-  };
-
-  // 🔽 "공유 내용" 데이터를 가져오는 새 함수 추가
-  const fetchSharedData = async () => {
-    if (!userDocId) return;
-    try {
-      const res = await fetch("/api/vacation/shared-list", {
-        // 👈 새 API 호출
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userName: userDocId }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSharedList(data.list || []);
-        setSharedCount((data.list || []).length);
-      }
-    } catch (err) {
-      console.error("공유 목록 데이터 조회 실패:", err);
-    }
-  };
-
-  // userDocId가 바뀌면(로그인 또는 initAuth 완료 시) 이벤트를 불러옵니다.
-  useEffect(() => {
-    if (!loading) {
-      fetchEvents();
-      fetchPending();
-      fetchCompletedData();
-      fetchSharedData();
-    }
-  }, [loading, userDocId]);
-
-  // ✅ 승인 처리
-  const handleApprove = async (
-    vacationId: string,
-    applicantUserName: string
-  ) => {
-    try {
+  // ✅ 2. React Query: 승인 Mutation
+  const approveMutation = useMutation({
+    mutationFn: async ({
+      id,
+      applicant,
+    }: {
+      id: string;
+      applicant: string;
+    }) => {
       const res = await fetch("/api/vacation/approve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          vacationId,
-          approverName: userDocId, // 👈 결재하는 사람 (현재 로그인 유저)
-          applicantUserName: applicantUserName, // 👈 휴가 신청한 사람
+          vacationId: id,
+          approverName: userDocId,
+          applicantUserName: applicant,
         }),
       });
-
-      if (!res.ok) {
-        // 🔽 서버에서 보낸 에러 메시지를 alert에 표시 (디버깅에 유용)
-        const errorData = await res.json();
-        throw new Error(errorData.error || "승인 실패");
-      }
-
+      if (!res.ok) throw new Error("승인 실패");
+      return res.json();
+    },
+    onSuccess: () => {
       alert("승인되었습니다.");
-      fetchPending(); // 새로고침
-      fetchCompletedData(); // 👈 결재 완료 건수도 새로고침
+      // 데이터가 변경되었으므로 목록을 새로고침(Invalidate)
+      queryClient.invalidateQueries({ queryKey: ["vacations"] });
       setSelectedVacation(null);
-    } catch (err) {
-      // 🔽 에러 메시지를 콘솔에 더 명확하게 표시
-      console.error(
-        "승인 오류:",
-        err instanceof Error ? err.message : String(err)
-      );
-      alert(
-        err instanceof Error ? err.message : "승인 처리 중 오류가 발생했습니다."
-      );
-    }
-  };
+    },
+    onError: (err) => alert(err.message),
+  });
 
-  // 날짜 클릭 → 기간 입력 → API로 전송
-  const handleDateClick = async (arg: DateClickArg) => {
-    if (!userDocId) {
-      alert("로그인 후 이용 가능합니다.");
-      return;
-    }
-
-    // 1) 제목 입력
-    const title = prompt("일정을 입력하세요:");
-    if (!title) return;
-
-    // 2) 시작일/종료일 입력 (YYYY-MM-DD)
-    const startInput = prompt("시작일 (YYYY-MM-DD)", arg.dateStr);
-    if (!startInput) return;
-    const endInput = prompt("종료일 (YYYY-MM-DD)", startInput);
-    if (!endInput) return;
-
-    // FullCalendar는 end를 exclusive로 처리하므로 마지막 날짜를 포함하려면 +1일
-    const endDate = new Date(endInput);
-    endDate.setDate(endDate.getDate() + 1);
-    const end = endDate.toISOString().split("T")[0];
-    const start = startInput; // yyyy-mm-dd 형태
-
-    try {
-      // API에 docId를 포함하여 POST
+  // ✅ 3. React Query: 일정 추가 Mutation
+  const addEventMutation = useMutation({
+    mutationFn: async (newEvent: NewEventType) => {
       const res = await fetch("/api/today/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId: userDocId, title, start, end }),
+        body: JSON.stringify(newEvent),
       });
+      if (!res.ok) throw new Error("추가 실패");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+    },
+  });
 
-      if (!res.ok) throw new Error("Failed to add event");
-      // 저장 성공 후 다시 불러오기
-      await fetchEvents();
-    } catch (err) {
-      console.error("handleDateClick error:", err);
-      alert("일정 추가 실패");
-    }
-  };
-
-  const handleDateDelete = async (eventId: string) => {
-    if (!userDocId) return;
-    const confirmDelete = confirm("일정을 삭제하시겠습니까?");
-    if (!confirmDelete) return;
-
-    try {
+  // ✅ 4. React Query: 일정 삭제 Mutation
+  const deleteEventMutation = useMutation({
+    mutationFn: async (eventId: string) => {
       const res = await fetch("/api/today/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ docId: userDocId, eventId }),
       });
-      if (!res.ok) throw new Error("Failed to delete event");
+      if (!res.ok) throw new Error("삭제 실패");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+    },
+  });
 
-      // 삭제 후 이벤트 다시 가져오기
-      fetchEvents();
-    } catch (err) {
-      console.error("Delete event error:", err);
-      alert("이벤트 삭제 실패");
+  const handleApprove = (id: string, applicant: string) => {
+    if (confirm("승인하시겠습니까?")) {
+      approveMutation.mutate({ id, applicant });
     }
   };
 
-  if (loading) return <p>로딩 중...</p>;
+  const handleDateClick = (arg: DateClickArg) => {
+    if (!userDocId) return alert("로그인 필요");
+    const title = prompt("일정을 입력하세요:");
+    if (!title) return;
+    const startInput = prompt("시작일 (YYYY-MM-DD)", arg.dateStr);
+    if (!startInput) return;
+    const endInput = prompt("종료일 (YYYY-MM-DD)", startInput);
+    if (!endInput) return;
+
+    const endDate = new Date(endInput);
+    endDate.setDate(endDate.getDate() + 1);
+
+    addEventMutation.mutate({
+      docId: userDocId,
+      title,
+      start: startInput,
+      end: endDate.toISOString().split("T")[0],
+    });
+  };
 
   return (
     <div className="flex flex-col gap-12 mt-6 items-center">
-      <div className="flex justify-center gap-30">
+      {/* 상단 카드 영역 */}
+      <div className="flex justify-center gap-10">
         <div
-          className="bg-white shadow-md border rounded-2xl p-6 w-80 text-center cursor-pointer"
+          className="bg-white shadow-md border rounded-2xl p-6 w-80 text-center cursor-pointer hover:bg-gray-50"
           onClick={() => setShowModal(true)}
         >
           <span className="text-gray-600 font-medium">결재 요청</span>
           <p className="text-4xl font-bold">{pendingList.length} 건</p>
         </div>
         <div
-          className="bg-white shadow-md border rounded-2xl p-6 w-80 text-center cursor-pointer"
+          className="bg-white shadow-md border rounded-2xl p-6 w-80 text-center cursor-pointer hover:bg-gray-50"
           onClick={() => setShowCompletedModal(true)}
         >
-          <span className="text-gray-600 font-medium">결재 완료</span>
-          <p className="text-4xl font-bold">{completedCount} 건</p>
+          <span className="text-gray-600 font-medium">결재 완료 (오늘)</span>
+          <p className="text-4xl font-bold">{completedList.length} 건</p>
         </div>
         <div
-          className="bg-white shadow-md border rounded-2xl p-6 w-80 text-center cursor-pointer"
+          className="bg-white shadow-md border rounded-2xl p-6 w-80 text-center cursor-pointer hover:bg-gray-50"
           onClick={() => setShowSharedModal(true)}
         >
           <span className="text-gray-600 font-medium">공유 내용</span>
-          <p className="text-4xl font-bold">{sharedCount} 건</p>
+          <p className="text-4xl font-bold">{sharedList.length} 건</p>
         </div>
       </div>
 
-      {/* 🔹 결재 요청 목록 */}
+      {/* 모달: 결재 요청 목록 */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl p-6 w-[600px]">
+          <div className="bg-white rounded-xl p-6 w-[600px] max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-bold mb-4">결재 요청 목록</h3>
             <ul className="divide-y">
               {pendingList.length > 0 ? (
-                pendingList.map((v) => (
+                pendingList.map((v: VacationType) => (
                   <li
                     key={v.id}
-                    className="py-3 cursor-pointer hover:bg-gray-100 px-2"
+                    className="py-3 cursor-pointer hover:bg-gray-100 px-2 rounded"
                     onClick={() => setSelectedVacation(v)}
                   >
                     <p className="font-semibold">{v.userName}</p>
@@ -281,7 +247,7 @@ export default function Individual() {
             </ul>
             <button
               onClick={() => setShowModal(false)}
-              className="mt-4 bg-gray-300 px-4 py-2 rounded hover:bg-gray-400 cursor-pointer"
+              className="mt-4 w-full bg-gray-300 py-2 rounded hover:bg-gray-400"
             >
               닫기
             </button>
@@ -289,70 +255,63 @@ export default function Individual() {
         </div>
       )}
 
-      {/* 🔹 승인 상세 모달 */}
+      {/* 모달: 승인 상세 */}
       {selectedVacation && (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
           <div className="bg-white rounded-xl p-6 w-[500px]">
             <h3 className="text-lg font-bold mb-3">휴가 승인</h3>
-            <p>
-              <strong>신청자:</strong> {selectedVacation.userName}
-            </p>
-            <p>
-              <strong>기간:</strong> {selectedVacation.startDate} ~{" "}
-              {selectedVacation.endDate} ({selectedVacation.daysUsed}일)
-            </p>
-            <p>
-              <strong>사유:</strong> {selectedVacation.reason}
-            </p>
-            <p>
-              <strong>상태:</strong> {selectedVacation.status}
-            </p>
-
-            <div className="flex gap-4 mt-6">
+            <div className="space-y-2 mb-6">
+              <p>
+                <strong>신청자:</strong> {selectedVacation.userName}
+              </p>
+              <p>
+                <strong>기간:</strong> {selectedVacation.startDate} ~{" "}
+                {selectedVacation.endDate}
+              </p>
+              <p>
+                <strong>사유:</strong> {selectedVacation.reason}
+              </p>
+            </div>
+            <div className="flex gap-2">
               <button
                 onClick={() =>
                   handleApprove(selectedVacation.id, selectedVacation.userName)
                 }
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer"
+                disabled={approveMutation.isPending}
+                className="flex-1 bg-blue-500 text-white py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
               >
-                승인
+                {approveMutation.isPending ? "처리중..." : "승인"}
               </button>
               <button
                 onClick={() => setSelectedVacation(null)}
-                className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400 cursor-pointer"
+                className="flex-1 bg-gray-300 py-2 rounded hover:bg-gray-400"
               >
-                닫기
+                취소
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 결재 완료 목록 모달  */}
+      {/* 모달: 결재 완료 목록 */}
       {showCompletedModal && (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
           <div className="bg-white rounded-xl p-6 w-[600px]">
-            <h3 className="text-lg font-bold mb-4">결재 완료 목록 (오늘)</h3>
+            <h3 className="text-lg font-bold mb-4">오늘 결재 완료 목록</h3>
             <ul className="divide-y">
-              {completedList.length > 0 ? (
-                completedList.map((v) => (
-                  <li key={v.id} className="py-3 px-2">
-                    <p className="font-semibold">{v.userName}</p>
-                    <p className="text-sm text-gray-600">
-                      {v.startDate} ~ {v.endDate} ({v.reason})
-                    </p>
-                    <span className="text-xs text-green-600">{v.status}</span>
-                  </li>
-                ))
-              ) : (
-                <p className="text-gray-500 text-center py-4">
-                  오늘 완료한 결재가 없습니다.
-                </p>
-              )}
+              {completedList.map((v: VacationType) => (
+                <li key={v.id} className="py-3 px-2">
+                  <p className="font-semibold">{v.userName}</p>
+                  <p className="text-sm text-gray-600">
+                    {v.startDate} ~ {v.endDate}
+                  </p>
+                  <span className="text-xs text-green-600">{v.status}</span>
+                </li>
+              ))}
             </ul>
             <button
               onClick={() => setShowCompletedModal(false)}
-              className="mt-4 bg-gray-300 px-4 py-2 rounded hover:bg-gray-400 cursor-pointer"
+              className="mt-4 w-full bg-gray-300 py-2 rounded hover:bg-gray-400"
             >
               닫기
             </button>
@@ -360,43 +319,25 @@ export default function Individual() {
         </div>
       )}
 
-      {/* 공유 내용 목록 모달  */}
+      {/* 모달: 공유 내용 */}
       {showSharedModal && (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
           <div className="bg-white rounded-xl p-6 w-[600px]">
             <h3 className="text-lg font-bold mb-4">공유 목록</h3>
             <ul className="divide-y">
-              {sharedList.length > 0 ? (
-                sharedList.map((v) => (
-                  <li key={v.id} className="py-3 px-2">
-                    <p className="font-semibold">{v.userName}</p>
-                    <p className="text-sm text-gray-600">
-                      {v.startDate} ~ {v.endDate} ({v.daysUsed}일)
-                    </p>
-                    <span
-                      className={`text-xs font-medium ${
-                        v.status === "대기"
-                          ? "text-blue-500"
-                          : v.status === "1차 결재 완료"
-                          ? "text-yellow-600"
-                          : v.status === "최종 승인 완료"
-                          ? "text-green-600"
-                          : "text-gray-500"
-                      }`}
-                    >
-                      {v.status}
-                    </span>
-                  </li>
-                ))
-              ) : (
-                <p className="text-gray-500 text-center py-4">
-                  공유된 휴가 내역이 없습니다.
-                </p>
-              )}
+              {sharedList.map((v: VacationType) => (
+                <li key={v.id} className="py-3 px-2">
+                  <p className="font-semibold">{v.userName}</p>
+                  <p className="text-sm text-gray-600">
+                    {v.startDate} ~ {v.endDate}
+                  </p>
+                  <span className="text-xs text-gray-500">{v.status}</span>
+                </li>
+              ))}
             </ul>
             <button
               onClick={() => setShowSharedModal(false)}
-              className="mt-4 bg-gray-300 px-4 py-2 rounded hover:bg-gray-400 cursor-pointer"
+              className="mt-4 w-full bg-gray-300 py-2 rounded hover:bg-gray-400"
             >
               닫기
             </button>
@@ -404,25 +345,21 @@ export default function Individual() {
         </div>
       )}
 
+      {/* 캘린더 */}
       <div className="bg-white shadow-md border rounded-2xl p-6 w-[1200px] mx-auto">
-        <h2 className="text-lg font-semibold mb-4">
-          📅 {userName ? `${userName}님의 일정 캘린더` : "내 일정"}
-        </h2>
-        <div className="w-[1100px] h-[500px] mx-auto">
+        <h2 className="text-lg font-semibold mb-4">📅 {userName}님의 일정</h2>
+        <div className="h-[600px]">
           <FullCalendar
             plugins={[dayGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
             events={events}
             dateClick={handleDateClick}
-            eventClick={(clickInfo) => {
-              handleDateDelete(clickInfo.event.id); // 삭제
+            eventClick={(info) => {
+              if (confirm("일정을 삭제하시겠습니까?")) {
+                deleteEventMutation.mutate(info.event.id);
+              }
             }}
             height="100%"
-            headerToolbar={{
-              left: "prev,next today",
-              center: "title",
-              right: "dayGridMonth,dayGridWeek,dayGridDay",
-            }}
           />
         </div>
       </div>

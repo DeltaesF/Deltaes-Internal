@@ -13,6 +13,7 @@
     "@fullcalendar/interaction": "^6.1.19",
     "@fullcalendar/react": "^6.1.19",
     "@reduxjs/toolkit": "^2.9.0",
+    "@tanstack/react-query": "^5.90.12",
     "firebase": "^12.2.1",
     "firebase-admin": "^13.5.0",
     "googleapis": "^166.0.0",

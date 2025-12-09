@@ -1,6 +1,13 @@
 import { db } from "@/lib/firebaseAdmin";
 import Link from "next/link";
 
+interface Post {
+  id: string;
+  title: string;
+  userName: string;
+  createdAt: number;
+}
+
 const formatDate = (timestamp: number) => {
   return new Date(timestamp).toLocaleDateString("ko-KR", {
     month: "2-digit",
@@ -9,7 +16,7 @@ const formatDate = (timestamp: number) => {
 };
 
 // DB에서 데이터 가져오는 함수 (최신순 5개 제한)
-async function getLatestData(collectionName: string) {
+async function getLatestData(collectionName: string): Promise<Post[]> {
   try {
     const snapshot = await db
       .collectionGroup(collectionName)
@@ -56,7 +63,7 @@ export default async function TotalBoardPage() {
     items,
     basePath,
   }: {
-    items: any[];
+    items: Post[];
     basePath: string;
   }) => {
     if (!items || items.length === 0) {

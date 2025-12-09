@@ -7,11 +7,10 @@ import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 
 type DayType = "연차" | "반차" | "병가" | "공가";
-
 type ApproverType = "first" | "second" | "shared";
 
-export default function VacationWrite() {
-  const router = useRouter(); // 라우터 사용
+export default function VacationWritePage() {
+  const router = useRouter(); // 라우터 훅 사용
   const { userDocId, userName } = useSelector((state: RootState) => state.auth);
 
   const [reason, setReason] = useState("");
@@ -32,7 +31,7 @@ export default function VacationWrite() {
   // 🔹 현재 빨간 테두리로 선택된 대상
   const [selectedBox, setSelectedBox] = useState<ApproverType | null>(null);
 
-  // 🔹 전체 임직원 목록 (예시, Firestore에서 불러올 수도 있음)
+  // 🔹 전체 임직원 목록 (예시)
   const employees = [
     "원영수 대표이사",
     "민동호 연구소장",
@@ -96,6 +95,7 @@ export default function VacationWrite() {
     setTypes(updated);
   };
 
+  // [수정] router.back() 사용
   const handleCancel = () => {
     if (
       confirm(
@@ -149,7 +149,7 @@ export default function VacationWrite() {
 
       if (res.ok && result.success) {
         alert(`${userName}님의 휴가 신청이 완료되었습니다.\n총 ${days}일 사용`);
-        router.push("/main/vacation/user");
+        router.push("/main/vacation/user"); // 완료 후 이동
       } else {
         alert(result.error || "휴가 신청 중 오류가 발생했습니다.");
       }
@@ -162,10 +162,10 @@ export default function VacationWrite() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 border rounded-xl bg-white shadow-sm mt-6 max-w-5xl mx-auto">
       <button
         onClick={handleCancel}
-        className="mb-4 px-4 py-2 border rounded cursor-pointer"
+        className="mb-4 px-4 py-2 border rounded hover:bg-gray-100 cursor-pointer"
       >
         ◀ 나가기
       </button>

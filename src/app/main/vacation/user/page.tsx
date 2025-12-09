@@ -2,11 +2,13 @@
 
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
-import interactionPlugin from "@fullcalendar/interaction";
-import { useEffect, useState } from "react";
-import VacationWrite from "../write/vacationWrite";
+import interactionPlugin, { DateClickArg } from "@fullcalendar/interaction";
+import { useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
+import Link from "next/link";
+import VacationWritePage from "../write/page";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface FirestoreTimestamp {
   seconds: number;
@@ -35,171 +37,153 @@ interface VacationResponse {
   }[];
 }
 
+// -----------------------------------------------------------------------
+// [1] Fetcher 함수들 (API 호출 담당)
+// -----------------------------------------------------------------------
+
+// 1. 내 휴가 목록 조회
+const fetchMyVacations = async (userDocId: string) => {
+  const res = await fetch(`/api/vacation/list`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role: "user", userName: userDocId }),
+  });
+  const data = await res.json();
+  return (data.list as VacationResponse[]) || [];
+};
+
+// 2. 내 연차 정보 (잔여/사용) 조회
+const fetchUserStats = async (userDocId: string) => {
+  const res = await fetch(`/api/vacation/user?userDocId=${userDocId}`);
+  return res.json();
+};
+
+// 3. 결재 대기 건수 조회
+const fetchPendingCount = async (userDocId: string) => {
+  const res = await fetch(`/api/vacation/pending?userDocId=${userDocId}`);
+  return res.json();
+};
+
+// 4. 전체 휴가 일정 (캘린더용) 조회
+const fetchAllVacations = async () => {
+  const res = await fetch("/api/vacation/list"); // GET 요청
+  const data = await res.json();
+  const requests: VacationResponse[] = data.requests || [];
+
+  // 승인된 것만 필터링 후 캘린더 이벤트 포맷으로 변환
+  return requests
+    .filter((v) => v.status === "최종 승인 완료")
+    .map((v) => {
+      const endPlusOne = new Date(v.endDate);
+      endPlusOne.setDate(endPlusOne.getDate() + 1);
+      return {
+        title: `${v.userName} (${v.types})`,
+        start: v.startDate,
+        end: endPlusOne.toISOString().split("T")[0],
+        backgroundColor: "#4caf50",
+      } as VacationEvent;
+    });
+};
+
+// -----------------------------------------------------------------------
+// [2] 컴포넌트 시작
+// -----------------------------------------------------------------------
+
 export default function UserV() {
   const [activeTab, setActiveTab] = useState<"vacation" | "vacationWrite">(
     "vacation"
   );
 
-  // ✅ Redux 로그인 정보 가져오기
-  const { userDocId, userName } = useSelector((state: RootState) => state.auth);
+  // Redux
+  const { userDocId } = useSelector((state: RootState) => state.auth);
+  const queryClient = useQueryClient();
 
-  // ✅ 개인 요약 데이터
-  const [remaining, setRemaining] = useState<number>(0);
-  const [used, setUsed] = useState<number>(0);
-  const [pendingCount, setPendingCount] = useState<number>(0);
-  const [myVacations, setMyVacations] = useState<VacationResponse[]>([]);
-
-  // ✅ 모달 상태 관리
-  const [showModal, setShowModal] = useState(false); // 대기(결재 요청) 모달
-  const [showUsedModal, setShowUsedModal] = useState(false); // 사용 완료 모달
+  // 모달 상태
+  const [showModal, setShowModal] = useState(false);
+  const [showUsedModal, setShowUsedModal] = useState(false);
   const [selectedUsedVacation, setSelectedUsedVacation] =
     useState<VacationResponse | null>(null);
 
-  // ✅ 전체 휴가 데이터 (캘린더용)
-  const [events, setEvents] = useState<VacationEvent[]>([]);
+  // =====================================================================
+  // ✅ React Query: 데이터 조회 (useQuery)
+  // =====================================================================
 
-  // 휴가 결재 리스트
-  const fetchMyVacations = async () => {
-    if (!userDocId) return;
-    try {
-      const res = await fetch(`/api/vacation/list`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "user", userName: userDocId }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setMyVacations(data.list || []); // 👈 data.list 사용
-      }
-    } catch (err) {
-      console.error("내 휴가 내역 조회 실패:", err);
-    }
-  };
+  // 1. 내 휴가 목록
+  const { data: myVacations = [] } = useQuery({
+    queryKey: ["vacations", "my", userDocId],
+    queryFn: () => fetchMyVacations(userDocId!),
+    enabled: !!userDocId,
+  });
 
-  useEffect(() => {
-    if (!userDocId) return;
-    fetchMyVacations();
-  }, [userDocId]);
+  // 2. 내 연차 정보 (잔여/사용)
+  const { data: userStats = { remainingVacation: 0, usedVacation: 0 } } =
+    useQuery({
+      queryKey: ["vacations", "stats", userDocId],
+      queryFn: () => fetchUserStats(userDocId!),
+      enabled: !!userDocId,
+    });
 
-  const fetchUserData = async () => {
-    try {
-      // employee/{userDocId}
-      const empRes = await fetch(`/api/vacation/user?userDocId=${userDocId}`);
-      const empData = await empRes.json();
-      if (empRes.ok) {
-        setRemaining(empData.remainingVacation ?? 0);
-        setUsed(empData.usedVacation ?? 0);
-      }
+  // 3. 결재 대기 건수
+  const { data: pendingData = { pendingCount: 0 } } = useQuery({
+    queryKey: ["vacations", "pendingCount", userDocId],
+    queryFn: () => fetchPendingCount(userDocId!),
+    enabled: !!userDocId,
+  });
 
-      // 2️⃣ vacation/{userDocId}/requests 중 status: 대기
-      const reqRes = await fetch(
-        `/api/vacation/pending?userDocId=${userDocId}`
-      );
-      const reqData = await reqRes.json();
-      if (reqRes.ok) {
-        setPendingCount(reqData.pendingCount ?? 0);
-      }
-    } catch (err) {
-      console.error("❌ 개인 데이터 조회 실패:", err);
-    }
-  };
+  // 4. 캘린더 전체 일정 (키: 'vacations', 'calendar')
+  const { data: events = [] } = useQuery({
+    queryKey: ["vacations", "calendar"],
+    queryFn: fetchAllVacations,
+  });
 
-  useEffect(() => {
-    if (!userDocId) return;
-    fetchUserData();
-  }, [userDocId]);
-
-  // ✅ 전체 임직원 휴가 일정 가져오기
-  useEffect(() => {
-    const fetchAllVacations = async () => {
-      try {
-        const res = await fetch("/api/vacation/list");
-        const data = await res.json();
-
-        if (!res.ok) throw new Error("API 요청 실패");
-
-        // ✅ 승인된 항목만 필터링
-        const approvedVacations: VacationResponse[] = data.requests.filter(
-          (v: VacationResponse) => v.status === "최종 승인 완료"
-        );
-
-        // ✅ FullCalendar에 맞게 endDate 하루 추가
-        const mapped: VacationEvent[] = approvedVacations.map((v) => {
-          const endPlusOne = new Date(v.endDate);
-          endPlusOne.setDate(endPlusOne.getDate() + 1);
-
-          return {
-            title: `${v.userName} (${v.types})`,
-            start: v.startDate,
-            end: endPlusOne.toISOString().split("T")[0], // 하루 더한 날짜
-            backgroundColor: "#4caf50",
-          };
-        });
-
-        setEvents(mapped);
-      } catch (err) {
-        console.error("❌ 전체 휴가 조회 실패:", err);
-      }
-    };
-
-    fetchAllVacations();
-  }, []);
-
-  // 휴가 취소 핸들러 함수
-  const handleCancelVacation = async (vacationId: string) => {
-    if (!window.confirm("이 휴가 요청을 정말로 취소하시겠습니까?")) {
-      return;
-    }
-
-    try {
+  // =====================================================================
+  // ✅ React Query: 데이터 변경 (useMutation) - 휴가 취소
+  // =====================================================================
+  const cancelMutation = useMutation({
+    mutationFn: async (vacationId: string) => {
       const res = await fetch("/api/vacation/cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          vacationId: vacationId,
-          applicantUserName: userDocId, // 내 userDocId 전송
+          vacationId,
+          applicantUserName: userDocId,
         }),
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "휴가 취소에 실패했습니다.");
-      }
-
+      if (!res.ok) throw new Error(data.error || "취소 실패");
+      return data;
+    },
+    onSuccess: () => {
       alert("휴가 요청이 취소되었습니다.");
-      // 목록과 카드 카운트를 새로고침
-      fetchMyVacations();
-      fetchUserData();
-    } catch (err) {
-      console.error("휴가 취소 오류:", err);
-      alert(
-        err instanceof Error ? err.message : "취소 중 오류가 발생했습니다."
-      );
+      // 🌟 핵심: 관련된 모든 쿼리를 무효화하여 자동 새로고침
+      queryClient.invalidateQueries({ queryKey: ["vacations"] });
+    },
+    onError: (err) => {
+      alert(err.message);
+    },
+  });
+
+  const handleCancelVacation = (vacationId: string) => {
+    if (confirm("이 휴가 요청을 정말로 취소하시겠습니까?")) {
+      cancelMutation.mutate(vacationId);
     }
   };
 
-  // 사용 완료된 휴가만 필터링 함수
+  // 헬퍼 함수들
   const getUsedVacations = () => {
     return myVacations.filter((v) => v.status === "최종 승인 완료");
   };
 
-  // 날짜 포맷팅 헬퍼 함수
   const formatDate = (
     dateValue: string | FirestoreTimestamp | undefined | null
   ) => {
     if (!dateValue) return "-";
-
     let date: Date;
-
-    // dateValue가 객체이고 seconds 속성이 있다면 Firestore Timestamp로 간주
     if (typeof dateValue === "object" && "seconds" in dateValue) {
       date = new Date(dateValue.seconds * 1000);
     } else {
-      // 그 외에는 문자열로 간주하여 Date 변환
       date = new Date(dateValue as string);
     }
-
     return date.toLocaleString("ko-KR", {
       year: "numeric",
       month: "2-digit",
@@ -210,21 +194,27 @@ export default function UserV() {
   };
 
   if (activeTab === "vacationWrite") {
-    return <VacationWrite onCancel={() => setActiveTab("vacation")} />;
+    return <VacationWritePage />;
   }
 
   return (
     <div className="flex flex-col gap-12 w-full">
       <div className="flex items-center relative">
-        <div className="ml-auto relative">
-          <button
-            className="px-4 py-2 rounded-xl border border-[#519d9e] hover:bg-[#519d9e] hover:text-white cursor-pointer"
-            onClick={() => {
-              setActiveTab("vacationWrite");
-            }}
+        <div className="ml-auto relative flex gap-3">
+          {/* ✅ [추가됨] 전체 현황 보기 버튼 (리스트 페이지로 이동) */}
+          <Link
+            href="/main/vacation/list"
+            className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-black cursor-pointer text-sm transition-colors flex items-center"
+          >
+            📋 전체 현황 보기
+          </Link>
+
+          <Link
+            href="/main/vacation/write"
+            className="px-4 py-2 rounded-xl border border-[#519d9e] hover:bg-[#519d9e] hover:text-white cursor-pointer text-sm transition-colors"
           >
             휴가원 작성 ▾
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -232,25 +222,27 @@ export default function UserV() {
       <div className="flex justify-center gap-10">
         <div className="bg-white shadow-md border rounded-2xl p-6 w-80 text-center">
           <span className="text-gray-600 font-medium">미사용 휴가 일수</span>
-          <p className="text-4xl font-bold">{remaining} 개</p>
+          <p className="text-4xl font-bold">
+            {userStats.remainingVacation ?? 0} 개
+          </p>
         </div>
         <div
           className="bg-white shadow-md border rounded-2xl p-6 w-80 text-center cursor-pointer hover:bg-gray-50 transition-colors"
           onClick={() => setShowUsedModal(true)}
         >
           <span className="text-gray-600 font-medium">사용 휴가 일수</span>
-          <p className="text-4xl font-bold">{used} 개</p>
+          <p className="text-4xl font-bold">{userStats.usedVacation ?? 0} 개</p>
         </div>
         <div
           className="bg-white shadow-md border rounded-2xl p-6 w-80 text-center cursor-pointer hover:bg-gray-50 transition-colors"
           onClick={() => setShowModal(true)}
         >
           <span className="text-gray-600 font-medium">휴가 결재 요청</span>
-          <p className="text-4xl font-bold">{pendingCount} 건</p>
+          <p className="text-4xl font-bold">{pendingData.pendingCount} 건</p>
         </div>
       </div>
 
-      {/* 🔹 휴가 결재 요청 모달 (일반 유저) */}
+      {/* 🔹 휴가 결재 요청 모달 */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
           <div className="bg-white rounded-xl p-6 w-[600px]">
@@ -273,9 +265,9 @@ export default function UserV() {
                         className={`text-sm font-medium ${
                           v.status === "대기"
                             ? "text-blue-500"
-                            : v.status === "1차 결재 완료" // 👈 1차 결재 완료 상태 추가
+                            : v.status === "1차 결재 완료"
                             ? "text-yellow-600"
-                            : v.status === "최종 승인 완료" // 👈 '승인' -> '최종 승인 완료'
+                            : v.status === "최종 승인 완료"
                             ? "text-green-600"
                             : v.status === "반려"
                             ? "text-red-500"
@@ -285,13 +277,14 @@ export default function UserV() {
                         {v.status}
                       </span>
 
-                      {/* 🔽 [신규] "대기" 상태일 때만 "취소" 버튼 표시 */}
+                      {/* 대기 상태일 때만 취소 버튼 표시 */}
                       {v.status === "대기" && (
                         <button
                           onClick={() => handleCancelVacation(v.id)}
-                          className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-[#f87171] transition-colors cursor-pointer"
+                          disabled={cancelMutation.isPending}
+                          className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-[#f87171] transition-colors cursor-pointer disabled:bg-gray-300"
                         >
-                          취소
+                          {cancelMutation.isPending ? "처리중..." : "취소"}
                         </button>
                       )}
                     </div>
@@ -313,7 +306,7 @@ export default function UserV() {
         </div>
       )}
 
-      {/* 🔹 사용 휴가 내역 모달 (최종 승인 완료만 표시) */}
+      {/* 🔹 사용 휴가 내역 모달 */}
       {showUsedModal && (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
           <div className="bg-white rounded-xl p-6 w-[600px]">
@@ -326,7 +319,6 @@ export default function UserV() {
                 getUsedVacations().map((v) => (
                   <li
                     key={v.id}
-                    // 🔽 [3] 클릭 시 상세 모달 열기
                     className="py-3 px-2 cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => setSelectedUsedVacation(v)}
                   >
@@ -364,6 +356,7 @@ export default function UserV() {
         </div>
       )}
 
+      {/* 상세 보기 모달 */}
       {selectedUsedVacation && (
         <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-[60]">
           <div className="bg-white rounded-xl p-6 w-[500px] shadow-2xl">
@@ -439,6 +432,7 @@ export default function UserV() {
         </div>
       )}
 
+      {/* 캘린더 영역 */}
       <div className="bg-white shadow-md border rounded-2xl p-6 w-[1200px] mx-auto">
         <h2 className="text-lg font-semibold mb-4">임직원 휴가</h2>
         <div className="w-[1100px] h-[500px] mx-auto">
