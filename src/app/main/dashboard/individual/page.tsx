@@ -353,6 +353,11 @@ export default function Individual() {
             plugins={[dayGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
             events={events}
+            headerToolbar={{
+              left: "prev,next today",
+              center: "title",
+              right: "dayGridMonth,dayGridWeek,dayGridDay",
+            }}
             dateClick={handleDateClick}
             eventClick={(info) => {
               if (confirm("일정을 삭제하시겠습니까?")) {

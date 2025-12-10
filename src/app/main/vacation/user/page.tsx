@@ -206,7 +206,7 @@ export default function UserV() {
             href="/main/vacation/list"
             className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-black cursor-pointer text-sm transition-colors flex items-center"
           >
-            📋 전체 현황 보기
+            📋 휴가 현황 보기
           </Link>
 
           <Link

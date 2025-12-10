@@ -33,7 +33,7 @@ export default async function VacationListPage() {
 
   return (
     <div className="w-full p-6">
-      <h2 className="text-2xl font-bold mb-6">📅 전체 휴가 현황</h2>
+      <h2 className="text-2xl font-bold mb-6">📅 임직원 휴가 현황</h2>
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead className="bg-gray-100">
@@ -42,7 +42,6 @@ export default async function VacationListPage() {
               <th className="p-4 text-sm font-semibold border-b">종류</th>
               <th className="p-4 text-sm font-semibold border-b">기간</th>
               <th className="p-4 text-sm font-semibold border-b">사용일수</th>
-              <th className="p-4 text-sm font-semibold border-b">사유</th>
               <th className="p-4 text-sm font-semibold border-b">상태</th>
             </tr>
           </thead>
@@ -55,9 +54,7 @@ export default async function VacationListPage() {
                   {v.startDate} ~ {v.endDate}
                 </td>
                 <td className="p-4 text-sm">{v.daysUsed}일</td>
-                <td className="p-4 text-sm text-gray-500 truncate max-w-[200px]">
-                  {v.reason}
-                </td>
+
                 <td className="p-4 text-sm">
                   <span
                     className={`px-2 py-1 rounded text-xs font-semibold ${
