@@ -67,7 +67,7 @@ export default function ApprovalsWritePage() {
       alert("보고서가 저장되었습니다!");
 
       // [수정] 작성 완료 후 리스트 페이지로 이동
-      router.push("/work/approvals");
+      router.push("/work/workoutside/approvals");
       // router.refresh(); // 필요하다면 데이터 갱신을 위해 추가
     } catch (error) {
       console.error(error);

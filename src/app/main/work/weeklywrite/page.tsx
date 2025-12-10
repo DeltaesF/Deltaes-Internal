@@ -67,7 +67,7 @@ export default function WeeklyWritePage() {
       alert("보고서가 저장되었습니다!");
 
       // [수정] 작성 완료 후 리스트 페이지로 이동
-      router.push("/work/weekly");
+      router.push("/main/work/weekly");
       // router.refresh(); // 필요하다면 데이터 갱신을 위해 추가
     } catch (error) {
       console.error(error);
@@ -113,7 +113,7 @@ export default function WeeklyWritePage() {
         <button
           type="submit"
           disabled={isLoading}
-          className={`px-4 py-3 rounded text-white font-bold transition-colors ${
+          className={`px-4 py-3 rounded text-white font-bold transition-colors cursor-pointer ${
             isLoading ? "bg-gray-400" : "bg-[#519d9e] hover:bg-[#407f80]"
           }`}
         >

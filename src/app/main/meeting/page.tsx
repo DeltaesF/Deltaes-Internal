@@ -1,5 +1,5 @@
-import WeekMeeting from "./weekMeeting";
+import { redirect } from "next/navigation";
 
 export default function MeetingPage() {
-  return <WeekMeeting />;
+  redirect("/main/meeting/weekly-work/week");
 }

@@ -1,33 +1,42 @@
-import { db } from "@/lib/firebaseAdmin";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 import Link from "next/link";
 
-async function getWeeklyList() {
-  try {
-    const snapshot = await db
-      .collectionGroup("userWeeklys")
-      .orderBy("createdAt", "desc")
-      .get();
-
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        title: data.title || "제목 없음",
-        userName: data.userName || "작성자 미상",
-        createdAt:
-          data.createdAt && typeof data.createdAt.toMillis === "function"
-            ? data.createdAt.toMillis()
-            : data.createdAt || Date.now(),
-      };
-    });
-  } catch (error) {
-    console.error("Error fetching weeklys:", error);
-    return [];
-  }
+interface WeeklyReport {
+  id: string;
+  title: string;
+  userName: string;
+  createdAt: number;
+  content?: string;
+  fileUrl?: string | null;
+  fileName?: string | null;
 }
 
-export default async function WeeklyPage() {
-  const weekly = await getWeeklyList();
+const fetchMyWeeklys = async (userName: string, role: string) => {
+  const res = await fetch("/api/weekly/list", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userName, role }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to fetch data");
+  }
+  return res.json();
+};
+
+export default function WeeklyPage() {
+  const { userName, role } = useSelector((state: RootState) => state.auth);
+
+  const { data: weeklyList = [], isLoading } = useQuery<WeeklyReport[]>({
+    queryKey: ["weekly", userName], // 쿼리키에 userName 포함하여 캐시 분리
+    queryFn: () => fetchMyWeeklys(userName || "", role || ""),
+    enabled: !!userName, // 로그인이 되었을 때만 실행
+  });
+
+  if (isLoading) return <div className="p-4 text-gray-500">로딩 중...</div>;
 
   return (
     <div className="border rounded-2xl shadow-sm p-4 bg-white">
@@ -42,7 +51,7 @@ export default async function WeeklyPage() {
       </div>
 
       <ul>
-        {weekly.map((item) => (
+        {weeklyList.map((item) => (
           <li
             key={item.id}
             className="border-b flex justify-between items-center hover:bg-gray-50 group transition-colors"
@@ -69,7 +78,7 @@ export default async function WeeklyPage() {
           </li>
         ))}
 
-        {weekly.length === 0 && (
+        {weeklyList.length === 0 && (
           <li className="py-4 text-center text-gray-400">
             등록된 주간 업무 보고서가 없습니다.
           </li>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation"; // router 사용
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
+import Editor from "@/components/editor";
 
 // Props 타입 정의 제거 (page.tsx는 props를 받지 않음)
 
@@ -32,6 +33,9 @@ export default function DailyWritePage() {
     e.preventDefault();
     if (!userName) return alert("로그인 정보가 없습니다.");
     if (!title) return alert("제목을 입력해주세요.");
+
+    // 에디터 내용 체크 (태그만 있는 빈 값인 경우도 고려 가능)
+    if (!content || content === "<p></p>") return alert("내용을 입력해주세요.");
 
     setIsLoading(true);
 
@@ -67,7 +71,7 @@ export default function DailyWritePage() {
       alert("보고서가 저장되었습니다!");
 
       // [수정] 작성 완료 후 리스트 페이지로 이동
-      router.push("/work/daily");
+      router.push("/main/work/daily");
       // router.refresh(); // 필요하다면 데이터 갱신을 위해 추가
     } catch (error) {
       console.error(error);
@@ -78,7 +82,7 @@ export default function DailyWritePage() {
   };
 
   return (
-    <div className="p-6 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6">
+    <div className="p-6 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto">
       <button
         onClick={handleCancel}
         className="mb-4 px-4 py-2 border rounded hover:bg-gray-100 cursor-pointer text-sm"
@@ -92,28 +96,32 @@ export default function DailyWritePage() {
         {/* 입력 폼 내용 (기존과 동일) */}
         <input
           type="text"
-          placeholder="제목"
+          placeholder="제목을 입력하세요"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="border p-2 rounded"
+          className="border p-3 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-[#519d9e]"
         />
-        <textarea
-          placeholder="내용"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className="border p-2 rounded h-40 resize-none"
-        ></textarea>
 
-        <input
-          type="file"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
-          className="border p-2 rounded"
-        />
+        {/* [변경] 기존 textarea 대신 Editor 컴포넌트 사용 */}
+        <div className="min-h-[400px]">
+          <Editor content={content} onChange={setContent} />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-semibold text-gray-600">
+            첨부파일
+          </label>
+          <input
+            type="file"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            className="border p-2 rounded"
+          />
+        </div>
 
         <button
           type="submit"
           disabled={isLoading}
-          className={`px-4 py-3 rounded text-white font-bold transition-colors ${
+          className={`px-4 py-3 rounded text-white font-bold transition-colors cursor-pointer ${
             isLoading ? "bg-gray-400" : "bg-[#519d9e] hover:bg-[#407f80]"
           }`}
         >

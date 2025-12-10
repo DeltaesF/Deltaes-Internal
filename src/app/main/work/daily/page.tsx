@@ -1,39 +1,51 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 import Link from "next/link";
-import { db } from "@/lib/firebaseAdmin";
 
-async function getDailyList() {
-  try {
-    const snapshot = await db
-      .collectionGroup("userDailys")
-      .orderBy("createdAt", "desc")
-      .get();
-
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        title: data.title || "제목 없음",
-        userName: data.userName || "작성자 미상",
-        createdAt:
-          data.createdAt && typeof data.createdAt.toMillis === "function"
-            ? data.createdAt.toMillis()
-            : data.createdAt || Date.now(),
-      };
-    });
-  } catch (error) {
-    console.error("Error fetching dailys:", error);
-    return [];
-  }
+interface DailyReport {
+  id: string;
+  title: string;
+  userName: string;
+  createdAt: number;
+  content?: string;
+  fileUrl?: string | null;
+  fileName?: string | null;
 }
 
-export default async function Daily() {
-  const daily = await getDailyList();
+const fetchMyDailys = async (userName: string, role: string) => {
+  const res = await fetch("/api/daily/list", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userName, role }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to fetch data");
+  }
+  return res.json();
+};
+
+export default function Daily() {
+  const { userName, role } = useSelector((state: RootState) => state.auth);
+
+  const { data: dailyList = [], isLoading } = useQuery<DailyReport[]>({
+    queryKey: ["dailys", userName], // 쿼리키에 userName 포함하여 캐시 분리
+    queryFn: () => fetchMyDailys(userName || "", role || ""),
+    enabled: !!userName, // 로그인이 되었을 때만 실행
+  });
+
+  if (isLoading) return <div className="p-4 text-gray-500">로딩 중...</div>;
 
   return (
     <div className="border rounded-2xl shadow-sm p-4 bg-white">
       <div className="flex justify-between items-center mb-3">
-        <h3 className="text-[20px] font-semibold">일일 업무 보고서</h3>
-        {/* '글작성' 버튼을 페이지 이동 링크로 변경 */}
+        <h3 className="text-[20px] font-semibold">
+          {role === "supervisor"
+            ? "전체 일일 업무 보고서"
+            : "나의 일일 업무 보고서"}
+        </h3>
         <Link
           href="/main/work/dailywrite"
           className="px-4 py-2 rounded-xl border border-[#519d9e] hover:bg-[#519d9e] hover:text-white cursor-pointer text-sm transition-colors"
@@ -43,7 +55,7 @@ export default async function Daily() {
       </div>
 
       <ul>
-        {daily.map((item) => (
+        {dailyList.map((item) => (
           <li
             key={item.id}
             className="border-b flex justify-between items-center hover:bg-gray-50 group transition-colors"
@@ -70,7 +82,7 @@ export default async function Daily() {
           </li>
         ))}
 
-        {daily.length === 0 && (
+        {dailyList.length === 0 && (
           <li className="py-4 text-center text-gray-400">
             등록된 일일 업무 보고서가 없습니다.
           </li>

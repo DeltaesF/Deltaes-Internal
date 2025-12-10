@@ -46,7 +46,7 @@ export default function ResourcesWritePage() {
 
       if (!res.ok) throw new Error("저장 실패");
       alert("자료가 등록되었습니다.");
-      router.push("/main/workoutside/resources");
+      router.push("/main/resources");
     } catch (error) {
       console.error(error);
       alert("오류가 발생했습니다.");

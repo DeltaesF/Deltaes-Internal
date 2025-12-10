@@ -24,3 +24,73 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.prose-editor {
+  @apply text-gray-800 leading-relaxed;
+}
+
+.prose-editor h1 {
+  @apply text-4xl font-bold mb-4 mt-6;
+}
+.prose-editor h2 {
+  @apply text-3xl font-bold mb-3 mt-5;
+}
+.prose-editor h3 {
+  @apply text-2xl font-bold mb-3 mt-4;
+}
+.prose-editor h4 {
+  @apply text-xl font-bold mb-2 mt-3;
+}
+.prose-editor h5 {
+  @apply text-lg font-bold mb-2 mt-3;
+}
+.prose-editor h6 {
+  @apply text-base font-bold mb-2 mt-3;
+}
+
+.prose-editor p {
+  @apply mb-4;
+}
+
+.prose-editor ul {
+  @apply list-disc list-outside ml-5 mb-4;
+}
+.prose-editor ol {
+  @apply list-decimal list-outside ml-5 mb-4;
+}
+.prose-editor li {
+  @apply mb-1;
+}
+
+.prose-editor strong {
+  @apply font-bold;
+}
+.prose-editor em {
+  @apply italic;
+}
+.prose-editor u {
+  @apply underline underline-offset-2;
+}
+.prose-editor s {
+  @apply line-through text-gray-500;
+}
+
+.prose-editor hr {
+  @apply my-6 border-gray-300;
+}
+
+.prose-editor blockquote {
+  @apply border-l-4 border-gray-300 pl-4 py-1 my-4 italic text-gray-600 bg-gray-50;
+}
+
+/* 에디터 내부 편집 영역 스타일 */
+.tiptap {
+  @apply min-h-[300px] outline-none;
+}
+.tiptap p.is-editor-empty:first-child::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
