@@ -60,7 +60,7 @@ export default async function WeeklyDetailPage({
       </div>
 
       <div
-        className="prose max-w-none whitespace-pre-wrap text-gray-800 leading-relaxed"
+        className="prose-editor max-w-none whitespace-pre-wrap text-gray-800 leading-relaxed"
         dangerouslySetInnerHTML={{ __html: weekly.content }}
       />
 

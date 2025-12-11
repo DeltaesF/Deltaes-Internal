@@ -4,15 +4,19 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/store"; // 경로 확인 필요
+import { useState } from "react";
 
 export default function Sidebar() {
   const pathname = usePathname(); // 현재 URL 확인용
   const router = useRouter();
   const dispatch = useDispatch();
 
-  const { userName } = useSelector(
+  const { userName, role } = useSelector(
     (state: RootState) => state.auth || { userName: "사용자" }
   );
+
+  const [isWorkOpen, setIsWorkOpen] = useState(true);
+  const [isMeetingOpen, setIsMeetingOpen] = useState(true);
 
   const handleLogout = () => {
     if (window.confirm("로그아웃 하시겠습니까?")) {
@@ -33,6 +37,19 @@ export default function Sidebar() {
     }`;
   };
 
+  const getSubLinkClass = (pathSegment: string) => {
+    // 현재 URL에 해당 경로가 포함되어 있는지 확인 (예: /main/work/dailywrite 도 /work/daily 에 포함됨)
+    const isActive = pathname.includes(pathSegment);
+    return `text-sm p-2 rounded-lg border-2 block transition-colors ${
+      isActive
+        ? "bg-[#519d9e] text-white border-[#519d9e]" // 활성화 시 색상
+        : "bg-white border-gray-300 text-black hover:bg-gray-200" // 비활성화 시 스타일
+    }`;
+  };
+
+  const isSalesTeam =
+    userName?.includes("영업") || role === "supervisor" || role === "ceo";
+
   return (
     <div className="w-[10%] min-w-[150px] h-screen gap-6 p-4 flex flex-col bg-[#e0e0e0] text-center fixed left-0 top-0 overflow-y-auto z-50">
       <Link href="/main/dashboard/individual">
@@ -46,13 +63,61 @@ export default function Sidebar() {
         게시판
       </Link>
 
-      <Link href="/main/work" className={getLinkClass("/main/work")}>
-        업무보고
-      </Link>
+      <div className="w-full">
+        <div
+          onClick={() => setIsWorkOpen(!isWorkOpen)}
+          className="cursor-pointer p-2 rounded-xl bg-white border-[3px] border-[#519d9e] text-black font-semibold hover:bg-gray-200 mb-2"
+        >
+          업무보고 ▼
+        </div>
 
-      <Link href="/main/meeting" className={getLinkClass("/main/meeting")}>
-        주간업무회의
-      </Link>
+        {isWorkOpen && (
+          <div className="flex flex-col gap-2 pl-2">
+            <Link
+              href="/main/work/daily"
+              className={getSubLinkClass("/work/daily")}
+            >
+              일일보고
+            </Link>
+
+            <Link
+              href="/main/work/weekly"
+              className={getSubLinkClass("/work/weekly")}
+            >
+              주간업무
+            </Link>
+          </div>
+        )}
+      </div>
+
+      <div className="w-full">
+        <div
+          onClick={() => setIsMeetingOpen(!isMeetingOpen)}
+          className="cursor-pointer p-2 rounded-xl bg-white border-[3px] border-[#519d9e] text-black font-semibold hover:bg-gray-200 mb-2"
+        >
+          주간업무회의 ▼
+        </div>
+
+        {isMeetingOpen && (
+          <div className="flex flex-col gap-2 pl-2">
+            <Link
+              href="/main/meeting/weekly-work/week"
+              className={getSubLinkClass("/meeting/weekly-work")}
+            >
+              주간 업무 보고
+            </Link>
+
+            {isSalesTeam && (
+              <Link
+                href="/main/meeting/weekly-sales/sales"
+                className={getSubLinkClass("/meeting/weekly-sales")}
+              >
+                주간 영업 보고
+              </Link>
+            )}
+          </div>
+        )}
+      </div>
 
       <Link
         href="/main/workoutside/approvals"

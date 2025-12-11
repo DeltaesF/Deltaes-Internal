@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation"; // router 사용
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
+import Editor from "@/components/editor";
 
 // Props 타입 정의 제거 (page.tsx는 props를 받지 않음)
 
@@ -97,18 +98,21 @@ export default function WeeklyWritePage() {
           onChange={(e) => setTitle(e.target.value)}
           className="border p-2 rounded"
         />
-        <textarea
-          placeholder="내용"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className="border p-2 rounded h-40 resize-none"
-        ></textarea>
+        {/* [변경] 기존 textarea 대신 Editor 컴포넌트 사용 */}
+        <div className="min-h-[400px]">
+          <Editor content={content} onChange={setContent} />
+        </div>
 
-        <input
-          type="file"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
-          className="border p-2 rounded"
-        />
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-semibold text-gray-600">
+            첨부파일
+          </label>
+          <input
+            type="file"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            className="border p-2 rounded"
+          />
+        </div>
 
         <button
           type="submit"

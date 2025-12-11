@@ -41,11 +41,7 @@ export default function Daily() {
   return (
     <div className="border rounded-2xl shadow-sm p-4 bg-white">
       <div className="flex justify-between items-center mb-3">
-        <h3 className="text-[20px] font-semibold">
-          {role === "supervisor"
-            ? "전체 일일 업무 보고서"
-            : "나의 일일 업무 보고서"}
-        </h3>
+        <h3 className="text-[20px] font-semibold">주간 업무 보고서</h3>
         <Link
           href="/main/work/dailywrite"
           className="px-4 py-2 rounded-xl border border-[#519d9e] hover:bg-[#519d9e] hover:text-white cursor-pointer text-sm transition-colors"
