@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { initializeApp, cert, getApps } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
 if (!getApps().length) {
   initializeApp({
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       userName,
       fileUrl: fileUrl || null,
       fileName: fileName || null,
-      createdAt: Date.now(),
+      createdAt: FieldValue.serverTimestamp(),
     });
 
     return NextResponse.json({ success: true, id: docRef.id });
