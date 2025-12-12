@@ -86,7 +86,7 @@ export default function ApprovalsWritePage() {
         ◀ 취소하고 돌아가기
       </button>
 
-      <h2 className="text-2xl font-bold mb-6">품의서 작성</h2>
+      <h2 className="text-2xl font-bold mb-6">구매 품의서 작성</h2>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {/* 입력 폼 내용 (기존과 동일) */}

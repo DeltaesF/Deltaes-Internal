@@ -8,6 +8,26 @@ import Editor from "@/components/editor";
 
 // Props 타입 정의 제거 (page.tsx는 props를 받지 않음)
 
+const DEFAULT_TEMPLATE = `
+  <h3>금주 업무 보고</h3>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 40%;">추진사항</th>
+        <th style="width: 20%;">완료예정일</th>
+        <th style="width: 40%;">상세내용</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+`;
+
 export default function WeeklyWritePage() {
   const router = useRouter(); // 라우터 훅 사용
   const { userName } = useSelector(
@@ -15,7 +35,7 @@ export default function WeeklyWritePage() {
   );
 
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [content, setContent] = useState(DEFAULT_TEMPLATE);
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -93,7 +113,7 @@ export default function WeeklyWritePage() {
         {/* 입력 폼 내용 (기존과 동일) */}
         <input
           type="text"
-          placeholder="제목"
+          placeholder="주간업무보고서_2026.01.01_홍길동"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="border p-2 rounded"

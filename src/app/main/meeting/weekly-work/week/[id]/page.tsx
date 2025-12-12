@@ -142,14 +142,11 @@ function AuthorizedContent({
 
   const relatedDailys = dailyList
     .filter((daily) => {
-      // 1. 작성자가 같아야 함
       if (daily.userName !== weekly.userName) return false;
-
-      // 2. 날짜 범위 체크 (계산된 월~금 사이)
-      const dailyDate = new Date(daily.createdAt);
-      return dailyDate >= monday && dailyDate <= friday;
+      const d = new Date(daily.createdAt);
+      return d >= monday && d <= friday;
     })
-    .sort((a, b) => b.createdAt - a.createdAt); // 최신순 정렬
+    .sort((a, b) => a.createdAt - b.createdAt); // 작성순
 
   return (
     <div className="flex flex-col gap-8 p-6 max-w-5xl mx-auto pb-20">
@@ -165,70 +162,6 @@ function AuthorizedContent({
           작성일: {new Date(weekly.createdAt).toLocaleString()}
         </div>
       </div>
-
-      <div className="flex items-center gap-4 my-2">
-        <div className="h-[1px] flex-1 bg-gray-300"></div>
-        <span className="text-gray-400 text-sm font-medium">
-          관련 일일 업무 내역
-        </span>
-        <div className="h-[1px] flex-1 bg-gray-300"></div>
-      </div>
-
-      <section className="flex flex-col gap-6">
-        {isDailyLoading ? (
-          <p className="text-center text-gray-400 py-10">
-            일일 업무 내역 로딩 중...
-          </p>
-        ) : relatedDailys.length > 0 ? (
-          relatedDailys.map((daily, index) => (
-            <div
-              key={daily.id}
-              className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200"
-            >
-              <div className="bg-gray-50 px-6 py-3 border-b flex justify-between items-center rounded-t-xl">
-                <div className="flex items-center gap-3">
-                  <span className="bg-gray-200 text-gray-700 text-xs font-bold px-2 py-1 rounded">
-                    {
-                      ["일", "월", "화", "수", "목", "금", "토"][
-                        new Date(daily.createdAt).getDay()
-                      ]
-                    }
-                    요일
-                  </span>
-                  <h3 className="font-semibold text-gray-800">{daily.title}</h3>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-500">
-                    {new Date(daily.createdAt).toLocaleDateString()}
-                  </span>
-
-                  {/* ✅ [추가됨] 작성자 본인일 경우 수정 버튼 표시 */}
-                  {daily.userName === myName && (
-                    <Link
-                      href={`/main/work/daily/edit/${daily.id}`}
-                      className="text-xs px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-gray-600 transition-colors"
-                    >
-                      수정
-                    </Link>
-                  )}
-                </div>
-              </div>
-
-              <div className="p-6">
-                <div
-                  className="prose-editor text-sm text-gray-700"
-                  dangerouslySetInnerHTML={{ __html: daily.content }}
-                />
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-gray-400">
-            해당 주간에 작성된 일일 업무 보고가 없습니다.
-          </div>
-        )}
-      </section>
 
       <section className="bg-white border-2 border-[#519d9e] rounded-2xl shadow-lg overflow-hidden">
         <div className="bg-[#519d9e] px-6 py-4 flex justify-between items-center">
@@ -251,6 +184,80 @@ function AuthorizedContent({
               수정하기
             </Link>
           )}
+        </div>
+
+        <div className="flex items-center gap-4 mt-4">
+          <div className="h-[1px] flex-1 bg-gray-300"></div>
+          <span className="text-gray-700 text-sm font-bold">
+            관련 일일 업무 내역
+          </span>
+          <div className="h-[1px] flex-1 bg-gray-300"></div>
+        </div>
+
+        <section className="flex flex-col gap-6">
+          {isDailyLoading ? (
+            <p className="text-center text-gray-400 py-10">
+              일일 업무 내역 로딩 중...
+            </p>
+          ) : relatedDailys.length > 0 ? (
+            relatedDailys.map((daily, index) => (
+              <div
+                key={daily.id}
+                className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200"
+              >
+                <div className="bg-gray-50 px-6 py-3 border-b flex justify-between items-center rounded-t-xl">
+                  <div className="flex items-center gap-3">
+                    <span className="bg-gray-200 text-gray-700 text-xs font-bold px-2 py-1 rounded">
+                      {
+                        ["일", "월", "화", "수", "목", "금", "토"][
+                          new Date(daily.createdAt).getDay()
+                        ]
+                      }
+                      요일
+                    </span>
+                    <h3 className="font-semibold text-gray-800">
+                      {daily.title}
+                    </h3>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500">
+                      {new Date(daily.createdAt).toLocaleDateString()}
+                    </span>
+
+                    {/* ✅ [추가됨] 작성자 본인일 경우 수정 버튼 표시 */}
+                    {daily.userName === myName && (
+                      <Link
+                        href={`/main/work/daily/edit/${daily.id}`}
+                        className="text-xs px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-gray-600 transition-colors"
+                      >
+                        수정
+                      </Link>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-6">
+                  <div
+                    className="prose-editor text-sm text-gray-700"
+                    dangerouslySetInnerHTML={{ __html: daily.content }}
+                  />
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-gray-400">
+              해당 주간에 작성된 일일 업무 보고가 없습니다.
+            </div>
+          )}
+        </section>
+
+        <div className="flex items-center gap-4 mt-4">
+          <div className="h-[1px] flex-1 bg-gray-300"></div>
+          <span className="text-gray-700 text-sm font-bold">
+            금주 업무 보고
+          </span>
+          <div className="h-[1px] flex-1 bg-gray-300"></div>
         </div>
 
         <div className="p-8">

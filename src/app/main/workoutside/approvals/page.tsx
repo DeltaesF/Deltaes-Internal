@@ -33,9 +33,9 @@ export default async function ApprovalsPage() {
     <div className="flex flex-col w-full">
       <div className="border rounded-2xl shadow-sm p-4 bg-white">
         <div className="flex justify-between items-center mb-3">
-          <h3 className="text-[20px] font-semibold">품의서</h3>
+          <h3 className="text-[20px] font-semibold">구매품의서</h3>
           <Link
-            href="/main/workoutside/write"
+            href="/main/workoutside/approvals/write"
             className="px-4 py-2 rounded-xl border border-[#519d9e] hover:bg-[#519d9e] hover:text-white cursor-pointer text-sm"
           >
             글작성 ✎

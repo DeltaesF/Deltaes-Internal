@@ -17,6 +17,9 @@ export default function Sidebar() {
 
   const [isWorkOpen, setIsWorkOpen] = useState(true);
   const [isMeetingOpen, setIsMeetingOpen] = useState(true);
+  const [isReportOpen, setIsReportOpen] = useState(true);
+  const [isApprovalsOpen, setIsApprovalsOpen] = useState(true);
+  const [isCompanyOpen, setIsCompanyOpen] = useState(true);
 
   const handleLogout = () => {
     if (window.confirm("로그아웃 하시겠습니까?")) {
@@ -56,12 +59,36 @@ export default function Sidebar() {
         <p className="mt-3 font-semibold">{userName || "사용자"}님</p>
       </Link>
 
-      <Link
+      <div className="w-full">
+        <div
+          onClick={() => setIsCompanyOpen(!isCompanyOpen)}
+          className="cursor-pointer p-2 rounded-xl bg-white border-[3px] border-[#519d9e] text-black font-semibold hover:bg-gray-200 mb-2"
+        >
+          내부 소식▼
+        </div>
+
+        {isCompanyOpen && (
+          <div className="flex flex-col gap-2 pl-2">
+            <Link href="/main/notice" className={getSubLinkClass("/notice")}>
+              공지사항
+            </Link>
+
+            <Link
+              href="/main/resources"
+              className={getSubLinkClass("/work/resources")}
+            >
+              자료실
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* <Link
         href="/main/totalboard/total"
         className={getLinkClass("/main/totalboard/total")}
       >
         게시판
-      </Link>
+      </Link> */}
 
       <div className="w-full">
         <div
@@ -77,14 +104,14 @@ export default function Sidebar() {
               href="/main/work/daily"
               className={getSubLinkClass("/work/daily")}
             >
-              일일보고
+              일일업무보고
             </Link>
 
             <Link
               href="/main/work/weekly"
               className={getSubLinkClass("/work/weekly")}
             >
-              주간업무
+              주간업무보고
             </Link>
           </div>
         )}
@@ -95,18 +122,11 @@ export default function Sidebar() {
           onClick={() => setIsMeetingOpen(!isMeetingOpen)}
           className="cursor-pointer p-2 rounded-xl bg-white border-[3px] border-[#519d9e] text-black font-semibold hover:bg-gray-200 mb-2"
         >
-          주간업무회의 ▼
+          주간영업회의 ▼
         </div>
 
         {isMeetingOpen && (
           <div className="flex flex-col gap-2 pl-2">
-            <Link
-              href="/main/meeting/weekly-work/week"
-              className={getSubLinkClass("/meeting/weekly-work")}
-            >
-              주간 업무 보고
-            </Link>
-
             {isSalesTeam && (
               <Link
                 href="/main/meeting/weekly-sales/sales"
@@ -119,25 +139,72 @@ export default function Sidebar() {
         )}
       </div>
 
-      <Link
-        href="/main/workoutside/approvals"
-        className={getLinkClass("/main/workoutside/approvals")}
-      >
-        품의서
-      </Link>
+      <div className="w-full">
+        <div
+          onClick={() => setIsApprovalsOpen(!isApprovalsOpen)}
+          className="cursor-pointer p-2 rounded-xl bg-white border-[3px] border-[#519d9e] text-black font-semibold hover:bg-gray-200 mb-2"
+        >
+          품의서 ▼
+        </div>
 
-      <Link
-        href="/main/report/posts"
-        className={getLinkClass("/main/report/posts")}
-      >
-        보고서
-      </Link>
+        {isApprovalsOpen && (
+          <div className="flex flex-col gap-2 pl-2">
+            <Link
+              href="/main/workoutside/approvals"
+              className={getSubLinkClass("/workoutside/approvals")}
+            >
+              구매품의서
+            </Link>
+
+            <Link
+              href="/main/workoutside/approvals"
+              className={getSubLinkClass("/workoutside/approvals/d")}
+            >
+              판매품의서
+            </Link>
+          </div>
+        )}
+      </div>
+
+      <div className="w-full">
+        <div
+          onClick={() => setIsReportOpen(!isReportOpen)}
+          className="cursor-pointer p-2 rounded-xl bg-white border-[3px] border-[#519d9e] text-black font-semibold hover:bg-gray-200 mb-2"
+        >
+          보고서 ▼
+        </div>
+
+        {isReportOpen && (
+          <div className="flex flex-col gap-2 pl-2">
+            <Link
+              href="/main/report/posts"
+              className={getSubLinkClass("/report/posts")}
+            >
+              사내교육보고서
+            </Link>
+
+            <Link
+              href="/main/report/posts"
+              className={getSubLinkClass("/report/posts/d")}
+            >
+              외부교육보고서
+            </Link>
+
+            <Link
+              href="/main/report/posts"
+              className={getSubLinkClass("/report/posts/dd")}
+            >
+              외근 및 법인차량
+            </Link>
+          </div>
+        )}
+      </div>
 
       <Link
         href="/main/vacation/user"
         className={getLinkClass("/main/vacation/user")}
       >
-        휴가원
+        휴가원 ▼
       </Link>
 
       <Link

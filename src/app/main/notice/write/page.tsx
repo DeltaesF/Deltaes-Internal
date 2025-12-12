@@ -59,7 +59,7 @@ export default function NoticeWritePage() {
     <div className="p-6 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6">
       <button
         onClick={() => router.back()}
-        className="mb-4 px-4 py-2 border rounded hover:bg-gray-100"
+        className="mb-4 px-4 py-2 border rounded hover:bg-gray-100 cursor-pointer"
       >
         ← 취소
       </button>
@@ -86,7 +86,7 @@ export default function NoticeWritePage() {
         <button
           type="submit"
           disabled={isLoading}
-          className="bg-[#519d9e] text-white py-2 rounded font-bold hover:bg-[#407f80]"
+          className="bg-[#519d9e] text-white py-2 rounded font-bold hover:bg-[#407f80] cursor-pointer"
         >
           {isLoading ? "저장 중..." : "작성 완료"}
         </button>

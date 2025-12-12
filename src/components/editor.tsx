@@ -9,6 +9,10 @@ import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
 import { useEffect } from "react";
+import TableRow from "@tiptap/extension-table-row";
+import TableHeader from "@tiptap/extension-table-header";
+import TableCell from "@tiptap/extension-table-cell";
+import { Table } from "@tiptap/extension-table";
 
 interface EditorProps {
   content: string;
@@ -135,6 +139,46 @@ const MenuBar = ({ editor }: { editor: TiptapEditor | null }) => {
       >
         — Line
       </button>
+
+      {/* ✅ [표 관련 버튼 추가] */}
+      <button
+        type="button"
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+            .run()
+        }
+        className={buttonClass(false)}
+        title="표 삽입 (3x3)"
+      >
+        표 삽입
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().addRowAfter().run()}
+        className={buttonClass(false)}
+        title="행 추가"
+      >
+        +행
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().deleteRow().run()}
+        className={buttonClass(false)}
+        title="행 삭제"
+      >
+        -행
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().deleteTable().run()}
+        className={buttonClass(false)}
+        title="표 삭제"
+      >
+        표 삭제
+      </button>
     </div>
   );
 };
@@ -147,6 +191,10 @@ export default function Editor({ content, onChange }: EditorProps) {
       TextAlign.configure({
         types: ["heading", "paragraph"],
       }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
     ],
     content: content,
     editorProps: {
