@@ -1,56 +1,67 @@
-import { db } from "@/lib/firebaseAdmin";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { useParams } from "next/navigation";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 
-// DB 데이터 조회 함수
-async function getWeeklyDetail(id: string) {
-  try {
-    // userWeeklys 컬렉션 그룹 전체 스캔 (ID 매칭)
-    const snapshot = await db.collectionGroup("userWeeklys").get();
-    const doc = snapshot.docs.find((d) => d.id === id);
-
-    if (!doc) return null;
-
-    const data = doc.data();
-    return {
-      id: doc.id,
-      title: data.title || "제목 없음",
-      content: data.content || "",
-      userName: data.userName || "작성자",
-      fileUrl: data.fileUrl || null,
-      fileName: data.fileName || null,
-      createdAt:
-        data.createdAt && typeof data.createdAt.toMillis === "function"
-          ? data.createdAt.toMillis()
-          : data.createdAt || Date.now(),
-    };
-  } catch (error) {
-    console.error("Error fetching weekly detail:", error);
-    return null;
-  }
+interface WeeklyDetail {
+  id: string;
+  title: string;
+  content: string;
+  userName: string;
+  createdAt: number;
+  fileUrl?: string;
+  fileName?: string;
 }
 
-export default async function WeeklyDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const weekly = await getWeeklyDetail(id);
+const fetchWeeklyDetail = async (id: string) => {
+  const res = await fetch(`/api/weekly/${id}`);
+  if (!res.ok) throw new Error("Fetch failed");
+  return res.json();
+};
 
-  if (!weekly) return notFound();
+export default function WeeklyDetailPage() {
+  const { id } = useParams() as { id: string };
+  const { userName } = useSelector((state: RootState) => state.auth);
+
+  const { data: weekly, isLoading } = useQuery<WeeklyDetail>({
+    queryKey: ["weeklyDetail", id],
+    queryFn: () => fetchWeeklyDetail(id),
+    enabled: !!id,
+  });
+
+  if (isLoading) return <div className="p-8 text-center">로딩 중...</div>;
+  if (!weekly)
+    return <div className="p-8 text-center">글을 찾을 수 없습니다.</div>;
 
   return (
-    <div className="p-6 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6">
-      <Link
-        href="/main/work/weekly"
-        className="inline-block mb-4 px-3 py-1 border rounded-lg hover:bg-gray-100 text-sm"
-      >
-        ← 뒤로가기
-      </Link>
+    <div className="p-8 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6">
+      <div className="flex justify-between items-center mb-4">
+        <Link
+          href="/main/work/weekly"
+          className="px-3 py-1 border rounded-lg hover:bg-gray-100 text-sm"
+        >
+          ← 목록으로
+        </Link>
 
-      <h2 className="text-2xl font-bold mb-3">{weekly.title}</h2>
-      <div className="flex items-center text-sm text-gray-500 mb-6 pb-4 border-b gap-4">
+        {/* ✅ 작성자 본인일 경우 수정 버튼 노출 */}
+        {userName === weekly.userName && (
+          <div className="flex gap-2">
+            <Link
+              href={`/main/work/weekly/edit/${id}`}
+              className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium"
+            >
+              수정
+            </Link>
+          </div>
+        )}
+      </div>
+
+      <h2 className="text-3xl font-bold mb-4">{weekly.title}</h2>
+
+      <div className="flex items-center text-sm text-gray-500 mb-8 pb-4 border-b gap-4">
         <div className="flex items-center gap-1">
           <span className="font-semibold text-gray-700">작성자:</span>
           <span className="text-gray-900">{weekly.userName}</span>
@@ -60,12 +71,12 @@ export default async function WeeklyDetailPage({
       </div>
 
       <div
-        className="prose-editor max-w-none whitespace-pre-wrap text-gray-800 leading-relaxed"
+        className="prose-editor max-w-none text-gray-800 leading-relaxed min-h-[200px]"
         dangerouslySetInnerHTML={{ __html: weekly.content }}
       />
 
       {weekly.fileUrl && (
-        <div className="mt-8 pt-4 border-t">
+        <div className="mt-10 pt-6 border-t">
           <p className="text-sm text-gray-600 mb-2 font-semibold">첨부파일</p>
           <a
             href={weekly.fileUrl}

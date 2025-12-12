@@ -1,56 +1,70 @@
-import { db } from "@/lib/firebaseAdmin";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 
-// DB 데이터 조회 함수
-async function getWeeklyDetail(id: string) {
-  try {
-    // userDailys 컬렉션 그룹 전체 스캔 (ID 매칭)
-    const snapshot = await db.collectionGroup("userDailys").get();
-    const doc = snapshot.docs.find((d) => d.id === id);
-
-    if (!doc) return null;
-
-    const data = doc.data();
-    return {
-      id: doc.id,
-      title: data.title || "제목 없음",
-      content: data.content || "",
-      userName: data.userName || "작성자",
-      fileUrl: data.fileUrl || null,
-      fileName: data.fileName || null,
-      createdAt:
-        data.createdAt && typeof data.createdAt.toMillis === "function"
-          ? data.createdAt.toMillis()
-          : data.createdAt || Date.now(),
-    };
-  } catch (error) {
-    console.error("Error fetching daily detail:", error);
-    return null;
-  }
+// 타입 정의
+interface DailyDetail {
+  id: string;
+  title: string;
+  content: string;
+  userName: string;
+  createdAt: number;
+  fileUrl?: string;
+  fileName?: string;
 }
 
-export default async function WeeklyDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const daily = await getWeeklyDetail(id);
+const fetchDailyDetail = async (id: string) => {
+  const res = await fetch(`/api/daily/${id}`);
+  if (!res.ok) throw new Error("Fetch failed");
+  return res.json();
+};
 
-  if (!daily) return notFound();
+export default function DailyDetailPage() {
+  const { id } = useParams() as { id: string };
+  const { userName } = useSelector((state: RootState) => state.auth);
+
+  const { data: daily, isLoading } = useQuery<DailyDetail>({
+    queryKey: ["dailyDetail", id],
+    queryFn: () => fetchDailyDetail(id),
+    enabled: !!id,
+  });
+
+  if (isLoading) return <div className="p-8 text-center">로딩 중...</div>;
+  if (!daily)
+    return <div className="p-8 text-center">글을 찾을 수 없습니다.</div>;
 
   return (
-    <div className="p-6 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6">
-      <Link
-        href="/main/work/daily"
-        className="inline-block mb-4 px-3 py-1 border rounded-lg hover:bg-gray-100 text-sm"
-      >
-        ← 뒤로가기
-      </Link>
+    <div className="p-8 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6">
+      {/* 상단 버튼 영역 */}
+      <div className="flex justify-between items-center mb-4">
+        <Link
+          href="/main/work/daily"
+          className="px-3 py-1 border rounded-lg hover:bg-gray-100 text-sm"
+        >
+          ← 목록으로
+        </Link>
 
-      <h2 className="text-2xl font-bold mb-3">{daily.title}</h2>
-      <div className="flex items-center text-sm text-gray-500 mb-6 pb-4 border-b gap-4">
+        {/* ✅ 작성자 본인인 경우에만 수정 버튼 노출 */}
+        {userName === daily.userName && (
+          <div className="flex gap-2">
+            <Link
+              href={`/main/work/daily/edit/${id}`}
+              className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium"
+            >
+              수정
+            </Link>
+            {/* 삭제 버튼 추가 가능 */}
+          </div>
+        )}
+      </div>
+
+      <h2 className="text-3xl font-bold mb-4">{daily.title}</h2>
+
+      <div className="flex items-center text-sm text-gray-500 mb-8 pb-4 border-b gap-4">
         <div className="flex items-center gap-1">
           <span className="font-semibold text-gray-700">작성자:</span>
           <span className="text-gray-900">{daily.userName}</span>
@@ -59,13 +73,14 @@ export default async function WeeklyDetailPage({
         <div>{new Date(daily.createdAt).toLocaleString()}</div>
       </div>
 
+      {/* 에디터 스타일 적용 */}
       <div
         className="prose-editor max-w-none text-gray-800 leading-relaxed min-h-[200px]"
         dangerouslySetInnerHTML={{ __html: daily.content }}
       />
 
       {daily.fileUrl && (
-        <div className="mt-8 pt-4 border-t">
+        <div className="mt-10 pt-6 border-t">
           <p className="text-sm text-gray-600 mb-2 font-semibold">첨부파일</p>
           <a
             href={daily.fileUrl}

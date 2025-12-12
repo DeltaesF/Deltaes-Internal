@@ -185,20 +185,36 @@ function AuthorizedContent({
               key={daily.id}
               className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200"
             >
-              {/* 헤더 (날짜 및 제목) */}
               <div className="bg-gray-50 px-6 py-3 border-b flex justify-between items-center rounded-t-xl">
                 <div className="flex items-center gap-3">
                   <span className="bg-gray-200 text-gray-700 text-xs font-bold px-2 py-1 rounded">
-                    DAY {relatedDailys.length - index}
+                    {
+                      ["일", "월", "화", "수", "목", "금", "토"][
+                        new Date(daily.createdAt).getDay()
+                      ]
+                    }
+                    요일
                   </span>
                   <h3 className="font-semibold text-gray-800">{daily.title}</h3>
                 </div>
-                <span className="text-xs text-gray-500">
-                  {new Date(daily.createdAt).toLocaleDateString()}
-                </span>
+
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-500">
+                    {new Date(daily.createdAt).toLocaleDateString()}
+                  </span>
+
+                  {/* ✅ [추가됨] 작성자 본인일 경우 수정 버튼 표시 */}
+                  {daily.userName === myName && (
+                    <Link
+                      href={`/main/work/daily/edit/${daily.id}`}
+                      className="text-xs px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-gray-600 transition-colors"
+                    >
+                      수정
+                    </Link>
+                  )}
+                </div>
               </div>
 
-              {/* 본문 내용 */}
               <div className="p-6">
                 <div
                   className="prose-editor text-sm text-gray-700"
@@ -215,14 +231,26 @@ function AuthorizedContent({
       </section>
 
       <section className="bg-white border-2 border-[#519d9e] rounded-2xl shadow-lg overflow-hidden">
-        <div className="bg-[#519d9e] px-6 py-4">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            📑 주간 업무 보고
-            <span className="text-sm font-normal opacity-80 bg-white/20 px-2 py-0.5 rounded">
-              {weekly.userName}
-            </span>
-          </h2>
-          <p className="text-white/90 text-sm mt-1">{weekly.title}</p>
+        <div className="bg-[#519d9e] px-6 py-4 flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              📑 주간 업무 보고
+              <span className="text-sm font-normal opacity-80 bg-white/20 px-2 py-0.5 rounded">
+                {weekly.userName}
+              </span>
+            </h2>
+            <p className="text-white/90 text-sm mt-1">{weekly.title}</p>
+          </div>
+
+          {/* ✅ [추가됨] 주간 보고서 수정 버튼 */}
+          {weekly.userName === myName && (
+            <Link
+              href={`/main/work/weekly/edit/${weekly.id}`}
+              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium border border-white/30 transition-colors"
+            >
+              수정하기
+            </Link>
+          )}
         </div>
 
         <div className="p-8">
