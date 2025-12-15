@@ -39,6 +39,35 @@ export async function POST(req: Request) {
       createdAt: FieldValue.serverTimestamp(),
     });
 
+    const employeeQuery = await db
+      .collection("employee")
+      .where("userName", "==", userName)
+      .get();
+
+    if (!employeeQuery.empty) {
+      const empData = employeeQuery.docs[0].data();
+      const recipients: string[] = empData.reportRecipients || [];
+
+      if (recipients.length > 0) {
+        const batch = db.batch();
+
+        recipients.forEach((recipientName) => {
+          const notiRef = db.collection("notifications").doc();
+          batch.set(notiRef, {
+            targetUserName: recipientName,
+            fromUserName: userName,
+            type: "weekly",
+            message: `${userName}님이 주간 업무 보고서를 작성했습니다.`,
+            link: `/main/work/weekly/${docRef.id}`, // 주간 회의 상세 페이지로 연결
+            isRead: false,
+            createdAt: Date.now(),
+          });
+        });
+
+        await batch.commit();
+      }
+    }
+
     return NextResponse.json({ success: true, id: docRef.id });
   } catch (error) {
     console.error(error);

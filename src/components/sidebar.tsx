@@ -15,11 +15,11 @@ export default function Sidebar() {
     (state: RootState) => state.auth || { userName: "사용자" }
   );
 
-  const [isWorkOpen, setIsWorkOpen] = useState(true);
-  const [isMeetingOpen, setIsMeetingOpen] = useState(true);
-  const [isReportOpen, setIsReportOpen] = useState(true);
-  const [isApprovalsOpen, setIsApprovalsOpen] = useState(true);
-  const [isCompanyOpen, setIsCompanyOpen] = useState(true);
+  const [isWorkOpen, setIsWorkOpen] = useState(false);
+  const [isMeetingOpen, setIsMeetingOpen] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
+  const [isApprovalsOpen, setIsApprovalsOpen] = useState(false);
+  const [isCompanyOpen, setIsCompanyOpen] = useState(false);
 
   const handleLogout = () => {
     if (window.confirm("로그아웃 하시겠습니까?")) {
@@ -59,6 +59,14 @@ export default function Sidebar() {
         <p className="mt-3 font-semibold">{userName || "사용자"}님</p>
       </Link>
 
+      {role === "supervisor" && (
+        <Link
+          href="/main/supervisor/employees"
+          className={getLinkClass("/main/supervisor/employees")}
+        >
+          관리자 페이지
+        </Link>
+      )}
       <div className="w-full">
         <div
           onClick={() => setIsCompanyOpen(!isCompanyOpen)}
@@ -204,7 +212,7 @@ export default function Sidebar() {
         href="/main/vacation/user"
         className={getLinkClass("/main/vacation/user")}
       >
-        휴가원 ▼
+        휴가원
       </Link>
 
       <Link
