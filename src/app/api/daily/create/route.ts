@@ -46,19 +46,26 @@ export async function POST(req: Request) {
 
     if (!employeeQuery.empty) {
       const empData = employeeQuery.docs[0].data();
-      const recipients: string[] = empData.reportRecipients || []; // 설정된 수신자들
+      const recipients: string[] = empData.recipients?.work || [];
 
       if (recipients.length > 0) {
         const batch = db.batch();
 
         recipients.forEach((recipientName) => {
-          const notiRef = db.collection("notifications").doc();
+          // [변경 2] 알림 저장 경로 수정
+          // notifications 컬렉션 -> [받는사람] 문서 -> userNotifications 서브컬렉션
+          const notiRef = db
+            .collection("notifications")
+            .doc(recipientName) // 받는 사람 이름으로 된 문서
+            .collection("userNotifications")
+            .doc();
+
           batch.set(notiRef, {
             targetUserName: recipientName, // 받는 사람
             fromUserName: userName, // 보낸 사람
             type: "daily", // 알림 타입
             message: `${userName}님이 일일 업무 보고서를 작성했습니다.`,
-            link: `/main/work/daily/${docRef.id}`, // 클릭 시 이동 경로
+            link: `/main/work/daily/${docRef.id}`, // 이동 링크
             isRead: false,
             createdAt: Date.now(),
           });

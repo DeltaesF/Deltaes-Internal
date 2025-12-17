@@ -24,11 +24,10 @@ export async function POST(req: Request) {
 
     // notifications 컬렉션에서 targetUserName이 '나'인 것 조회
     // 최신순 정렬 (createdAt desc)
-    // [주의] 복합 쿼리(where + orderBy) 사용 시 Firestore 색인(Index) 생성이 필요할 수 있습니다.
-    // 에러가 발생하면 콘솔의 링크를 눌러 색인을 생성해주세요.
     const snapshot = await db
       .collection("notifications")
-      .where("targetUserName", "==", userName)
+      .doc(userName) // 내 이름으로 된 문서 접근
+      .collection("userNotifications") // 하위 컬렉션 접근
       .orderBy("createdAt", "desc")
       .get();
 
@@ -36,9 +35,9 @@ export async function POST(req: Request) {
       const data = doc.data();
       return {
         id: doc.id,
-        targetUserName: data.targetUserName,
+        targetUserName: userName,
         fromUserName: data.fromUserName,
-        type: data.type, // 'daily', 'weekly', 'vacation' 등
+        type: data.type,
         message: data.message,
         link: data.link,
         isRead: data.isRead,

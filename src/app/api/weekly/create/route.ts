@@ -46,13 +46,20 @@ export async function POST(req: Request) {
 
     if (!employeeQuery.empty) {
       const empData = employeeQuery.docs[0].data();
-      const recipients: string[] = empData.reportRecipients || [];
+      const recipients: string[] = empData.recipients?.work || [];
 
       if (recipients.length > 0) {
         const batch = db.batch();
 
         recipients.forEach((recipientName) => {
-          const notiRef = db.collection("notifications").doc();
+          // [변경 2] 알림 저장 경로 수정
+          // notifications 컬렉션 -> [받는사람] 문서 -> userNotifications 서브컬렉션
+          const notiRef = db
+            .collection("notifications")
+            .doc(recipientName) // 받는 사람 이름으로 된 문서
+            .collection("userNotifications")
+            .doc();
+
           batch.set(notiRef, {
             targetUserName: recipientName,
             fromUserName: userName,

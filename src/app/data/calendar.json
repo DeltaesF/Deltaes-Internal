@@ -1,0 +1,414 @@
+{
+  "items": [
+    {
+      "id": 1,
+      "summary": "Simcenter Flotherm 기본교육",
+      "start": {
+        "date": "2026-01-13"
+      },
+      "end": {
+        "date": "2026-01-14"
+      }
+    },
+    {
+      "id": 2,
+      "summary": "Simcenter FLOEFD 기본교육",
+      "start": {
+        "date": "2026-01-15"
+      },
+      "end": {
+        "date": "2026-01-16"
+      }
+    },
+    {
+      "id": 3,
+      "summary": "Simcenter Flotherm XT 기본교육",
+      "start": {
+        "date": "2026-01-22"
+      },
+      "end": {
+        "date": "2026-01-23"
+      }
+    },
+    {
+      "id": 4,
+      "summary": "Simcenter T3STER 기본교육",
+      "start": {
+        "date": "2026-01-29"
+      },
+      "end": {
+        "date": "2026-01-29"
+      }
+    },
+    {
+      "id": 5,
+      "summary": "TIMA 5 기본교육",
+      "start": {
+        "date": "2026-01-30"
+      },
+      "end": {
+        "date": "2026-01-30"
+      }
+    },
+    {
+      "id": 6,
+      "summary": "Simcenter Flotherm 기본교육",
+      "start": {
+        "date": "2026-02-03"
+      },
+      "end": {
+        "date": "2026-02-04"
+      }
+    },
+    {
+      "id": 7,
+      "summary": "Simcenter FLOEFD 기본교육",
+      "start": {
+        "date": "2026-02-05"
+      },
+      "end": {
+        "date": "2026-02-06"
+      }
+    },
+    {
+      "id": 8,
+      "summary": "Simcenter STAR-CCM+ 기본교육",
+      "start": {
+        "date": "2026-03-04"
+      },
+      "end": {
+        "date": "2026-03-06"
+      }
+    },
+    {
+      "id": 9,
+      "summary": "Simcenter T3STER 기본교육",
+      "start": {
+        "date": "2026-03-19"
+      },
+      "end": {
+        "date": "2026-03-19"
+      }
+    },
+    {
+      "id": 10,
+      "summary": "TIMA 5 기본교육",
+      "start": {
+        "date": "2026-03-20"
+      },
+      "end": {
+        "date": "2026-03-20"
+      }
+    },
+    {
+      "id": 11,
+      "summary": "Simcenter Flotherm 기본교육",
+      "start": {
+        "date": "2026-04-07"
+      },
+      "end": {
+        "date": "2026-04-08"
+      }
+    },
+    {
+      "id": 12,
+      "summary": "Simcenter FLOEFD 기본교육",
+      "start": {
+        "date": "2026-04-09"
+      },
+      "end": {
+        "date": "2026-04-10"
+      }
+    },
+    {
+      "id": 13,
+      "summary": "Simcenter Flotherm XT 기본교육",
+      "start": {
+        "date": "2026-05-12"
+      },
+      "end": {
+        "date": "2026-05-13"
+      }
+    },
+    {
+      "id": 14,
+      "summary": "Simcenter Flotherm 기본교육",
+      "start": {
+        "date": "2026-05-14"
+      },
+      "end": {
+        "date": "2026-05-15"
+      }
+    },
+    {
+      "id": 15,
+      "summary": "TIMA 5 기본교육",
+      "start": {
+        "date": "2026-05-19"
+      },
+      "end": {
+        "date": "2026-05-19"
+      }
+    },
+    {
+      "id": 16,
+      "summary": "Simcenter T3STER 기본교육",
+      "start": {
+        "date": "2026-05-20"
+      },
+      "end": {
+        "date": "2026-05-20"
+      }
+    },
+    {
+      "id": 17,
+      "summary": "Simcenter FLOEFD 기본교육",
+      "start": {
+        "date": "2026-05-21"
+      },
+      "end": {
+        "date": "2026-05-22"
+      }
+    },
+    {
+      "id": 18,
+      "summary": "Simcenter FLOEFD 고급교육 (구조-열-유체 연성해석)",
+      "start": {
+        "date": "2026-06-17"
+      },
+      "end": {
+        "date": "2026-06-17"
+      }
+    },
+    {
+      "id": 19,
+      "summary": "Simcenter FLOEFD 고급교육 (전자기-열-유체 연성해석)",
+      "start": {
+        "date": "2026-06-18"
+      },
+      "end": {
+        "date": "2026-06-18"
+      }
+    },
+    {
+      "id": 20,
+      "summary": "Simcenter Flotherm 고급교육 (일반)",
+      "start": {
+        "date": "2026-06-19"
+      },
+      "end": {
+        "date": "2026-06-19"
+      }
+    },
+    {
+      "id": 21,
+      "summary": "Simcenter FLOEFD 고급교육 (2차전지-배터리 셀 열해석)",
+      "start": {
+        "date": "2026-06-25"
+      },
+      "end": {
+        "date": "2026-06-25"
+      }
+    },
+    {
+      "id": 22,
+      "summary": "Simcenter Flotherm 고급교육 (자동화)",
+      "start": {
+        "date": "2026-06-26"
+      },
+      "end": {
+        "date": "2026-06-26"
+      }
+    },
+    {
+      "id": 23,
+      "summary": "Simcenter T3STER 기본교육",
+      "start": {
+        "date": "2026-07-08"
+      },
+      "end": {
+        "date": "2026-07-08"
+      }
+    },
+    {
+      "id": 24,
+      "summary": "Simcenter Flotherm 기본교육",
+      "start": {
+        "date": "2026-07-09"
+      },
+      "end": {
+        "date": "2026-07-10"
+      }
+    },
+    {
+      "id": 25,
+      "summary": "TIMA 5 기본교육",
+      "start": {
+        "date": "2026-07-15"
+      },
+      "end": {
+        "date": "2026-07-15"
+      }
+    },
+    {
+      "id": 26,
+      "summary": "Simcenter FLOEFD 기본교육",
+      "start": {
+        "date": "2026-07-16"
+      },
+      "end": {
+        "date": "2026-07-17"
+      }
+    },
+    {
+      "id": 27,
+      "summary": "Simcenter Flotherm 기본교육",
+      "start": {
+        "date": "2026-08-18"
+      },
+      "end": {
+        "date": "2026-08-19"
+      }
+    },
+    {
+      "id": 28,
+      "summary": "Simcenter FLOEFD 기본교육",
+      "start": {
+        "date": "2026-08-20"
+      },
+      "end": {
+        "date": "2026-08-21"
+      }
+    },
+    {
+      "id": 29,
+      "summary": "Simcenter T3STER 기본교육",
+      "start": {
+        "date": "2026-09-03"
+      },
+      "end": {
+        "date": "2026-09-03"
+      }
+    },
+    {
+      "id": 30,
+      "summary": "TIMA 5 기본교육",
+      "start": {
+        "date": "2026-09-04"
+      },
+      "end": {
+        "date": "2026-09-04"
+      }
+    },
+    {
+      "id": 31,
+      "summary": "Simcenter STAR-CCM+ 기본교육",
+      "start": {
+        "date": "2026-09-09"
+      },
+      "end": {
+        "date": "2026-09-11"
+      }
+    },
+    {
+      "id": 32,
+      "summary": "Simcenter FLOEFD 기본교육",
+      "start": {
+        "date": "2026-10-20"
+      },
+      "end": {
+        "date": "2026-10-21"
+      }
+    },
+    {
+      "id": 33,
+      "summary": "Simcenter Flotherm 기본교육",
+      "start": {
+        "date": "2026-10-22"
+      },
+      "end": {
+        "date": "2026-10-23"
+      }
+    },
+    {
+      "id": 34,
+      "summary": "Simcenter Flotherm 기본교육",
+      "start": {
+        "date": "2026-11-05"
+      },
+      "end": {
+        "date": "2026-11-06"
+      }
+    },
+    {
+      "id": 35,
+      "summary": "Simcenter FLOEFD 기본교육",
+      "start": {
+        "date": "2026-11-19"
+      },
+      "end": {
+        "date": "2026-11-20"
+      }
+    },
+    {
+      "id": 36,
+      "summary": "Simcenter FLOEFD 고급교육 (구조-열-유체 연성해석)",
+      "start": {
+        "date": "2026-12-02"
+      },
+      "end": {
+        "date": "2026-12-02"
+      }
+    },
+    {
+      "id": 37,
+      "summary": "Simcenter FLOEFD 고급교육 (전자기-열-유체 연성해석)",
+      "start": {
+        "date": "2026-12-03"
+      },
+      "end": {
+        "date": "2026-12-03"
+      }
+    },
+    {
+      "id": 38,
+      "summary": "Simcenter Flotherm 고급교육 (일반)",
+      "start": {
+        "date": "2026-12-04"
+      },
+      "end": {
+        "date": "2026-12-04"
+      }
+    },
+    {
+      "id": 39,
+      "summary": "Simcenter FLOEFD 고급교육 (2차전지-배터리 셀 열해석)",
+      "start": {
+        "date": "2026-12-10"
+      },
+      "end": {
+        "date": "2026-12-10"
+      }
+    },
+    {
+      "id": 40,
+      "summary": "Simcenter Flotherm 고급교육 (자동화)",
+      "start": {
+        "date": "2026-12-11"
+      },
+      "end": {
+        "date": "2026-12-11"
+      }
+    },
+    {
+      "id": 41,
+      "summary": "Simcenter Flotherm XT 기본교육",
+      "start": {
+        "date": "2025-12-11"
+      },
+      "end": {
+        "date": "2025-12-12"
+      }
+    }
+  ]
+}
