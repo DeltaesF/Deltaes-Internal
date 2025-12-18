@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/store"; // 경로 확인 필요
 import { useState } from "react";
+import PasswordChangeModal from "./passwordChangeModal";
 
 export default function Sidebar() {
   const pathname = usePathname(); // 현재 URL 확인용
@@ -20,6 +21,7 @@ export default function Sidebar() {
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isApprovalsOpen, setIsApprovalsOpen] = useState(false);
   const [isCompanyOpen, setIsCompanyOpen] = useState(false);
+  const [isPwModalOpen, setIsPwModalOpen] = useState(false);
 
   const handleLogout = () => {
     if (window.confirm("로그아웃 하시겠습니까?")) {
@@ -221,12 +223,24 @@ export default function Sidebar() {
       >
         조직도
       </Link>
-      <button
-        onClick={handleLogout}
-        className="cursor-pointer border mt-auto bg-white p-2 rounded"
-      >
-        로그아웃
-      </button>
+      <div className="mt-auto flex flex-col gap-2">
+        <button
+          onClick={() => setIsPwModalOpen(true)}
+          className="cursor-pointer border bg-white p-2 rounded text-sm hover:bg-gray-100 text-gray-700"
+        >
+          🔒 비밀번호 변경
+        </button>
+
+        <button
+          onClick={handleLogout}
+          className="cursor-pointer border bg-white p-2 rounded text-red-500 hover:bg-red-50 font-medium"
+        >
+          로그아웃
+        </button>
+      </div>
+      {isPwModalOpen && (
+        <PasswordChangeModal onClose={() => setIsPwModalOpen(false)} />
+      )}
     </div>
   );
 }

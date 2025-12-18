@@ -2,19 +2,33 @@
 import { login } from "@/lib/auth";
 import { FirebaseError } from "firebase/app";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 export default function Login() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // 이미 로그인 되어있다면 메인으로 강제 이동 (기록 안 남김)
+        router.replace("/main/dashboard/individual");
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
+
   const handleEmailLogin = async (e?: React.FormEvent) => {
     e?.preventDefault(); // form 기본 제출 동작 방지
     try {
       await login(email, password);
-      alert("로그인 성공!");
-      router.push("/main/dashboard/individual");
+      // alert("로그인 성공!"); // (선택사항) 부드러운 이동을 위해 alert 제거 가능
+
+      // ✅ [수정] push -> replace (뒤로가기 시 로그인 페이지가 나오지 않게 함)
+      router.replace("/main/dashboard/individual");
     } catch (err) {
       const error = err as FirebaseError;
       alert("로그인 실패: " + error.message);

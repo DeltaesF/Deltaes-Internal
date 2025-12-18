@@ -3,6 +3,7 @@
 import { useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
+import koLocale from "@fullcalendar/core/locales/ko";
 import interactionPlugin, { DateClickArg } from "@fullcalendar/interaction";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
@@ -370,6 +371,7 @@ export default function Individual() {
             plugins={[dayGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
             height="100%"
+            locale={koLocale}
             events={allEvents}
             headerToolbar={{
               left: "prev,next today",
@@ -421,7 +423,7 @@ export default function Individual() {
                 </div>
                 <button
                   onClick={() => handleApproveClick(v)}
-                  className="px-3 py-1.5 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
+                  className="px-3 py-1.5 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors cursor-pointer"
                 >
                   결재하기
                 </button>
@@ -561,7 +563,7 @@ function ListModalLayout({
           <h3 className="text-xl font-bold text-gray-800">{title}</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-black text-2xl font-light"
+            className="text-gray-400 hover:text-black text-2xl font-light cursor-pointer"
           >
             ×
           </button>
@@ -569,7 +571,7 @@ function ListModalLayout({
         <div className="overflow-y-auto flex-1 pr-1 space-y-3">{children}</div>
         <button
           onClick={onClose}
-          className="mt-4 w-full bg-gray-100 py-3 rounded-lg hover:bg-gray-200 font-medium text-gray-600 transition-colors"
+          className="mt-4 w-full bg-gray-100 py-3 rounded-lg hover:bg-gray-200 font-medium text-gray-600 transition-colors cursor-pointer"
         >
           닫기
         </button>
