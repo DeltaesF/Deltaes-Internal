@@ -1,3 +1,4 @@
+import EditActions from "@/components/editActions";
 import { db } from "@/lib/firebaseAdmin";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -36,12 +37,19 @@ export default async function NoticeDetailPage({
 
   return (
     <div className="p-6 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6">
-      <Link
-        href="/main/notice"
-        className="inline-block mb-4 px-3 py-1 border rounded-lg hover:bg-gray-100 text-sm"
-      >
-        ← 목록으로
-      </Link>
+      <div className="flex justify-between items-center mb-4">
+        <Link
+          href="/main/notice"
+          className="inline-block px-3 py-1 border rounded-lg hover:bg-gray-100 text-sm"
+        >
+          ← 목록으로
+        </Link>
+        {/* ✅ 수정 버튼 추가 */}
+        <EditActions
+          authorName={notice.userName}
+          editPath={`/main/notice/edit/${id}`}
+        />
+      </div>
       <h2 className="text-2xl font-bold mb-3">{notice.title}</h2>
       <div className="flex items-center text-sm text-gray-500 mb-6 pb-4 border-b gap-4">
         <div className="flex items-center gap-1">
