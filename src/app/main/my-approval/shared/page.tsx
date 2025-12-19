@@ -4,8 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Pagination from "@/components/pagination";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 
 // ✅ 타입 정의
 interface NotificationItem {
@@ -28,12 +29,14 @@ const fetchNotifications = async (userName: string) => {
   return data.list || [];
 };
 
-export default function SharedBoxPage() {
+function SharedBoxContent() {
   const { userName } = useSelector(
     (state: RootState) => state.auth || { userName: "사용자" }
   );
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-  const [currentPage, setCurrentPage] = useState(1);
+  const currentPage = Number(searchParams.get("page")) || 1;
   const [filterType, setFilterType] = useState("all");
   const ITEMS_PER_PAGE = 12;
 
@@ -60,6 +63,7 @@ export default function SharedBoxPage() {
     approval: "품의서",
     notice: "공지사항",
     resource: "자료실",
+    vacation: "휴가원",
   };
 
   const colorClass: Record<string, string> = {
@@ -69,6 +73,13 @@ export default function SharedBoxPage() {
     approval: "bg-pink-100 text-pink-700",
     notice: "bg-orange-100 text-orange-700",
     resource: "bg-gray-200 text-gray-700",
+    vacation: "bg-red-100 text-red-700",
+  };
+
+  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFilterType(e.target.value);
+    // 필터 변경 시 1페이지로 리셋 (URL 변경)
+    router.push("?page=1");
   };
 
   if (isLoading) return <div className="p-6">로딩 중...</div>;
@@ -76,16 +87,13 @@ export default function SharedBoxPage() {
   return (
     <div className="p-6 w-full">
       <div className="bg-white border rounded-2xl shadow-sm p-6">
-        <div className="flex justify-between items-center mb-2">
+        <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-purple-600">📭 수신/공유함</h2>
 
           {/* 🔹 필터 Select */}
           <select
             value={filterType}
-            onChange={(e) => {
-              setFilterType(e.target.value);
-              setCurrentPage(1);
-            }}
+            onChange={handleFilterChange}
             className="border p-2 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-purple-200 outline-none cursor-pointer"
           >
             <option value="all">전체 보기</option>
@@ -106,7 +114,7 @@ export default function SharedBoxPage() {
             {currentItems.map((item) => (
               <li
                 key={item.id}
-                className="py-2 px-2 hover:bg-gray-50 rounded group"
+                className="py-3 px-2 hover:bg-gray-50 rounded group"
               >
                 <Link
                   href={item.link}
@@ -126,7 +134,7 @@ export default function SharedBoxPage() {
                       </p>
                       <p className="text-xs text-gray-400 mt-0.5">
                         보낸사람: {item.fromUserName} |{" "}
-                        {new Date(item.createdAt).toLocaleString()}
+                        {new Date(item.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
@@ -143,5 +151,14 @@ export default function SharedBoxPage() {
         />
       </div>
     </div>
+  );
+}
+
+// 2️⃣ 메인 페이지 컴포넌트 (Suspense 적용)
+export default function SharedBoxPage() {
+  return (
+    <Suspense fallback={<div className="p-6">페이지 로딩 중...</div>}>
+      <SharedBoxContent />
+    </Suspense>
   );
 }
