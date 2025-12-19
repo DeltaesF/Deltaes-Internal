@@ -6,6 +6,7 @@ import { RootState } from "@/store";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Pagination from "@/components/pagination";
+import { Suspense } from "react";
 
 interface DailyReport {
   id: string;
@@ -39,7 +40,7 @@ const fetchMyDailys = async (
   return res.json();
 };
 
-export default function Daily() {
+function DailyContent() {
   const { userName, role } = useSelector((state: RootState) => state.auth);
 
   // ✅ URL에서 현재 페이지 번호 가져오기 (없으면 1)
@@ -120,5 +121,15 @@ export default function Daily() {
         />
       </div>
     </div>
+  );
+}
+
+export default function Daily() {
+  return (
+    <Suspense
+      fallback={<div className="p-6 text-center">페이지 로딩 중...</div>}
+    >
+      <DailyContent />
+    </Suspense>
   );
 }

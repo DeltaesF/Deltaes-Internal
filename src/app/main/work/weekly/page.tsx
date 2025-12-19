@@ -6,6 +6,7 @@ import { RootState } from "@/store";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Pagination from "@/components/pagination";
+import { Suspense } from "react";
 
 interface WeeklyReport {
   id: string;
@@ -34,7 +35,7 @@ const fetchWeeklys = async (
   return res.json();
 };
 
-export default function WeeklyMeetingListPage() {
+function WeeklyMeetingContent() {
   const { userName, role } = useSelector((state: RootState) => state.auth);
 
   // ✅ URL에서 현재 페이지 번호 가져오기 (없으면 1)
@@ -115,5 +116,15 @@ export default function WeeklyMeetingListPage() {
         />
       </div>
     </div>
+  );
+}
+
+export default function WeeklyMeetingListPage() {
+  return (
+    <Suspense
+      fallback={<div className="p-6 text-center">페이지 로딩 중...</div>}
+    >
+      <WeeklyMeetingContent />
+    </Suspense>
   );
 }
