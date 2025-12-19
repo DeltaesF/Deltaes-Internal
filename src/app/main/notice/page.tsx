@@ -1,33 +1,58 @@
+import Pagination from "@/components/pagination";
 import { db } from "@/lib/firebaseAdmin";
 import Link from "next/link";
 
-async function getNotices() {
+// 데이터 가져오기 (페이지네이션 적용)
+async function getNotices(page: number, limit: number) {
   try {
+    const offset = (page - 1) * limit;
+
+    // 1. 전체 개수 구하기 (페이지네이션 계산용)
+    const totalSnapshot = await db.collectionGroup("userNotices").count().get();
+    const totalItems = totalSnapshot.data().count;
+
+    // 2. 해당 페이지 데이터 가져오기
     const snapshot = await db
       .collectionGroup("userNotices")
       .orderBy("createdAt", "desc")
+      .limit(limit)
+      .offset(offset)
       .get();
 
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
+    const data = snapshot.docs.map((doc) => {
+      const d = doc.data();
       return {
         id: doc.id,
-        title: data.title || "제목 없음",
-        userName: data.userName || "작성자 미상",
+        title: d.title || "제목 없음",
+        userName: d.userName || "작성자 미상",
         createdAt:
-          data.createdAt && typeof data.createdAt.toMillis === "function"
-            ? data.createdAt.toMillis()
-            : data.createdAt || Date.now(),
+          d.createdAt && typeof d.createdAt.toMillis === "function"
+            ? d.createdAt.toMillis()
+            : d.createdAt || Date.now(),
       };
     });
+
+    return { data, totalItems };
   } catch (error) {
     console.error("Error fetching notices:", error);
-    return [];
+    return { data: [], totalItems: 0 };
   }
 }
 
-export default async function NoticePage() {
-  const notices = await getNotices();
+export default async function NoticePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  // URL에서 현재 페이지 번호 가져오기 (기본값 1)
+  const params = await searchParams;
+  const currentPage = Number(params.page) || 1;
+  const ITEMS_PER_PAGE = 15; // 15개씩 보여주기
+
+  const { data: notices, totalItems } = await getNotices(
+    currentPage,
+    ITEMS_PER_PAGE
+  );
 
   return (
     <div className="flex flex-col w-full p-6">
@@ -81,6 +106,12 @@ export default async function NoticePage() {
             </li>
           )}
         </ul>
+
+        <Pagination
+          totalItems={totalItems}
+          itemsPerPage={ITEMS_PER_PAGE}
+          currentPage={currentPage}
+        />
       </div>
     </div>
   );

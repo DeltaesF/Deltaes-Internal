@@ -3,19 +3,21 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
-import { RootState } from "@/store"; // 경로 확인 필요
+import { RootState, AppDispatch } from "@/store"; // 경로 확인 필요
 import { useState } from "react";
 import PasswordChangeModal from "./passwordChangeModal";
+import { logoutUser } from "@/store/slices/authSlice";
 
 export default function Sidebar() {
   const pathname = usePathname(); // 현재 URL 확인용
   const router = useRouter();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
 
   const { userName, role } = useSelector(
     (state: RootState) => state.auth || { userName: "사용자" }
   );
 
+  const [isMyApprovalOpen, setIsMyApprovalOpen] = useState(false);
   const [isWorkOpen, setIsWorkOpen] = useState(false);
   const [isMeetingOpen, setIsMeetingOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
@@ -25,7 +27,7 @@ export default function Sidebar() {
 
   const handleLogout = () => {
     if (window.confirm("로그아웃 하시겠습니까?")) {
-      // dispatch(logoutUser()); // 로그아웃 로직
+      dispatch(logoutUser()); // 로그아웃 로직
       alert("로그아웃 되었습니다.");
       router.push("/");
     }
@@ -69,6 +71,38 @@ export default function Sidebar() {
           관리자 페이지
         </Link>
       )}
+
+      <div className="w-full">
+        <div
+          onClick={() => setIsMyApprovalOpen(!isMyApprovalOpen)}
+          className="cursor-pointer p-2 rounded-xl bg-white border-[3px] border-[#519d9e] text-black font-semibold hover:bg-gray-200 mb-2"
+        >
+          나의 결재함 ▼
+        </div>
+        {isMyApprovalOpen && (
+          <div className="flex flex-col gap-2 pl-2">
+            <Link
+              href="/main/my-approval/pending"
+              className={getSubLinkClass("/my-approval/pending")}
+            >
+              결재 대기함
+            </Link>
+            <Link
+              href="/main/my-approval/completed"
+              className={getSubLinkClass("/my-approval/completed")}
+            >
+              결재 완료함
+            </Link>
+            <Link
+              href="/main/my-approval/shared"
+              className={getSubLinkClass("/my-approval/shared")}
+            >
+              수신/공유함
+            </Link>
+          </div>
+        )}
+      </div>
+
       <div className="w-full">
         <div
           onClick={() => setIsCompanyOpen(!isCompanyOpen)}

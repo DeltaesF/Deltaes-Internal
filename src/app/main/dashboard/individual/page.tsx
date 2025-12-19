@@ -518,7 +518,7 @@ export default function Individual() {
               <span className="font-semibold">
                 {selectedVacationForApprove.userName}
               </span>
-              님의 휴가 신청을 승인하시겠습니까?
+              의 휴가 신청을 승인하시겠습니까?
             </p>
             <div className="flex gap-3 justify-end">
               <button
@@ -571,7 +571,7 @@ function ListModalLayout({
         <div className="overflow-y-auto flex-1 pr-1 space-y-3">{children}</div>
         <button
           onClick={onClose}
-          className="mt-4 w-full bg-gray-100 py-3 rounded-lg hover:bg-gray-200 font-medium text-gray-600 transition-colors cursor-pointer"
+          className="mt-4 w-full bg-gray-200 py-3 rounded-lg hover:bg-gray-300 font-medium text-gray-600 transition-colors cursor-pointer"
         >
           닫기
         </button>

@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import Pagination from "@/components/pagination";
 
 interface DailyReport {
   id: string;
@@ -15,11 +17,21 @@ interface DailyReport {
   fileName?: string | null;
 }
 
-const fetchMyDailys = async (userName: string, role: string) => {
+interface DailyApiResponse {
+  list: DailyReport[];
+  totalCount: number;
+}
+
+const fetchMyDailys = async (
+  userName: string,
+  role: string,
+  page: number,
+  limit: number
+) => {
   const res = await fetch("/api/daily/list", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userName, role }),
+    body: JSON.stringify({ userName, role, page, limit }),
   });
   if (!res.ok) {
     throw new Error("Failed to fetch data");
@@ -30,11 +42,21 @@ const fetchMyDailys = async (userName: string, role: string) => {
 export default function Daily() {
   const { userName, role } = useSelector((state: RootState) => state.auth);
 
-  const { data: dailyList = [], isLoading } = useQuery<DailyReport[]>({
-    queryKey: ["dailys", userName], // 쿼리키에 userName 포함하여 캐시 분리
-    queryFn: () => fetchMyDailys(userName || "", role || ""),
-    enabled: !!userName, // 로그인이 되었을 때만 실행
+  // ✅ URL에서 현재 페이지 번호 가져오기 (없으면 1)
+  const searchParams = useSearchParams();
+  const page = Number(searchParams.get("page")) || 1;
+  const ITEMS_PER_PAGE = 15; // ✅ 15개씩 보기
+
+  const { data, isLoading } = useQuery<DailyApiResponse>({
+    queryKey: ["dailys", userName, page], // ✅ page가 바뀌면 쿼리키가 바뀌어 재요청됨
+    queryFn: () =>
+      fetchMyDailys(userName || "", role || "", page, ITEMS_PER_PAGE),
+    enabled: !!userName,
   });
+
+  // 데이터 안전하게 추출 (초기 로딩 시 undefined 방지)
+  const dailyList = data?.list || [];
+  const totalCount = data?.totalCount || 0;
 
   if (isLoading) return <div className="p-4 text-gray-500">로딩 중...</div>;
 
@@ -91,6 +113,11 @@ export default function Daily() {
             ))}
           </ul>
         )}
+        <Pagination
+          totalItems={totalCount}
+          itemsPerPage={ITEMS_PER_PAGE}
+          currentPage={page}
+        />
       </div>
     </div>
   );

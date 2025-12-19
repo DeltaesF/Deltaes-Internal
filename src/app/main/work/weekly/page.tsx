@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import Pagination from "@/components/pagination";
 
 interface WeeklyReport {
   id: string;
@@ -12,11 +14,21 @@ interface WeeklyReport {
   createdAt: number;
 }
 
-const fetchWeeklys = async (userName: string, role: string) => {
+interface WeeklyApiResponse {
+  list: WeeklyReport[];
+  totalCount: number;
+}
+
+const fetchWeeklys = async (
+  userName: string,
+  role: string,
+  page: number,
+  limit: number
+) => {
   const res = await fetch("/api/weekly/list", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userName, role }),
+    body: JSON.stringify({ userName, role, page, limit }),
   });
   if (!res.ok) throw new Error("Failed to fetch data");
   return res.json();
@@ -25,11 +37,21 @@ const fetchWeeklys = async (userName: string, role: string) => {
 export default function WeeklyMeetingListPage() {
   const { userName, role } = useSelector((state: RootState) => state.auth);
 
-  const { data: weeklyList = [], isLoading } = useQuery<WeeklyReport[]>({
-    queryKey: ["weeklys", "meeting", userName],
-    queryFn: () => fetchWeeklys(userName || "", role || ""),
+  // ✅ URL에서 현재 페이지 번호 가져오기 (없으면 1)
+  const searchParams = useSearchParams();
+  const page = Number(searchParams.get("page")) || 1;
+  const ITEMS_PER_PAGE = 12; // ✅ 18개씩 보기
+
+  const { data, isLoading } = useQuery<WeeklyApiResponse>({
+    queryKey: ["weeklys", "meeting", userName, page],
+    queryFn: () =>
+      fetchWeeklys(userName || "", role || "", page, ITEMS_PER_PAGE),
     enabled: !!userName,
   });
+
+  // 데이터 안전하게 추출 (초기 로딩 시 undefined 방지)
+  const weeklyList = data?.list || [];
+  const totalCount = data?.totalCount || 0;
 
   if (isLoading) return <div className="p-6 text-gray-500">로딩 중...</div>;
 
@@ -86,6 +108,11 @@ export default function WeeklyMeetingListPage() {
             ))}
           </ul>
         )}
+        <Pagination
+          totalItems={totalCount}
+          itemsPerPage={ITEMS_PER_PAGE}
+          currentPage={page}
+        />
       </div>
     </div>
   );

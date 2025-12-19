@@ -64,7 +64,7 @@ export async function POST(req: Request) {
             targetUserName: recipientName,
             fromUserName: userName,
             type: "weekly",
-            message: `${userName}님이 주간 업무 보고서를 작성했습니다.`,
+            message: `${userName} 주간 업무 보고서를 작성했습니다.`,
             link: `/main/work/weekly/${docRef.id}`, // 주간 회의 상세 페이지로 연결
             isRead: false,
             createdAt: Date.now(),

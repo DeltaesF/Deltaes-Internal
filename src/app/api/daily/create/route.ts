@@ -64,7 +64,7 @@ export async function POST(req: Request) {
             targetUserName: recipientName, // 받는 사람
             fromUserName: userName, // 보낸 사람
             type: "daily", // 알림 타입
-            message: `${userName}님이 일일 업무 보고서를 작성했습니다.`,
+            message: `${userName} 일일 업무 보고서를 작성했습니다.`,
             link: `/main/work/daily/${docRef.id}`, // 이동 링크
             isRead: false,
             createdAt: Date.now(),

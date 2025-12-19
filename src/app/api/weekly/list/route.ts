@@ -18,7 +18,7 @@ const db = getFirestore();
 export async function POST(req: Request) {
   try {
     // [수정] department는 아직 사용하지 않으므로 제거 (unused-vars 에러 해결)
-    const { userName, role } = await req.json();
+    const { userName, role, page = 1, limit = 12 } = await req.json();
 
     // [수정] 변수 타입을 Query로 명시 (CollectionGroup vs Query 타입 불일치 에러 해결)
     let query: Query = db.collectionGroup("userWeeklys");
@@ -35,7 +35,14 @@ export async function POST(req: Request) {
         .orderBy("createdAt", "desc");
     }
 
-    const snapshot = await query.get();
+    // 2. 전체 개수 조회 (페이지네이션 계산용)
+    // count() 쿼리는 데이터를 다 가져오지 않아 비용이 저렴합니다.
+    const countSnapshot = await query.count().get();
+    const totalCount = countSnapshot.data().count;
+
+    // 3. 페이지네이션 적용 (offset, limit)
+    const offset = (page - 1) * limit;
+    const snapshot = await query.limit(limit).offset(offset).get();
 
     const list = snapshot.docs.map((doc) => {
       const data = doc.data();
@@ -53,7 +60,8 @@ export async function POST(req: Request) {
       };
     });
 
-    return NextResponse.json(list);
+    // ✅ list와 totalCount를 함께 반환
+    return NextResponse.json({ list, totalCount });
   } catch (error: unknown) {
     // [수정] error 타입을 unknown으로 변경하고 타입 가드 사용 (no-explicit-any 에러 해결)
     console.error("Error fetching dailys:", error);
