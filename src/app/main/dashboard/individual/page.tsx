@@ -309,9 +309,17 @@ export default function Individual() {
         {/* 1. 결재 요청 */}
         <div
           onClick={() => setModalType("pending")}
-          className="bg-white shadow-sm border rounded-2xl p-6 text-center cursor-pointer hover:bg-red-50 hover:border-red-200 transition-all group"
+          className={`shadow-sm border rounded-2xl p-6 text-center cursor-pointer transition-all group ${
+            modalType === "pending"
+              ? "bg-red-50 border-red-200 ring-2 ring-red-200" // 선택됨 (모달 열림)
+              : "bg-white hover:bg-red-50 hover:border-red-200" // 기본
+          }`}
         >
-          <span className="text-gray-600 font-semibold block mb-2 group-hover:text-red-600">
+          <span
+            className={`font-semibold block mb-2 group-hover:text-red-600 ${
+              modalType === "pending" ? "text-red-600" : "text-gray-600"
+            }`}
+          >
             결재 요청
           </span>
           <span className="text-4xl font-bold text-red-500">
@@ -323,9 +331,17 @@ export default function Individual() {
         {/* 2. 업무 보고 */}
         <div
           onClick={() => setModalType("work")}
-          className="bg-white shadow-sm border rounded-2xl p-6 text-center cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-all group"
+          className={`shadow-sm border rounded-2xl p-6 text-center cursor-pointer transition-all group ${
+            modalType === "work"
+              ? "bg-blue-50 border-blue-200 ring-2 ring-blue-200"
+              : "bg-white hover:bg-blue-50 hover:border-blue-200"
+          }`}
         >
-          <span className="text-gray-600 font-semibold block mb-2 group-hover:text-blue-600">
+          <span
+            className={`font-semibold block mb-2 group-hover:text-blue-600 ${
+              modalType === "work" ? "text-blue-600" : "text-gray-600"
+            }`}
+          >
             업무 보고
           </span>
           <span className="text-4xl font-bold text-blue-500">
@@ -337,9 +353,17 @@ export default function Individual() {
         {/* 3. 결재 완료 */}
         <div
           onClick={() => setModalType("completed")}
-          className="bg-white shadow-sm border rounded-2xl p-6 text-center cursor-pointer hover:bg-green-50 hover:border-green-200 transition-all group"
+          className={`shadow-sm border rounded-2xl p-6 text-center cursor-pointer transition-all group ${
+            modalType === "completed"
+              ? "bg-green-50 border-green-200 ring-2 ring-green-200"
+              : "bg-white hover:bg-green-50 hover:border-green-200"
+          }`}
         >
-          <span className="text-gray-600 font-semibold block mb-2 group-hover:text-green-600">
+          <span
+            className={`font-semibold block mb-2 group-hover:text-green-600 ${
+              modalType === "completed" ? "text-green-600" : "text-gray-600"
+            }`}
+          >
             결재 완료
           </span>
           <span className="text-4xl font-bold text-green-500">
@@ -351,9 +375,17 @@ export default function Individual() {
         {/* 4. 공유 내용 */}
         <div
           onClick={() => setModalType("shared")}
-          className="bg-white shadow-sm border rounded-2xl p-6 text-center cursor-pointer hover:bg-purple-50 hover:border-purple-200 transition-all group"
+          className={`shadow-sm border rounded-2xl p-6 text-center cursor-pointer transition-all group ${
+            modalType === "shared"
+              ? "bg-purple-50 border-purple-200 ring-2 ring-purple-200"
+              : "bg-white hover:bg-purple-50 hover:border-purple-200"
+          }`}
         >
-          <span className="text-gray-600 font-semibold block mb-2 group-hover:text-purple-600">
+          <span
+            className={`font-semibold block mb-2 group-hover:text-purple-600 ${
+              modalType === "shared" ? "text-purple-600" : "text-gray-600"
+            }`}
+          >
             공유 내용
           </span>
           <span className="text-4xl font-bold text-purple-500">
@@ -393,13 +425,14 @@ export default function Individual() {
         </div>
       </div>
 
-      {/* ======================= 모달 영역 ======================= */}
+      {/* ======================= 모달 영역 (링크 연결됨) ======================= */}
 
-      {/* 1. 결재 요청 모달 (승인 기능 포함) */}
+      {/* 1. 결재 요청 모달 */}
       {modalType === "pending" && (
         <ListModalLayout
           title="결재 요청 목록"
           onClose={() => setModalType(null)}
+          moreLink="/main/my-approval/pending" // 🔗 결재 대기함 연결
         >
           {approvalRequests.length > 0 ? (
             approvalRequests.map((v) => (
@@ -435,11 +468,12 @@ export default function Individual() {
         </ListModalLayout>
       )}
 
-      {/* 2. 업무 보고 모달 (이동 링크 포함) */}
+      {/* 2. 업무 보고 모달 */}
       {modalType === "work" && (
         <ListModalLayout
           title="업무 보고 (공유)"
           onClose={() => setModalType(null)}
+          moreLink="/main/my-approval/shared" // 🔗 수신/공유함 연결 (업무보고 포함됨)
         >
           {workReports.length > 0 ? (
             workReports.map((noti) => (
@@ -455,11 +489,12 @@ export default function Individual() {
         </ListModalLayout>
       )}
 
-      {/* 3. 결재 완료 모달 (리스트 형태) */}
+      {/* 3. 결재 완료 모달 */}
       {modalType === "completed" && (
         <ListModalLayout
           title="결재 완료 내역 (전체)"
           onClose={() => setModalType(null)}
+          moreLink="/main/my-approval/completed" // 🔗 결재 완료함 연결
         >
           {completedHistory.length > 0 ? (
             completedHistory.map((v) => (
@@ -480,7 +515,6 @@ export default function Individual() {
                     {v.startDate} ~ {v.endDate}
                   </p>
                 </div>
-                {/* 완료 내역은 특별한 액션 없음 (조회용) */}
               </div>
             ))
           ) : (
@@ -489,11 +523,12 @@ export default function Individual() {
         </ListModalLayout>
       )}
 
-      {/* 4. 공유 내용 모달 (이동 링크 포함) */}
+      {/* 4. 공유 내용 모달 */}
       {modalType === "shared" && (
         <ListModalLayout
           title="공유 내용 (보고서/품의/공지 등)"
           onClose={() => setModalType(null)}
+          moreLink="/main/my-approval/shared" // 🔗 수신/공유함 연결
         >
           {sharedContents.length > 0 ? (
             sharedContents.map((noti) => (
@@ -509,7 +544,7 @@ export default function Individual() {
         </ListModalLayout>
       )}
 
-      {/* 승인 확인 팝업 (이중 모달) */}
+      {/* 승인 확인 팝업 (기존 유지) */}
       {selectedVacationForApprove && (
         <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-[60]">
           <div className="bg-white rounded-xl p-6 w-[400px] shadow-2xl">
@@ -518,7 +553,7 @@ export default function Individual() {
               <span className="font-semibold">
                 {selectedVacationForApprove.userName}
               </span>
-              의 휴가 신청을 승인하시겠습니까?
+              님의 휴가 신청을 승인하시겠습니까?
             </p>
             <div className="flex gap-3 justify-end">
               <button
@@ -543,22 +578,24 @@ export default function Individual() {
 }
 
 // -----------------------------------------------------------------------
-// [4] 하위 컴포넌트 (UI 재사용)
+// [4] 하위 컴포넌트 수정 (더보기 버튼 추가)
 // -----------------------------------------------------------------------
 
-// 모달 레이아웃
 function ListModalLayout({
   title,
   onClose,
   children,
+  moreLink, // ✅ 더보기 링크 prop 추가
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  moreLink?: string;
 }) {
   return (
     <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50">
       <div className="bg-white rounded-xl p-6 w-[600px] max-h-[80vh] flex flex-col shadow-2xl">
+        {/* 헤더 */}
         <div className="flex justify-between items-center mb-4 border-b pb-3">
           <h3 className="text-xl font-bold text-gray-800">{title}</h3>
           <button
@@ -568,13 +605,28 @@ function ListModalLayout({
             ×
           </button>
         </div>
+
+        {/* 컨텐츠 */}
         <div className="overflow-y-auto flex-1 pr-1 space-y-3">{children}</div>
-        <button
-          onClick={onClose}
-          className="mt-4 w-full bg-gray-200 py-3 rounded-lg hover:bg-gray-300 font-medium text-gray-600 transition-colors cursor-pointer"
-        >
-          닫기
-        </button>
+
+        {/* ✅ 푸터: 닫기 & 더보기 버튼 */}
+        <div className="mt-4 flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 bg-gray-200 py-3 rounded-lg hover:bg-gray-300 font-medium text-gray-600 transition-colors cursor-pointer"
+          >
+            닫기
+          </button>
+
+          {moreLink && (
+            <Link
+              href={moreLink}
+              className="flex-1 bg-[#519d9e] flex items-center justify-center py-3 rounded-lg hover:bg-[#407f80] font-medium text-white transition-colors cursor-pointer"
+            >
+              전체 보기 →
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   );
