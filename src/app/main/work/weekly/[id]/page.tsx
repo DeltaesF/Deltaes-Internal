@@ -37,10 +37,14 @@ const fetchDailyList = async (userName: string, role: string) => {
   const res = await fetch("/api/daily/list", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userName, role }),
+    // 페이지네이션 적용된 API이므로, 해당 주간의 데이터를 충분히 가져오기 위해 limit을 넉넉하게 설정
+    body: JSON.stringify({ userName, role, page: 1, limit: 100 }),
   });
   if (!res.ok) throw new Error("Daily fetch failed");
-  return res.json();
+
+  const data = await res.json();
+  // ✅ API가 { list, totalCount }를 반환하므로 list만 추출해서 반환
+  return data.list || [];
 };
 
 export default function WeeklyDetailPage() {
@@ -186,7 +190,7 @@ function AuthorizedContent({
               일일 업무 내역 로딩 중...
             </p>
           ) : relatedDailys.length > 0 ? (
-            relatedDailys.map((daily, index) => (
+            relatedDailys.map((daily) => (
               <div
                 key={daily.id}
                 className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200"

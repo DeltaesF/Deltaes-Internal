@@ -32,18 +32,23 @@ const fetchWeeklyDetail = async (id: string) => {
   return res.json();
 };
 
-// 일일 보고서 리스트 가져오기
+// ✅ [수정됨] 일일 보고서 리스트 가져오기
 const fetchDailyList = async (userName: string, role: string) => {
+  // 전체 데이터를 가져오기 위해 limit을 크게 잡거나, API에 all 옵션을 추가하는 것이 좋습니다.
+  // 여기서는 기존 로직 유지를 위해 넉넉하게 100개를 가져옵니다.
   const res = await fetch("/api/daily/list", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userName, role }),
+    body: JSON.stringify({ userName, role, page: 1, limit: 100 }),
   });
   if (!res.ok) throw new Error("Daily fetch failed");
-  return res.json();
+
+  const data = await res.json();
+  // 🚨 여기서 data.list만 꺼내서 반환해야 함!
+  return data.list || [];
 };
 
-export default function WeeklyMeetingDetailPage() {
+export default function WeeklyDetailPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const { userName: myName, role } = useSelector(
@@ -62,7 +67,7 @@ export default function WeeklyMeetingDetailPage() {
   if (!weekly)
     return <div className="p-8 text-center">보고서를 찾을 수 없습니다.</div>;
 
-  // ✅ [권한 체크] : 슈퍼바이저 이거나, 작성자 본인일 때만 내용을 보여줌
+  // 권한 체크: 슈퍼바이저 이거나, 작성자 본인일 때만 내용을 보여줌
   const isAuthorized = role === "supervisor" || weekly.userName === myName;
 
   if (!isAuthorized) {
@@ -91,7 +96,7 @@ export default function WeeklyMeetingDetailPage() {
   return <AuthorizedContent weekly={weekly} myName={myName!} role={role!} />;
 }
 
-// ✅ 권한이 있는 경우 보여줄 실제 콘텐츠 컴포넌트
+// 권한이 있는 경우 보여줄 실제 콘텐츠 컴포넌트
 function AuthorizedContent({
   weekly,
   myName,
@@ -108,37 +113,31 @@ function AuthorizedContent({
     DailyReport[]
   >({
     queryKey: ["dailyListForMeeting", weekly.userName],
-    queryFn: async () => {
-      // 슈퍼바이저는 모든 데이터를 가져오므로 API 호출은 그대로 하고, 필터링은 클라이언트에서 수행
-      const data = await fetchDailyList(myName, role);
-      return data;
-    },
+    queryFn: () => fetchDailyList(myName, role),
   });
 
-  // 📅 [수정됨] "스마트" 날짜 필터링 로직
+  // 날짜 필터링 로직
   const weeklyDate = new Date(weekly.createdAt);
-  const dayOfWeek = weeklyDate.getDay(); // 0(일) ~ 6(토)
+  const dayOfWeek = weeklyDate.getDay();
 
-  // 💡 작성일이 일(0), 월(1), 화(2)요일이라면 -> '지난주' 내용을 작성한 것으로 간주하여 기준일을 7일 전으로 돌림
-  // 예: 12월 15일(월) 작성 -> 12월 8일(월)이 속한 주를 계산
+  // 일,월,화 작성 시 지난주로 간주
   const targetDate = new Date(weeklyDate);
   if (dayOfWeek <= 2) {
     targetDate.setDate(targetDate.getDate() - 7);
   }
 
-  // 기준일(targetDate)이 속한 주의 월요일 계산
+  // 월요일 계산
   const targetDay = targetDate.getDay();
   const diffToMon =
     targetDate.getDate() - targetDay + (targetDay === 0 ? -6 : 1);
-
   const monday = new Date(targetDate);
   monday.setDate(diffToMon);
-  monday.setHours(0, 0, 0, 0); // 월요일 00:00:00
+  monday.setHours(0, 0, 0, 0);
 
-  // 해당 주의 금요일 계산
+  // 금요일 계산
   const friday = new Date(monday);
   friday.setDate(monday.getDate() + 4);
-  friday.setHours(23, 59, 59, 999); // 금요일 23:59:59
+  friday.setHours(23, 59, 59, 999);
 
   const relatedDailys = dailyList
     .filter((daily) => {
@@ -146,11 +145,10 @@ function AuthorizedContent({
       const d = new Date(daily.createdAt);
       return d >= monday && d <= friday;
     })
-    .sort((a, b) => a.createdAt - b.createdAt); // 작성순
+    .sort((a, b) => a.createdAt - b.createdAt);
 
   return (
     <div className="flex flex-col gap-8 p-6 max-w-5xl mx-auto pb-20">
-      {/* 🔙 뒤로가기 & 타이틀 */}
       <div className="flex items-center justify-between">
         <button
           onClick={() => router.back()}
@@ -175,7 +173,6 @@ function AuthorizedContent({
             <p className="text-white/90 text-sm mt-1">{weekly.title}</p>
           </div>
 
-          {/* ✅ [추가됨] 주간 보고서 수정 버튼 */}
           {weekly.userName === myName && (
             <Link
               href={`/main/work/weekly/edit/${weekly.id}`}
@@ -186,7 +183,7 @@ function AuthorizedContent({
           )}
         </div>
 
-        <div className="flex items-center gap-4 mt-4">
+        <div className="flex items-center gap-4 mt-4 px-6">
           <div className="h-[1px] flex-1 bg-gray-300"></div>
           <span className="text-gray-700 text-sm font-bold">
             관련 일일 업무 내역
@@ -194,13 +191,13 @@ function AuthorizedContent({
           <div className="h-[1px] flex-1 bg-gray-300"></div>
         </div>
 
-        <section className="flex flex-col gap-6">
+        <section className="flex flex-col gap-6 p-6">
           {isDailyLoading ? (
             <p className="text-center text-gray-400 py-10">
               일일 업무 내역 로딩 중...
             </p>
           ) : relatedDailys.length > 0 ? (
-            relatedDailys.map((daily, index) => (
+            relatedDailys.map((daily) => (
               <div
                 key={daily.id}
                 className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200"
@@ -225,7 +222,6 @@ function AuthorizedContent({
                       {new Date(daily.createdAt).toLocaleDateString()}
                     </span>
 
-                    {/* ✅ [추가됨] 작성자 본인일 경우 수정 버튼 표시 */}
                     {daily.userName === myName && (
                       <Link
                         href={`/main/work/daily/edit/${daily.id}`}
@@ -252,7 +248,7 @@ function AuthorizedContent({
           )}
         </section>
 
-        <div className="flex items-center gap-4 mt-4">
+        <div className="flex items-center gap-4 mt-4 px-6">
           <div className="h-[1px] flex-1 bg-gray-300"></div>
           <span className="text-gray-700 text-sm font-bold">
             금주 업무 보고
