@@ -5,10 +5,16 @@ import { useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 
+// ✅ [수정] Recipients 인터페이스 확장
 interface Recipients {
   work: string[];
   report: string[];
   approval: string[];
+  vacation?: {
+    first: string[]; // 1차 (다중)
+    second: string[]; // 2차 (단일)
+    shared: string[]; // 공유 (다중)
+  };
 }
 
 interface Employee {
@@ -17,13 +23,7 @@ interface Employee {
   email: string;
   department: string;
   role: string;
-
-  // 알림 수신자 목록 (카테고리별)
-  recipients?: {
-    work?: string[]; // 일일/주간 업무
-    report?: string[]; // 보고서
-    approval?: string[]; // 품의서
-  };
+  recipients?: Recipients;
 }
 
 interface UpdateEmployeeData {
@@ -33,7 +33,8 @@ interface UpdateEmployeeData {
   recipients: Recipients;
 }
 
-type TabKey = "basic" | "work" | "report" | "approval";
+// ✅ [수정] 탭 키에 vacation 추가
+type TabKey = "basic" | "work" | "report" | "approval" | "vacation";
 
 const fetchEmployees = async () => {
   const res = await fetch("/api/supervisor/employees");
@@ -44,12 +45,12 @@ const fetchEmployees = async () => {
 export default function EmployeeManagementPage() {
   const { role } = useSelector((state: RootState) => state.auth);
   const queryClient = useQueryClient();
-  // 모달 상태 관리
+
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("basic");
 
-  // 수정 데이터 임시 저장소
+  // ✅ [수정] 초기값에 vacation 추가
   const [tempData, setTempData] = useState<{
     role: string;
     department: string;
@@ -57,13 +58,18 @@ export default function EmployeeManagementPage() {
   }>({
     role: "",
     department: "",
-    recipients: { work: [], report: [], approval: [] },
+    recipients: {
+      work: [],
+      report: [],
+      approval: [],
+      vacation: { first: [], second: [], shared: [] },
+    },
   });
 
   const { data: employees = [], isLoading } = useQuery<Employee[]>({
     queryKey: ["employees"],
     queryFn: fetchEmployees,
-    enabled: role === "supervisor", // 슈퍼바이저만 호출
+    enabled: role === "supervisor",
   });
 
   const updateMutation = useMutation({
@@ -84,7 +90,6 @@ export default function EmployeeManagementPage() {
     onError: () => alert("수정 실패"),
   });
 
-  // 모달 열기 (데이터 초기화)
   const openModal = (emp: Employee) => {
     setSelectedEmp(emp);
     setTempData({
@@ -94,13 +99,18 @@ export default function EmployeeManagementPage() {
         work: emp.recipients?.work || [],
         report: emp.recipients?.report || [],
         approval: emp.recipients?.approval || [],
+        // ✅ vacation 데이터가 없으면 빈 배열로 초기화
+        vacation: emp.recipients?.vacation || {
+          first: [],
+          second: [],
+          shared: [],
+        },
       },
     });
-    setActiveTab("basic"); // 기본 탭으로 시작
+    setActiveTab("basic");
     setIsModalOpen(true);
   };
 
-  // 저장 핸들러
   const handleSave = () => {
     if (!selectedEmp) return;
     updateMutation.mutate({
@@ -109,16 +119,52 @@ export default function EmployeeManagementPage() {
     });
   };
 
-  // 수신자 토글 핸들러
-  const toggleRecipient = (category: keyof Recipients, name: string) => {
+  // ✅ [수정] 통합 토글 핸들러 (휴가 로직 포함)
+  const toggleRecipient = (
+    category: string,
+    name: string,
+    subCategory?: "first" | "second" | "shared"
+  ) => {
     setTempData((prev) => {
-      const currentList = prev.recipients[category];
+      // 1. 휴가 결재 라인 처리
+      if (category === "vacation" && subCategory) {
+        const currentVacation = prev.recipients.vacation || {
+          first: [],
+          second: [],
+          shared: [],
+        };
+        const currentList = currentVacation[subCategory] || [];
+        let newList: string[] = [];
+
+        if (subCategory === "second") {
+          // 2차 결재자는 단일 선택 (이미 선택된 사람이면 해제, 아니면 교체)
+          newList = currentList.includes(name) ? [] : [name];
+        } else {
+          // 1차 및 공유자는 다중 선택 가능
+          newList = currentList.includes(name)
+            ? currentList.filter((n) => n !== name)
+            : [...currentList, name];
+        }
+
+        return {
+          ...prev,
+          recipients: {
+            ...prev.recipients,
+            vacation: { ...currentVacation, [subCategory]: newList },
+          },
+        };
+      }
+
+      // 2. 일반 알림 처리 (work, report, approval)
+      const targetKey = category as keyof Omit<Recipients, "vacation">;
+      const currentList = prev.recipients[targetKey] || [];
       const newList = currentList.includes(name)
         ? currentList.filter((n) => n !== name)
         : [...currentList, name];
+
       return {
         ...prev,
-        recipients: { ...prev.recipients, [category]: newList },
+        recipients: { ...prev.recipients, [targetKey]: newList },
       };
     });
   };
@@ -135,7 +181,8 @@ export default function EmployeeManagementPage() {
 
   return (
     <div className="p-3">
-      <h2 className="text-2xl font-bold mb-6">👥 직원 권한 관리</h2>
+      <h2 className="text-2xl font-bold mb-6">👥 직원 권한 및 결재선 관리</h2>
+
       {/* 직원 목록 테이블 */}
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <table className="w-full text-left border-collapse">
@@ -168,7 +215,7 @@ export default function EmployeeManagementPage() {
                 <td className="p-1.5 text-center">
                   <button
                     onClick={() => openModal(emp)}
-                    className="px-1.5 py-1.5 border border-[#519d9e] text-[#519d9e] rounded hover:bg-[#519d9e] hover:text-white transition-colors text-sm"
+                    className="px-1.5 py-1.5 border border-[#519d9e] text-[#519d9e] rounded hover:bg-[#519d9e] hover:text-white transition-colors text-sm cursor-pointer"
                   >
                     관리
                   </button>
@@ -181,10 +228,10 @@ export default function EmployeeManagementPage() {
 
       {isModalOpen && selectedEmp && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-white w-[600px] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+          <div className="bg-white w-[600px] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
             <div className="bg-gray-100 p-1.5 border-b flex justify-between items-center">
               <h3 className="text-lg font-bold">
-                ⚙️ {selectedEmp.userName}님 설정
+                ⚙️ {selectedEmp.userName} 설정
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -194,21 +241,21 @@ export default function EmployeeManagementPage() {
               </button>
             </div>
 
-            <div className="flex border-b bg-white gap-4 px-4">
+            <div className="flex border-b bg-white gap-4 px-4 overflow-x-auto">
               {[
                 { key: "basic", label: "기본 정보" },
-                { key: "work", label: "업무보고 알림" },
-                { key: "report", label: "보고서 알림" },
-                { key: "approval", label: "품의서 알림" },
+                { key: "work", label: "업무보고" },
+                { key: "report", label: "보고서" },
+                { key: "approval", label: "품의서" },
+                { key: "vacation", label: "휴가 결재선" }, // ✅ 추가됨
               ].map((tab) => (
                 <button
                   key={tab.key}
-                  // [수정] any 제거하고 TabKey 타입으로 단언
                   onClick={() => setActiveTab(tab.key as TabKey)}
-                  className={`flex-1.5 py-3 text-sm font-medium transition-colors cursor-pointer ${
+                  className={`flex-shrink-0 py-3 text-sm font-medium transition-colors cursor-pointer ${
                     activeTab === tab.key
-                      ? "border-b-1.5 border-[#519d9e] text-[#519d9e] bg-blue-50"
-                      : "text-gray-500 hover:bg-gray-50"
+                      ? "border-b-2 border-[#519d9e] text-[#519d9e]"
+                      : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
                   {tab.label}
@@ -216,9 +263,10 @@ export default function EmployeeManagementPage() {
               ))}
             </div>
 
-            <div className="p-6 overflow-y-auto flex-1.5">
+            <div className="p-6 overflow-y-auto flex-1">
+              {/* 1. 기본 정보 탭 */}
               {activeTab === "basic" && (
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-3">
                   <label className="block">
                     <span className="text-gray-700 font-semibold text-sm">
                       부서
@@ -228,7 +276,7 @@ export default function EmployeeManagementPage() {
                       onChange={(e) =>
                         setTempData({ ...tempData, department: e.target.value })
                       }
-                      className="w-full mt-1.5 border p-1.5 rounded focus:ring-1.5 focus:ring-[#519d9e]"
+                      className="w-full mt-1.5 border p-2 rounded focus:ring-1 focus:ring-[#519d9e]"
                     >
                       <option value="development">Development</option>
                       <option value="sales">Sales</option>
@@ -244,7 +292,7 @@ export default function EmployeeManagementPage() {
                       onChange={(e) =>
                         setTempData({ ...tempData, role: e.target.value })
                       }
-                      className="w-full mt-1.5 border p-1.5 rounded focus:ring-1.5 focus:ring-[#519d9e]"
+                      className="w-full mt-1.5 border p-2 rounded focus:ring-1 focus:ring-[#519d9e]"
                     >
                       <option value="user">User (일반)</option>
                       <option value="admin">Admin (팀장)</option>
@@ -255,7 +303,10 @@ export default function EmployeeManagementPage() {
                 </div>
               )}
 
-              {activeTab !== "basic" && (
+              {/* 2. 일반 알림 설정 탭 (work, report, approval) */}
+              {(activeTab === "work" ||
+                activeTab === "report" ||
+                activeTab === "approval") && (
                 <div>
                   <p className="text-sm text-gray-500 mb-3">
                     {selectedEmp.userName}님이
@@ -268,14 +319,13 @@ export default function EmployeeManagementPage() {
                     </span>
                     를 작성할 때 알림을 받을 대상을 선택하세요.
                   </p>
-
-                  <div className="grid grid-cols-1.5 gap-1.5 max-h-60 overflow-y-auto border p-1.5 rounded bg-gray-50">
+                  <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto border p-2 rounded bg-gray-50">
                     {employees
                       .filter((e) => e.id !== selectedEmp.id)
                       .map((target) => (
                         <label
                           key={target.id}
-                          className={`flex items-center gap-1.5 p-1.5 rounded cursor-pointer transition-colors ${
+                          className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${
                             tempData.recipients[activeTab].includes(
                               target.userName
                             )
@@ -285,15 +335,12 @@ export default function EmployeeManagementPage() {
                         >
                           <input
                             type="checkbox"
-                            className="w-2.5 h-2.5 accent-[#519d9e]"
+                            className="w-4 h-4 accent-[#519d9e]"
                             checked={tempData.recipients[activeTab].includes(
                               target.userName
                             )}
                             onChange={() =>
-                              toggleRecipient(
-                                activeTab as keyof Recipients,
-                                target.userName
-                              )
+                              toggleRecipient(activeTab, target.userName)
                             }
                           />
                           <span className="text-sm">{target.userName}</span>
@@ -302,18 +349,128 @@ export default function EmployeeManagementPage() {
                   </div>
                 </div>
               )}
+
+              {/* 3. ✅ 휴가 결재선 설정 탭 */}
+              {activeTab === "vacation" && (
+                <div className="space-y-6">
+                  {/* 1차 결재자 */}
+                  <div>
+                    <h4 className="font-bold text-[#519d9e] mb-2 text-sm">
+                      1. 1차 결재자 (다중 선택 가능)
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border p-2 rounded bg-gray-50">
+                      {employees
+                        .filter((e) => e.id !== selectedEmp.id)
+                        .map((target) => (
+                          <label
+                            key={`first-${target.id}`}
+                            className="flex items-center gap-2 p-2 rounded hover:bg-gray-200 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 accent-[#519d9e]"
+                              checked={
+                                tempData.recipients.vacation?.first?.includes(
+                                  target.userName
+                                ) || false
+                              }
+                              onChange={() =>
+                                toggleRecipient(
+                                  "vacation",
+                                  target.userName,
+                                  "first"
+                                )
+                              }
+                            />
+                            <span className="text-sm">{target.userName}</span>
+                          </label>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* 2차 결재자 */}
+                  <div>
+                    <h4 className="font-bold text-red-500 mb-2 text-sm">
+                      2. 2차 결재자 (1명만 선택 가능)
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border p-2 rounded bg-gray-50">
+                      {employees
+                        .filter((e) => e.id !== selectedEmp.id)
+                        .map((target) => (
+                          <label
+                            key={`second-${target.id}`}
+                            className="flex items-center gap-2 p-2 rounded hover:bg-gray-200 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 accent-red-500"
+                              checked={
+                                tempData.recipients.vacation?.second?.includes(
+                                  target.userName
+                                ) || false
+                              }
+                              onChange={() =>
+                                toggleRecipient(
+                                  "vacation",
+                                  target.userName,
+                                  "second"
+                                )
+                              }
+                            />
+                            <span className="text-sm">{target.userName}</span>
+                          </label>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* 공유자 */}
+                  <div>
+                    <h4 className="font-bold text-purple-600 mb-2 text-sm">
+                      3. 공유/참조자 (승인 완료 시 알림)
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border p-2 rounded bg-gray-50">
+                      {employees
+                        .filter((e) => e.id !== selectedEmp.id)
+                        .map((target) => (
+                          <label
+                            key={`shared-${target.id}`}
+                            className="flex items-center gap-2 p-2 rounded hover:bg-gray-200 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 accent-purple-600"
+                              checked={
+                                tempData.recipients.vacation?.shared?.includes(
+                                  target.userName
+                                ) || false
+                              }
+                              onChange={() =>
+                                toggleRecipient(
+                                  "vacation",
+                                  target.userName,
+                                  "shared"
+                                )
+                              }
+                            />
+                            <span className="text-sm">{target.userName}</span>
+                          </label>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="p-1.5 border-t bg-gray-50 flex justify-end gap-1.5">
+            <div className="p-3 border-t bg-gray-50 flex justify-end gap-2">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="px-1.5 py-1.5 rounded bg-gray-300 hover:bg-gray-400 text-sm font-medium"
+                className="px-3 py-2 rounded bg-gray-300 hover:bg-gray-400 text-sm font-medium transition-colors cursor-pointer"
               >
                 취소
               </button>
               <button
                 onClick={handleSave}
-                className="px-6 py-1.5 rounded bg-[#519d9e] text-white hover:bg-[#407f80] text-sm font-bold shadow-md"
+                className="px-6 py-2 rounded bg-[#519d9e] text-white hover:bg-[#407f80] text-sm font-bold shadow-md transition-colors cursor-pointer"
               >
                 저장하기
               </button>

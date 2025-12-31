@@ -5,12 +5,39 @@ import { RootState } from "@/store";
 import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 
 type DayType = "연차" | "반차" | "병가" | "공가";
-type ApproverType = "first" | "second" | "shared";
+
+// ✅ 직원 타입 정의
+interface Employee {
+  id: string;
+  userName: string;
+}
+
+// ✅ 결재선 정보 타입 정의
+interface MyInfo {
+  recipients?: {
+    vacation?: {
+      first?: string[];
+      second?: string[];
+      shared?: string[];
+    };
+  };
+}
+
+const fetchMyInfo = async (userDocId: string): Promise<MyInfo> => {
+  const res = await fetch(`/api/vacation/user?userDocId=${userDocId}`);
+  return res.json();
+};
+
+const fetchEmployees = async (): Promise<Employee[]> => {
+  const res = await fetch("/api/supervisor/employees");
+  return res.json();
+};
 
 export default function VacationWritePage() {
-  const router = useRouter(); // 라우터 훅 사용
+  const router = useRouter();
   const { userDocId, userName } = useSelector((state: RootState) => state.auth);
 
   const [reason, setReason] = useState("");
@@ -19,48 +46,29 @@ export default function VacationWritePage() {
   const [types, setTypes] = useState<DayType[]>([]);
   const [days, setDays] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showModal, setShowModal] = useState(false);
 
-  // 🔹 선택된 결재자
-  const [approvers, setApprovers] = useState({
-    first: [] as string[],
-    second: [] as string[],
-    shared: [] as string[],
+  const [showSharedModal, setShowSharedModal] = useState(false);
+  const [sharedList, setSharedList] = useState<string[]>([]);
+
+  const { data: myInfo } = useQuery<MyInfo>({
+    queryKey: ["myInfo", userDocId],
+    queryFn: () => fetchMyInfo(userDocId!),
+    enabled: !!userDocId,
   });
 
-  // 🔹 현재 빨간 테두리로 선택된 대상
-  const [selectedBox, setSelectedBox] = useState<ApproverType | null>(null);
+  const { data: allEmployees = [] } = useQuery<Employee[]>({
+    queryKey: ["allEmployees"],
+    queryFn: fetchEmployees,
+  });
 
-  // 🔹 전체 임직원 목록 (예시)
-  const employees = [
-    "원영수 대표이사",
-    "민동호 연구소장",
-    "박병우 영업본부장",
-    "원인영 경영부장",
-    "정두원 프로",
-  ];
+  const firstApprovers = myInfo?.recipients?.vacation?.first || [];
+  const secondApprovers = myInfo?.recipients?.vacation?.second || [];
 
-  // ✅ 넣기 버튼
-  const handleAdd = (name: string) => {
-    if (!selectedBox) return alert("결재 위치(1차/2차/공유자)를 선택하세요.");
-
-    setApprovers((prev) => {
-      const list = prev[selectedBox];
-      if (list.includes(name)) {
-        alert("이미 추가된 결재자입니다.");
-        return prev;
-      }
-      return { ...prev, [selectedBox]: [...list, name] };
-    });
-  };
-
-  // ✅ 빼기 버튼
-  const handleRemove = () => {
-    if (!selectedBox) return alert("결재 위치를 선택하세요.");
-    setApprovers((prev) => ({ ...prev, [selectedBox]: [] })); // 전체 제거
-  };
-
-  const getDayUnit = (type: DayType) => (type === "반차" ? 0.5 : 1);
+  useEffect(() => {
+    if (myInfo?.recipients?.vacation?.shared) {
+      setSharedList(myInfo.recipients.vacation.shared);
+    }
+  }, [myInfo]);
 
   const getDatesArray = (start: string, end: string) => {
     const arr: string[] = [];
@@ -77,59 +85,33 @@ export default function VacationWritePage() {
   useEffect(() => {
     const dates = getDatesArray(startDate, endDate);
     if (dates.length > 0) {
-      const newDayTypes = dates.map((_, i) => types[i] || "연차");
-      setTypes(newDayTypes);
+      setTypes(dates.map((_, i) => types[i] || "연차"));
     } else {
       setTypes([]);
     }
   }, [startDate, endDate]);
 
   useEffect(() => {
-    const total = types.reduce((sum, type) => sum + getDayUnit(type), 0);
-    setDays(Math.round(total * 2) / 2); // 0.5 단위 반올림
+    const total = types.reduce(
+      (sum, type) => sum + (type === "반차" ? 0.5 : 1),
+      0
+    );
+    setDays(Math.round(total * 2) / 2);
   }, [types]);
-
-  const handleDayTypeChange = (index: number, value: DayType) => {
-    const updated = [...types];
-    updated[index] = value;
-    setTypes(updated);
-  };
-
-  // [수정] router.back() 사용
-  const handleCancel = () => {
-    if (
-      confirm(
-        "작성 중인 내용이 저장되지 않을 수 있습니다. 정말 나가시겠습니까?"
-      )
-    ) {
-      router.back();
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!reason || !startDate || !endDate) {
-      alert("모든 필드를 입력해주세요.");
-      return;
-    }
+    if (!reason || !startDate || !endDate)
+      return alert("모든 필드를 입력해주세요.");
 
-    if (!userDocId) {
-      alert("로그인 정보가 없습니다.");
-      return;
-    }
-
-    if (
-      approvers.first.length === 0 &&
-      approvers.second.length === 0 &&
-      approvers.shared.length === 0
-    ) {
-      alert("최소 1명의 결재자를 선택해야 합니다.");
-      return;
+    if (firstApprovers.length === 0 && secondApprovers.length === 0) {
+      return alert(
+        "관리자에 의해 설정된 결재자가 없습니다. 관리자에게 문의하세요."
+      );
     }
 
     try {
       setIsSubmitting(true);
-
       const res = await fetch("/api/vacation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -141,266 +123,161 @@ export default function VacationWritePage() {
           types,
           days,
           reason,
-          approvers,
+          approvers: {
+            first: firstApprovers,
+            second: secondApprovers,
+            shared: sharedList,
+          },
         }),
       });
 
       const result = await res.json();
-
       if (res.ok && result.success) {
-        alert(`${userName}님의 휴가 신청이 완료되었습니다.\n총 ${days}일 사용`);
-        router.push("/main/vacation/user"); // 완료 후 이동
+        alert("휴가 신청이 완료되었습니다.");
+        router.push("/main/vacation/user");
       } else {
-        alert(result.error || "휴가 신청 중 오류가 발생했습니다.");
+        alert(result.error || "오류 발생");
       }
     } catch (err) {
       console.error(err);
-      alert("서버 통신 오류가 발생했습니다.");
+      alert("서버 오류");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleToggleShared = (name: string) => {
+    setSharedList((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+    );
+  };
+
   return (
     <div className="p-6 border rounded-xl bg-white shadow-sm mt-6 max-w-5xl mx-auto">
-      <button
-        onClick={handleCancel}
-        className="mb-4 px-4 py-2 border rounded hover:bg-gray-100 cursor-pointer"
-      >
-        ◀ 나가기
-      </button>
+      <h2 className="text-xl font-bold mb-6">📝 휴가원 작성</h2>
 
-      <div className="p-6">
-        <h2 className="text-lg font-bold">📊 휴가원 작성</h2>
+      <div className="flex gap-10">
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-4">
+          <div className="flex gap-4">
+            <label className="flex-1 cursor-pointer">
+              시작일
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                // ✅ 클릭 시 달력 열기 기능 추가
+                onClick={(e) => e.currentTarget.showPicker()}
+                className="border p-2 w-full rounded cursor-pointer"
+              />
+            </label>
+            <label className="flex-1 cursor-pointer">
+              종료일
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                // ✅ 클릭 시 달력 열기 기능 추가
+                onClick={(e) => e.currentTarget.showPicker()}
+                className="border p-2 w-full rounded cursor-pointer"
+              />
+            </label>
+          </div>
+          <textarea
+            placeholder="사유 입력"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            className="border p-2 h-32 rounded resize-none"
+          />
 
-        {/* ✅ 휴가원 작성 | 결재 | 결재내역 한 줄 배치 */}
-        <div className="flex items-start gap-12">
-          {/* 1️⃣ 휴가원 작성 폼 */}
-          <form
-            onSubmit={handleSubmit}
-            className="flex flex-col gap-4 mt-4 w-[600px]"
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="bg-[#519d9e] text-white py-3 rounded hover:bg-[#407f80] font-bold cursor-pointer"
           >
-            <textarea
-              placeholder="휴가 사유를 입력하세요"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="border p-2 rounded h-32 resize-none"
-            />
+            {isSubmitting ? "처리 중..." : "결재 요청"}
+          </button>
+        </form>
 
-            <div className="flex gap-4">
-              <label className="flex flex-col flex-1">
-                시작일
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="border p-2 rounded"
-                />
-              </label>
-
-              <label className="flex flex-col flex-1">
-                종료일
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="border p-2 rounded"
-                />
-              </label>
-            </div>
-
-            {types.length > 0 && (
-              <div className="flex flex-col gap-2">
-                {getDatesArray(startDate, endDate).map((date, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="w-24">{date}</span>
-                    <select
-                      value={types[i]}
-                      onChange={(e) =>
-                        handleDayTypeChange(i, e.target.value as DayType)
-                      }
-                      className="border p-1 rounded"
-                    >
-                      <option value="연차">연차</option>
-                      <option value="반차">반차</option>
-                      <option value="병가">병가</option>
-                      <option value="공가">공가</option>
-                    </select>
-                  </div>
+        <div className="w-[300px] flex flex-col gap-4">
+          <div className="border p-4 rounded bg-gray-50">
+            <h4 className="font-bold text-sm text-gray-600 mb-2">1차 결재자</h4>
+            {firstApprovers.length > 0 ? (
+              <ul className="list-disc list-inside text-sm">
+                {firstApprovers.map((name) => (
+                  <li key={name}>{name}</li>
                 ))}
-              </div>
+              </ul>
+            ) : (
+              <p className="text-gray-400 text-sm">지정되지 않음</p>
             )}
-
-            <div className="flex gap-4 mt-2">
-              <label className="flex flex-col flex-1">
-                총 사용 일수
-                <input
-                  type="number"
-                  value={days}
-                  readOnly
-                  className="border p-2 rounded bg-gray-100 cursor-not-allowed"
-                />
-              </label>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`cursor-pointer px-4 py-2 rounded text-white ${
-                isSubmitting ? "bg-gray-400" : "bg-[#519d9e] hover:bg-[#3f8b8c]"
-              }`}
-            >
-              {isSubmitting ? "처리 중..." : "작성 완료"}
-            </button>
-          </form>
-
-          {/* 2️⃣ 결재 버튼 */}
-          <div className="flex flex-col items-center justify-start mt-4 ">
-            <button
-              onClick={() => setShowModal(true)}
-              className="px-6 py-3 bg-[#519d9e] text-white rounded hover:bg-[#3f8b8c] shadow cursor-pointer"
-            >
-              결재
-            </button>
           </div>
 
-          {/* 3️⃣ 결재 내역 박스 */}
-          <div className="flex flex-col gap-4 mt-4">
-            <div className="w-[300px] min-h-[140px] border rounded p-3 shadow bg-gray-50 text-sm">
-              <div className="font-semibold mb-1">1차 결재</div>
-              {approvers.first.length > 0 ? (
-                <ul className="list-disc list-inside space-y-1">
-                  {approvers.first.map((name, i) => (
-                    <li key={i}>{name}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-400">선택된 결재자가 없습니다</p>
-              )}
-            </div>
-
-            <div className="w-[300px] min-h-[140px] border rounded p-3 shadow bg-gray-50 text-sm">
-              <div className="font-semibold mb-1">2차 결재</div>
-              {approvers.second.length > 0 ? (
-                <ul className="list-disc list-inside space-y-1">
-                  {approvers.second.map((name, i) => (
-                    <li key={i}>{name}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-400">선택된 결재자가 없습니다</p>
-              )}
-            </div>
-
-            <div className="w-[300px] min-h-[140px] border rounded p-3 shadow bg-gray-50 text-sm">
-              <div className="font-semibold mb-1">공유자</div>
-              {approvers.shared.length > 0 ? (
-                <ul className="list-disc list-inside space-y-1">
-                  {approvers.shared.map((name, i) => (
-                    <li key={i}>{name}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-400">선택된 공유자가 없습니다</p>
-              )}
-            </div>
+          <div className="border p-4 rounded bg-gray-50">
+            <h4 className="font-bold text-sm text-gray-600 mb-2">2차 결재자</h4>
+            {secondApprovers.length > 0 ? (
+              <p className="text-sm font-semibold">{secondApprovers[0]}</p>
+            ) : (
+              <p className="text-gray-400 text-sm">지정되지 않음</p>
+            )}
           </div>
 
-          {/* 🔹 결재자 선택 모달 */}
-          {showModal && (
-            <VacationModal onClose={() => setShowModal(false)}>
-              <div className="flex gap-6">
-                {/* 좌측: 임직원 목록 */}
-                <div className="flex-1 border rounded p-4 min-h-[400px] overflow-y-auto">
-                  <h3 className="font-semibold mb-2">임직원 목록</h3>
-                  {employees.map((name) => (
-                    <div
-                      key={name}
-                      onClick={() => handleAdd(name)}
-                      className="p-2 hover:bg-gray-200 cursor-pointer rounded"
-                    >
-                      {name}
-                    </div>
-                  ))}
-                </div>
-
-                {/* 중앙: 버튼 */}
-                <div className="flex flex-col justify-center items-center gap-4">
-                  <button
-                    onClick={() => handleRemove()}
-                    className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-                  >
-                    빼기
-                  </button>
-                </div>
-
-                {/* 우측: 선택 결과 */}
-                <div className="flex flex-col gap-3 border rounded p-4 w-[250px]">
-                  <div
-                    onClick={() => setSelectedBox("first")}
-                    className={`p-2 rounded cursor-pointer ${
-                      selectedBox === "first"
-                        ? "border-2 border-red-500"
-                        : "border"
-                    }`}
-                  >
-                    <strong>1차결재:</strong>{" "}
-                    {approvers.first.length > 0 ? (
-                      <ul className="list-disc list-inside space-y-1">
-                        {approvers.first.map((name, i) => (
-                          <li key={i}>{name}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      "-"
-                    )}
-                  </div>
-
-                  <div
-                    onClick={() => setSelectedBox("second")}
-                    className={`p-2 rounded cursor-pointer ${
-                      selectedBox === "second"
-                        ? "border-2 border-red-500"
-                        : "border"
-                    }`}
-                  >
-                    <strong>2차결재:</strong>{" "}
-                    {approvers.second.length > 0 ? (
-                      <ul className="list-disc list-inside space-y-1">
-                        {approvers.second.map((name, i) => (
-                          <li key={i}>{name}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      "-"
-                    )}
-                  </div>
-
-                  <div
-                    onClick={() => setSelectedBox("shared")}
-                    className={`p-2 rounded cursor-pointer ${
-                      selectedBox === "shared"
-                        ? "border-2 border-red-500"
-                        : "border"
-                    }`}
-                  >
-                    <strong>공유자:</strong>{" "}
-                    {approvers.shared.length > 0 ? (
-                      <ul className="list-disc list-inside space-y-1">
-                        {approvers.shared.map((name, i) => (
-                          <li key={i}>{name}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      "-"
-                    )}
-                  </div>
-                </div>
-              </div>
-            </VacationModal>
-          )}
+          <div
+            className="border p-4 rounded bg-white border-dashed border-gray-400 cursor-pointer hover:bg-gray-50"
+            onClick={() => setShowSharedModal(true)}
+          >
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="font-bold text-sm text-gray-600">참조/공유자</h4>
+              <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">
+                편집
+              </span>
+            </div>
+            {sharedList.length > 0 ? (
+              <ul className="list-disc list-inside text-sm text-gray-700">
+                {sharedList.map((name) => (
+                  <li key={name}>{name}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-gray-400 text-xs">클릭하여 추가</p>
+            )}
+          </div>
         </div>
       </div>
+
+      {showSharedModal && (
+        <VacationModal onClose={() => setShowSharedModal(false)}>
+          <h3 className="text-lg font-bold mb-4">공유자 선택</h3>
+          <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto">
+            {allEmployees
+              .filter(
+                (e) =>
+                  e.userName !== userName &&
+                  !firstApprovers.includes(e.userName) &&
+                  !secondApprovers.includes(e.userName)
+              )
+              .map((emp) => (
+                <label
+                  key={emp.id}
+                  className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={sharedList.includes(emp.userName)}
+                    onChange={() => handleToggleShared(emp.userName)}
+                    className="accent-[#519d9e]"
+                  />
+                  {emp.userName}
+                </label>
+              ))}
+          </div>
+          <button
+            onClick={() => setShowSharedModal(false)}
+            className="mt-4 w-full bg-[#519d9e] text-white py-2 rounded cursor-pointer"
+          >
+            완료
+          </button>
+        </VacationModal>
+      )}
     </div>
   );
 }

@@ -166,7 +166,7 @@ export default function Sidebar() {
           onClick={() => setIsMeetingOpen(!isMeetingOpen)}
           className="cursor-pointer p-2 rounded-xl bg-white border-[3px] border-[#519d9e] text-black font-semibold hover:bg-gray-200 mb-2"
         >
-          주간영업회의 ▼
+          영업회의 ▼
         </div>
 
         {isMeetingOpen && (

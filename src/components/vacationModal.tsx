@@ -10,7 +10,7 @@ export default function VacationModal({
       <div className="bg-white p-6 rounded-xl shadow-lg relative min-w-[700px]">
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 text-gray-500 hover:text-black text-lg"
+          className="absolute top-3 right-3 text-gray-500 hover:text-black text-lg cursor-pointer"
         >
           ✕
         </button>
