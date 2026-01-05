@@ -1,68 +1,79 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebaseAdmin";
-import { FieldValue } from "firebase-admin/firestore";
 
 export async function POST(req: Request) {
   try {
     const { vacationId, applicantUserName } = await req.json();
 
     if (!vacationId || !applicantUserName) {
-      return NextResponse.json(
-        { error: "필수 정보(vacationId, applicantUserName)가 누락되었습니다." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
     }
 
-    const vacationRef = db
+    const docRef = db
       .collection("vacation")
       .doc(applicantUserName)
       .collection("requests")
       .doc(vacationId);
 
-    // 🔽 [변경] runTransaction을 사용하여 데이터 복구 및 삭제를 원자적으로 처리
-    await db.runTransaction(async (transaction) => {
-      const doc = await transaction.get(vacationRef);
+    const doc = await docRef.get();
+    if (!doc.exists) {
+      return NextResponse.json(
+        { error: "문서를 찾을 수 없습니다." },
+        { status: 404 }
+      );
+    }
 
-      if (!doc.exists) {
-        throw new Error("삭제할 휴가 신청을 찾을 수 없습니다.");
-      }
+    const data = doc.data();
+    const status = data?.status || "";
+    const approvers = data?.approvers || {}; // 결재자 정보 가져오기
 
-      const vacationData = doc.data();
-      const status = vacationData?.status;
-      const daysUsed = vacationData?.daysUsed || 0;
+    // 취소 가능 상태 확인
+    const cancellableStatuses = [
+      "1차 결재 대기",
+      "2차 결재 대기",
+      "1차 결재 완료",
+      "대기",
+    ];
+    if (!cancellableStatuses.includes(status)) {
+      return NextResponse.json(
+        { error: `현재 '${status}' 상태이므로 취소할 수 없습니다.` },
+        { status: 400 }
+      );
+    }
 
-      // 🔽 [수정] 취소 가능 상태 확인
-      // '대기' 또는 '최종 승인 완료' 상태일 때만 취소/삭제 가능하도록 허용
-      // (1차 결재 완료 상태에서 취소 시에도 삭제 가능)
-      if (
-        status !== "대기" &&
-        status !== "최종 승인 완료" &&
-        status !== "1차 결재 완료"
-      ) {
-        // 이미 반려되었거나 다른 상태라면 에러 처리
-        throw new Error(`'${status}' 상태인 요청은 취소할 수 없습니다.`);
-      }
+    // ✅ [추가] 알림 삭제 로직
+    // 1차, 2차 결재자 모두에게 간 알림 중 vacationId가 일치하는 것을 지움
+    const batch = db.batch();
 
-      // 🔽 [추가] 이미 '최종 승인 완료'되어 차감된 건이라면 -> 휴가 일수 원상복구(환불)
-      if (status === "최종 승인 완료") {
-        const employeeRef = db.collection("employee").doc(applicantUserName);
+    // 알림을 확인해야 할 대상 목록 (1차 + 2차 결재자)
+    const targetApprovers = [
+      ...(approvers.first || []),
+      ...(approvers.second || []),
+    ];
 
-        transaction.update(employeeRef, {
-          usedVacation: FieldValue.increment(-daysUsed), // 사용일수 감소 (복구)
-          remainingVacation: FieldValue.increment(daysUsed), // 잔여일수 증가 (복구)
-        });
-      }
+    for (const approverName of targetApprovers) {
+      // 해당 결재자의 알림함에서 vacationId가 일치하는 알림 검색
+      const notiSnapshot = await db
+        .collection("notifications")
+        .doc(approverName)
+        .collection("userNotifications")
+        .where("vacationId", "==", vacationId) // 아까 저장한 ID로 검색
+        .get();
 
-      // [문서 삭제]
-      transaction.delete(vacationRef);
-    });
+      notiSnapshot.forEach((notiDoc) => {
+        batch.delete(notiDoc.ref); // 찾으면 삭제 리스트에 추가
+      });
+    }
 
-    return NextResponse.json({
-      message: "휴가 요청이 성공적으로 취소되었습니다.",
-    });
+    // 문서 삭제
+    batch.delete(docRef);
+
+    // 일괄 실행 (알림 삭제 + 휴가 문서 삭제)
+    await batch.commit();
+
+    return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("휴가 취소 오류:", err);
-    const message = err instanceof Error ? err.message : "서버 오류 발생";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error(err);
+    return NextResponse.json({ error: "취소 실패" }, { status: 500 });
   }
 }

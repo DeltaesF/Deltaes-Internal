@@ -102,17 +102,17 @@ export async function GET(req: NextRequest) {
     const lastUpdateMonth = data?.lastUpdateMonth || joinDate.getMonth() + 1;
 
     if (currentMonth > lastUpdateMonth) {
-      let monthsToGive = currentMonth - lastUpdateMonth;
-
-      if (currentMonth === 12) {
-        monthsToGive += 1;
-      }
+      // 지난 개월 수만큼 추가 (보통 1)
+      const monthsToGive = currentMonth - lastUpdateMonth;
 
       const currentRemaining = data?.remainingVacation || 0;
 
-      if (currentRemaining < 12) {
-        const newRemaining = Math.min(12, currentRemaining + monthsToGive);
+      // ✅ [수정완료] 최대 11개까지만 적립 (법정 기준)
+      if (currentRemaining < 11) {
+        // (현재 개수 + 추가 개수)와 11 중 작은 값 선택
+        const newRemaining = Math.min(11, currentRemaining + monthsToGive);
 
+        // 개수가 실제로 늘어날 때만 업데이트 수행
         if (newRemaining > currentRemaining) {
           updatedData = {
             remainingVacation: newRemaining,

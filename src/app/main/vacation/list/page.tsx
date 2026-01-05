@@ -22,6 +22,12 @@ interface VacationResponse {
   status: string;
   daysUsed: number;
   reason?: string;
+  // ✅ approvers 필드 필수 (결재 라인 표시용)
+  approvers: {
+    first?: string[];
+    second?: string[];
+    shared?: string[];
+  };
   approvalHistory?: {
     approver: string;
     status: string;
@@ -47,9 +53,9 @@ export default function MyVacationHistoryPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  // 🔹 무한 스크롤을 위한 상태
-  const [visibleCount, setVisibleCount] = useState(5); // 처음에 4개 보여줌
-  const LOAD_MORE_COUNT = 5; // 스크롤 시 4개씩 추가
+  // 🔹 무한 스크롤을 위한 상태 (보내주신 설정 유지: 5개씩)
+  const [visibleCount, setVisibleCount] = useState(5);
+  const LOAD_MORE_COUNT = 5;
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   // 데이터 조회
@@ -81,21 +87,16 @@ export default function MyVacationHistoryPage() {
     if (confirm("정말 취소하시겠습니까?")) cancelMutation.mutate(id);
   };
 
-  // ✅ [수정] any 타입 오류 해결: 타입을 구체적으로 명시
   const formatDate = (
     dateValue: string | number | Date | FirestoreTimestamp | null | undefined
   ) => {
     if (!dateValue) return "-";
-
     let date: Date;
     if (typeof dateValue === "object" && "seconds" in dateValue) {
-      // Firestore Timestamp 처리
       date = new Date(dateValue.seconds * 1000);
     } else {
-      // string | number | Date 처리
       date = new Date(dateValue as string | number | Date);
     }
-
     return date.toLocaleString("ko-KR", {
       month: "2-digit",
       day: "2-digit",
@@ -104,7 +105,80 @@ export default function MyVacationHistoryPage() {
     });
   };
 
-  // 🔹 무한 스크롤 로직: IntersectionObserver 사용
+  // ✅ [추가] 결재 상태 렌더링 헬퍼 함수 (스타일은 보내주신 코드의 간격 p-2, mt-2 적용)
+  const renderApprovalLine = (item: VacationResponse) => {
+    const history = item.approvalHistory || [];
+    const firstApprovers = item.approvers?.first || [];
+    const secondApprovers = item.approvers?.second || [];
+
+    const findHistory = (name: string) =>
+      history.find((h) => h.approver === name);
+
+    return (
+      <div className="mt-2 pt-3 border-t border-dashed">
+        <span className="text-xs font-bold text-gray-400 block mb-2">
+          결재 진행 내역
+        </span>
+        <ul className="space-y-1">
+          {/* 1차 결재자 목록 */}
+          {firstApprovers.map((name) => {
+            const h = findHistory(name);
+            return (
+              <li
+                key={`1st-${name}`}
+                className="flex items-center text-xs text-gray-500"
+              >
+                <span className="w-26  font-semibold text-gray-700">
+                  {name}
+                </span>
+                <span className="w-16 text-gray-600 font-medium">1차 결재</span>
+                {h ? (
+                  <>
+                    <span className="text-green-600 font-bold mr-2">
+                      [승인]
+                    </span>
+                    <span className="text-gray-400">
+                      {formatDate(h.approvedAt)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-orange-500 font-medium">[대기]</span>
+                )}
+              </li>
+            );
+          })}
+
+          {/* 2차 결재자 목록 */}
+          {secondApprovers.map((name) => {
+            const h = findHistory(name);
+            return (
+              <li
+                key={`2nd-${name}`}
+                className="flex items-center text-xs text-gray-500"
+              >
+                <span className="w-26 font-semibold text-gray-700">{name}</span>
+                <span className="w-16 text-gray-600 font-medium">2차 결재</span>
+                {h ? (
+                  <>
+                    <span className="text-green-600 font-bold mr-2">
+                      [승인]
+                    </span>
+                    <span className="text-gray-400">
+                      {formatDate(h.approvedAt)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-orange-500 font-medium">[대기]</span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  };
+
+  // 🔹 무한 스크롤 로직
   const handleObserver = useCallback(
     (entries: IntersectionObserverEntry[]) => {
       const target = entries[0];
@@ -123,16 +197,13 @@ export default function MyVacationHistoryPage() {
       rootMargin: "20px",
       threshold: 0,
     });
-
     const currentTarget = loadMoreRef.current;
     if (currentTarget) observer.observe(currentTarget);
-
     return () => {
       if (currentTarget) observer.unobserve(currentTarget);
     };
   }, [handleObserver]);
 
-  // 현재 보여줄 아이템 계산
   const visibleItems = list.slice(0, visibleCount);
 
   if (isLoading) return <div className="p-10 text-center">로딩 중...</div>;
@@ -159,6 +230,7 @@ export default function MyVacationHistoryPage() {
         ) : (
           <div className="divide-y">
             {visibleItems.map((item) => (
+              // ✅ 보내주신 디자인 (p-3) 유지
               <div
                 key={item.id}
                 className="p-3 hover:bg-gray-50 transition-colors"
@@ -196,8 +268,8 @@ export default function MyVacationHistoryPage() {
                   )}
                 </div>
 
-                {/* 상세 내용 (그리드 배치) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600 bg-gray-50 p-2 rounded-lg">
+                {/* 상세 내용 (그리드 배치) - 보내주신 디자인 (p-2) 유지 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600 bg-gray-50 p-2 rounded-lg mt-2">
                   <div>
                     <span className="block text-xs font-bold text-gray-400 mb-1">
                       기간
@@ -214,32 +286,8 @@ export default function MyVacationHistoryPage() {
                   </div>
                 </div>
 
-                {/* 결재 이력 (있을 경우만) */}
-                {item.approvalHistory && item.approvalHistory.length > 0 && (
-                  <div className="mt-2 pt-3 border-t border-dashed">
-                    <span className="text-xs font-bold text-gray-400 block mb-2">
-                      결재 진행 내역
-                    </span>
-                    <ul className="space-y-1">
-                      {item.approvalHistory.map((history, idx) => (
-                        <li
-                          key={idx}
-                          className="flex items-center text-xs text-gray-500"
-                        >
-                          <span className="w-25 font-semibold text-gray-700">
-                            {history.approver}
-                          </span>
-                          <span className="w-38 text-gray-600">
-                            [{history.status}]
-                          </span>
-                          <span className="text-gray-400">
-                            {formatDate(history.approvedAt)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                {/* ✅ [기능 교체] 결재 진행 내역 표시 (대기/승인 모두 표시) */}
+                {renderApprovalLine(item)}
               </div>
             ))}
 

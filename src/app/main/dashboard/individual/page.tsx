@@ -32,7 +32,7 @@ type VacationType = {
   reason: string;
   status: string;
   daysUsed: number;
-  approvers: { first?: string[]; second?: string[] };
+  approvers: { first?: string[]; second?: string[]; shared?: string[] };
 };
 
 type EventType = { id?: string; title: string; start: string; end?: string };
@@ -53,7 +53,6 @@ interface CalendarItem {
 // -----------------------------------------------------------------------
 // 헬퍼 함수
 // -----------------------------------------------------------------------
-// 날짜 문자열 "YYYY-MM-DD"를 받아 하루를 더하는 함수 (FullCalendar end 날짜 보정용)
 function addOneDay(dateStr: string) {
   const date = new Date(dateStr);
   date.setDate(date.getDate() + 1);
@@ -64,7 +63,7 @@ function addOneDay(dateStr: string) {
 // [2] API 호출 함수 (Fetchers)
 // -----------------------------------------------------------------------
 
-// 🔔 통합 알림 조회 (업무보고 & 공유내용 용도)
+// 🔔 통합 알림 조회
 const fetchNotifications = async (userName: string) => {
   const res = await fetch("/api/notifications/list", {
     method: "POST",
@@ -75,22 +74,19 @@ const fetchNotifications = async (userName: string) => {
   return data.list || [];
 };
 
-// ✍️ 결재 대기 목록 조회 (내가 결재해야 할 건)
-const fetchPendingVacations = async (
-  userDocId: string,
-  role: string | null
-) => {
-  // role을 보내서 서버에서 1차/2차 결재자 여부를 판단하게 함 (admin/ceo 등)
-  const res = await fetch("/api/vacation/list", {
+// ✍️ [수정] 결재 대기 목록 조회 (내가 결재해야 할 건)
+// endpoint: /api/vacation/pending, body: { approverName }
+const fetchPendingVacations = async (userName: string) => {
+  const res = await fetch("/api/vacation/pending", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userName: userDocId, role }),
+    body: JSON.stringify({ approverName: userName }),
   });
   const data = await res.json();
-  return data.list || [];
+  return data.pending || [];
 };
 
-// ✅ 결재 완료 목록 조회 (내가 승인한 건 - 전체 날짜)
+// ✅ 결재 완료 목록 조회 (내가 승인한 건)
 const fetchCompletedHistory = async (userName: string) => {
   const res = await fetch("/api/vacation/approve-list", {
     method: "POST",
@@ -119,32 +115,28 @@ export default function Individual() {
   );
   const queryClient = useQueryClient();
 
-  // 모달 상태 관리 ('pending' | 'work' | 'completed' | 'shared' | null)
   const [modalType, setModalType] = useState<string | null>(null);
-
-  // 승인용 선택 상태
   const [selectedVacationForApprove, setSelectedVacationForApprove] =
     useState<VacationType | null>(null);
 
   // =====================================================================
-  // Data Fetching (React Query)
+  // Data Fetching
   // =====================================================================
 
-  // 1. 알림 데이터 (업무보고 + 공유내용)
+  // 1. 알림 데이터
   const { data: notifications = [] } = useQuery<NotificationType[]>({
     queryKey: ["notifications", userName],
     queryFn: () => fetchNotifications(userName!),
     enabled: !!userName,
-    refetchInterval: 30000, // 30초마다 갱신
+    refetchInterval: 30000,
   });
 
-  // 2. 결재 요청 데이터 (휴가 등)
+  // 2. [수정] 결재 요청 데이터 (내가 결재해야 할 문서들)
+  // role 체크 없이, userName만 있으면 호출 (API 내부에서 내 이름으로 된 결재 찾음)
   const { data: pendingVacations = [] } = useQuery<VacationType[]>({
-    queryKey: ["pendingVacations", userDocId],
-    queryFn: () => fetchPendingVacations(userDocId!, role),
-    enabled:
-      !!userDocId &&
-      (role === "admin" || role === "ceo" || role === "supervisor"),
+    queryKey: ["pendingVacations", userName],
+    queryFn: () => fetchPendingVacations(userName!),
+    enabled: !!userName,
   });
 
   // 3. 결재 완료 데이터
@@ -154,54 +146,54 @@ export default function Individual() {
     enabled: !!userName,
   });
 
-  // 4. 캘린더 데이터 및 개인 일정 - 개인 일정
+  // 4. 캘린더 데이터
   const { data: myEvents = [] } = useQuery<EventType[]>({
     queryKey: ["events", userDocId],
     queryFn: () => fetchEvents(userDocId!),
     enabled: !!userDocId,
   });
 
-  // 교육 일정
   const trainingEvents: EventType[] = (eventsJson.items || []).map(
     (item: CalendarItem) => ({
-      id: `training-${item.id}`, // ID 충돌 방지를 위해 접두사 추가
+      id: `training-${item.id}`,
       title: item.summary,
       start: item.start.date,
       end: item.end ? addOneDay(item.end.date) : undefined,
-      color: "#A3A3A3", // (선택) 교육 일정은 회색으로 구분
+      color: "#A3A3A3",
       display: "block",
-      editable: false, // (선택) 드래그 수정 불가
+      editable: false,
     })
   );
 
-  // ✅ [병합] 개인 일정 + 교육 일정
   const allEvents = [...myEvents, ...trainingEvents];
 
   // =====================================================================
   // Data Filtering (데이터 분류)
   // =====================================================================
 
-  // [Card 2] 업무 보고 (일일/주간) - 알림에서 필터링
+  // [Card 2] 업무 보고 (일일/주간)
   const workReports = notifications.filter(
     (n) => n.type === "daily" || n.type === "weekly"
   );
 
-  // [Card 4] 공유 내용 (그 외 나머지) - 알림에서 필터링
+  // [Card 4] 공유 내용 (그 외 나머지 + 결재완료 알림)
+  // ✅ [수정] vacation_complete 포함 (vacation_request는 결재 요청 카드에서 처리하므로 제외 가능)
   const sharedContents = notifications.filter((n) =>
-    ["report", "approval", "notice", "resource"].includes(n.type)
+    ["report", "approval", "notice", "resource", "vacation_complete"].includes(
+      n.type
+    )
   );
 
-  // [Card 1] 결재 요청 (현재는 휴가만)
+  // [Card 1] 결재 요청 (API로 가져온 실제 문서 개수)
   const approvalRequests = pendingVacations;
 
-  // [Card 3] 결재 완료 (현재는 휴가만)
+  // [Card 3] 결재 완료
   const completedHistory = completedList;
 
   // =====================================================================
-  // Mutations (승인, 일정 추가/삭제)
+  // Mutations
   // =====================================================================
 
-  // 휴가 승인
   const approveMutation = useMutation({
     mutationFn: async ({
       id,
@@ -215,7 +207,7 @@ export default function Individual() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           vacationId: id,
-          approverName: userDocId,
+          approverName: userName, // userName 사용
           applicantUserName: applicant,
         }),
       });
@@ -235,7 +227,6 @@ export default function Individual() {
     onError: (err) => alert(err.message),
   });
 
-  // 일정 추가
   const addEventMutation = useMutation({
     mutationFn: async (newEvent: NewEventType) => {
       const res = await fetch("/api/today/add", {
@@ -247,7 +238,6 @@ export default function Individual() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["events"] }),
   });
 
-  // 일정 삭제
   const deleteEventMutation = useMutation({
     mutationFn: async (eventId: string) => {
       const res = await fetch("/api/today/delete", {
@@ -311,8 +301,8 @@ export default function Individual() {
           onClick={() => setModalType("pending")}
           className={`shadow-sm border rounded-2xl p-6 text-center cursor-pointer transition-all group ${
             modalType === "pending"
-              ? "bg-red-50 border-red-200 ring-2 ring-red-200" // 선택됨 (모달 열림)
-              : "bg-white hover:bg-red-50 hover:border-red-200" // 기본
+              ? "bg-red-50 border-red-200 ring-2 ring-red-200"
+              : "bg-white hover:bg-red-50 hover:border-red-200"
           }`}
         >
           <span
@@ -412,11 +402,7 @@ export default function Individual() {
             }}
             dateClick={handleDateClick}
             eventClick={(info) => {
-              // 'training-'로 시작하는 ID는 클릭 시 아무 동작도 하지 않음
-              if (info.event.id.startsWith("training-")) {
-                return;
-              }
-              // 개인 일정은 삭제 확인 창 띄움
+              if (info.event.id.startsWith("training-")) return;
               if (confirm(`'${info.event.title}' 일정을 삭제하시겠습니까?`)) {
                 deleteEventMutation.mutate(info.event.id);
               }
@@ -425,14 +411,14 @@ export default function Individual() {
         </div>
       </div>
 
-      {/* ======================= 모달 영역 (링크 연결됨) ======================= */}
+      {/* ======================= 모달 영역 ======================= */}
 
       {/* 1. 결재 요청 모달 */}
       {modalType === "pending" && (
         <ListModalLayout
           title="결재 요청 목록"
           onClose={() => setModalType(null)}
-          moreLink="/main/my-approval/pending" // 🔗 결재 대기함 연결
+          moreLink="/main/my-approval/pending"
         >
           {approvalRequests.length > 0 ? (
             approvalRequests.map((v) => (
@@ -473,7 +459,7 @@ export default function Individual() {
         <ListModalLayout
           title="업무 보고 (공유)"
           onClose={() => setModalType(null)}
-          moreLink="/main/my-approval/shared" // 🔗 수신/공유함 연결 (업무보고 포함됨)
+          moreLink="/main/my-approval/shared"
         >
           {workReports.length > 0 ? (
             workReports.map((noti) => (
@@ -494,7 +480,7 @@ export default function Individual() {
         <ListModalLayout
           title="결재 완료 내역 (전체)"
           onClose={() => setModalType(null)}
-          moreLink="/main/my-approval/completed" // 🔗 결재 완료함 연결
+          moreLink="/main/my-approval/completed"
         >
           {completedHistory.length > 0 ? (
             completedHistory.map((v) => (
@@ -526,9 +512,9 @@ export default function Individual() {
       {/* 4. 공유 내용 모달 */}
       {modalType === "shared" && (
         <ListModalLayout
-          title="공유 내용 (보고서/품의/공지 등)"
+          title="공유 내용 (보고서/품의/공지/휴가승인)"
           onClose={() => setModalType(null)}
-          moreLink="/main/my-approval/shared" // 🔗 수신/공유함 연결
+          moreLink="/main/my-approval/shared"
         >
           {sharedContents.length > 0 ? (
             sharedContents.map((noti) => (
@@ -544,7 +530,7 @@ export default function Individual() {
         </ListModalLayout>
       )}
 
-      {/* 승인 확인 팝업 (기존 유지) */}
+      {/* 승인 확인 팝업 */}
       {selectedVacationForApprove && (
         <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-[60]">
           <div className="bg-white rounded-xl p-6 w-[400px] shadow-2xl">
@@ -578,14 +564,14 @@ export default function Individual() {
 }
 
 // -----------------------------------------------------------------------
-// [4] 하위 컴포넌트 수정 (더보기 버튼 추가)
+// [4] 하위 컴포넌트
 // -----------------------------------------------------------------------
 
 function ListModalLayout({
   title,
   onClose,
   children,
-  moreLink, // ✅ 더보기 링크 prop 추가
+  moreLink,
 }: {
   title: string;
   onClose: () => void;
@@ -595,7 +581,6 @@ function ListModalLayout({
   return (
     <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50">
       <div className="bg-white rounded-xl p-6 w-[600px] max-h-[80vh] flex flex-col shadow-2xl">
-        {/* 헤더 */}
         <div className="flex justify-between items-center mb-4 border-b pb-3">
           <h3 className="text-xl font-bold text-gray-800">{title}</h3>
           <button
@@ -606,10 +591,8 @@ function ListModalLayout({
           </button>
         </div>
 
-        {/* 컨텐츠 */}
         <div className="overflow-y-auto flex-1 pr-1 space-y-3">{children}</div>
 
-        {/* ✅ 푸터: 닫기 & 더보기 버튼 */}
         <div className="mt-4 flex gap-2">
           <button
             onClick={onClose}
@@ -632,7 +615,6 @@ function ListModalLayout({
   );
 }
 
-// 데이터 없음 표시
 function EmptyState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center h-40 text-gray-400 bg-gray-50 rounded-lg border border-dashed">
@@ -641,7 +623,7 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-// 알림 아이템 (링크 이동)
+// ✅ [수정] 알림 아이템 (새로운 타입 추가)
 function NotificationItem({
   noti,
   onClose,
@@ -656,6 +638,8 @@ function NotificationItem({
     approval: "품의",
     notice: "공지",
     resource: "자료",
+    vacation_request: "결재요청", // 혹시 알림 리스트에 뜰 경우 대비
+    vacation_complete: "휴가승인", // 공유함에 뜸
   };
   const colorClass: Record<string, string> = {
     daily: "bg-blue-100 text-blue-700",
@@ -664,6 +648,19 @@ function NotificationItem({
     approval: "bg-pink-100 text-pink-700",
     notice: "bg-orange-100 text-orange-700",
     resource: "bg-gray-200 text-gray-700",
+    vacation_request: "bg-red-100 text-red-700",
+    vacation_complete: "bg-green-100 text-green-700",
+  };
+
+  // 📅 날짜 변환 함수 (YYYY-MM-DD HH:mm)
+  const formatDate = (timestamp: number) => {
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hour = String(date.getHours()).padStart(2, "0");
+    const minute = String(date.getMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day} ${hour}:${minute}`;
   };
 
   return (
@@ -679,11 +676,7 @@ function NotificationItem({
               {typeLabel[noti.type] || noti.type}
             </span>
             <span className="text-xs text-gray-400">
-              {new Date(noti.createdAt).toLocaleDateString()}{" "}
-              {new Date(noti.createdAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {formatDate(noti.createdAt)}
             </span>
           </div>
         </div>
