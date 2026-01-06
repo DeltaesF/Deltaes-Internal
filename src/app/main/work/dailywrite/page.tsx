@@ -1,12 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation"; // router 사용
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Editor from "@/components/editor";
 
-// Props 타입 정의 제거 (page.tsx는 props를 받지 않음)
+// ✅ [추가] 오늘 날짜 문자열 생성 함수 (YYYY.MM.DD)
+const getTodayString = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}.${month}.${day}`;
+};
 
 export default function DailyWritePage() {
   const router = useRouter(); // 라우터 훅 사용
@@ -15,9 +22,18 @@ export default function DailyWritePage() {
   );
 
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [content, setContent] = useState("<ol><li></li></ol>");
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // ✅ [추가] 페이지 로드 시 제목 자동 설정
+  useEffect(() => {
+    if (userName) {
+      const dateStr = getTodayString();
+      // 포맷: 일일업무보고_2026.01.01
+      setTitle(`일일업무보고_${dateStr}`);
+    }
+  }, [userName]);
 
   // [수정] onCancel 대신 router.back() 사용
   const handleCancel = () => {
@@ -35,7 +51,8 @@ export default function DailyWritePage() {
     if (!title) return alert("제목을 입력해주세요.");
 
     // 에디터 내용 체크 (태그만 있는 빈 값인 경우도 고려 가능)
-    if (!content || content === "<p></p>") return alert("내용을 입력해주세요.");
+    const strippedContent = content.replace(/<[^>]+>/g, "").trim();
+    if (!strippedContent) return alert("내용을 입력해주세요.");
 
     setIsLoading(true);
 
@@ -96,9 +113,9 @@ export default function DailyWritePage() {
         {/* 입력 폼 내용 (기존과 동일) */}
         <input
           type="text"
-          placeholder="제목을 입력하세요"
+          placeholder="일일업무보고_2026.01.01_홍성원"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          readOnly
           className="border p-3 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-[#519d9e]"
         />
 

@@ -1,12 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation"; // router 사용
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Editor from "@/components/editor";
 
-// Props 타입 정의 제거 (page.tsx는 props를 받지 않음)
+// ✅ [추가] 오늘 날짜 문자열 생성 함수 (YYYY.MM.DD)
+const getTodayString = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}.${month}.${day}`;
+};
 
 const DEFAULT_TEMPLATE = `
   <h3>금주 업무 보고</h3>
@@ -20,9 +27,21 @@ const DEFAULT_TEMPLATE = `
     </thead>
     <tbody>
       <tr>
-        <td></td>
-        <td></td>
-        <td></td>
+        <td>
+          <ul>
+            <li></li>
+          </ul>
+        </td>
+        <td>
+          <ul>
+            <li></li>
+          </ul>
+        </td>
+        <td>
+          <ul>
+            <li></li>
+          </ul>
+        </td>
       </tr>
     </tbody>
   </table>
@@ -38,6 +57,15 @@ export default function WeeklyWritePage() {
   const [content, setContent] = useState(DEFAULT_TEMPLATE);
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // ✅ [추가] 페이지 로드 시 제목 자동 설정
+  useEffect(() => {
+    if (userName) {
+      const dateStr = getTodayString();
+      // 포맷: 일일업무보고_2026.01.01
+      setTitle(`주간업무보고_${dateStr}_${userName}`);
+    }
+  }, [userName]);
 
   // [수정] onCancel 대신 router.back() 사용
   const handleCancel = () => {
@@ -115,7 +143,7 @@ export default function WeeklyWritePage() {
           type="text"
           placeholder="주간업무보고서_2026.01.01_홍길동"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          readOnly
           className="border p-2 rounded"
         />
         {/* [변경] 기존 textarea 대신 Editor 컴포넌트 사용 */}

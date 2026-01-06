@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
     }
   }
   // ---------------------------------------------------------
-  // [CASE 2] 1년 미만 신입사원
+  // [CASE 2] 1년 미만 신입사원 -> 매월 1개씩 발생 (최대 11개)
   // ---------------------------------------------------------
   else {
     const lastUpdateMonth = data?.lastUpdateMonth || joinDate.getMonth() + 1;
