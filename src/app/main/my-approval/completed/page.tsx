@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Pagination from "@/components/pagination";
-import { useState, Suspense } from "react"; // ✅ Suspense 추가
+import { useState, Suspense } from "react";
 
 // ✅ 타입 정의
 interface CompletedItem {
@@ -23,6 +23,7 @@ const fetchCompleted = async (userName: string) => {
     body: JSON.stringify({ userName }),
   });
   const data = await res.json();
+  // category: 'vacation'으로 매핑
   return (data.list || []).map((item: CompletedItem) => ({
     ...item,
     category: "vacation",
@@ -30,7 +31,7 @@ const fetchCompleted = async (userName: string) => {
 };
 
 // ------------------------------------------------------------------
-// ✅ [1] 실제 로직이 담긴 컴포넌트 (이름 변경: Page -> Content)
+// ✅ [1] Content 컴포넌트
 // ------------------------------------------------------------------
 function CompletedApprovalContent() {
   const { userName } = useSelector((state: RootState) => state.auth);
@@ -61,6 +62,7 @@ function CompletedApprovalContent() {
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-green-600">✅ 결재 완료함</h2>
 
+          {/* ✅ [수정] 수신/공유함과 동일한 필터 옵션 적용 */}
           <select
             value={filterType}
             onChange={(e) => {
@@ -71,6 +73,12 @@ function CompletedApprovalContent() {
           >
             <option value="all">전체 보기</option>
             <option value="vacation">휴가</option>
+            <option value="daily">일일 업무</option>
+            <option value="weekly">주간 업무</option>
+            <option value="approval">품의서</option>
+            <option value="report">보고서</option>
+            <option value="notice">공지사항</option>
+            <option value="resource">자료실</option>
           </select>
         </div>
 
@@ -115,12 +123,11 @@ function CompletedApprovalContent() {
 }
 
 // ------------------------------------------------------------------
-// ✅ [2] Suspense로 감싼 실제 Page 컴포넌트 (export default)
+// ✅ [2] Page 컴포넌트 (Suspense 적용)
 // ------------------------------------------------------------------
 export default function CompletedApprovalPage() {
   return (
-    // fallback에는 로딩 중에 보여줄 간단한 UI를 넣습니다.
-    <Suspense fallback={<div className="p-6">페이지 로딩 중...</div>}>
+    <Suspense fallback={<div className="p-6">로딩 중...</div>}>
       <CompletedApprovalContent />
     </Suspense>
   );
