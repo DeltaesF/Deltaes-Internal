@@ -108,10 +108,15 @@ const fetchEvents = async (userDocId: string) => {
 // [3] 컴포넌트 시작
 // -----------------------------------------------------------------------
 export default function Individual() {
-  // ✅ [수정] role 추가 (권한 확인용)
-  const { userDocId, userName, role } = useSelector(
+  // ✅ [수정] role 추가 (권한 확인용), loginTime 추가로 가져오기
+  const { userDocId, userName, role, loginTime } = useSelector(
     (state: RootState) =>
-      state.auth || { userDocId: null, userName: "사용자", role: null }
+      state.auth || {
+        userDocId: null,
+        userName: "사용자",
+        role: null,
+        loginTime: null,
+      }
   );
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -230,6 +235,15 @@ export default function Individual() {
 
   return (
     <div className="flex flex-col gap-10 mt-6 items-center w-full">
+      {/* ✅ [추가] 로그인 시간 표시 UI */}
+      <div className="w-full max-w-[1200px] flex justify-end">
+        <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full shadow-sm">
+          🕒 접속 시간:{" "}
+          <span className="font-semibold text-gray-700">
+            {loginTime || "-"}
+          </span>
+        </div>
+      </div>
       {/* 4개의 카드 그리드 */}
       <div className="grid grid-cols-4 gap-6 w-full max-w-[1200px]">
         {/* 1. 결재 요청 */}

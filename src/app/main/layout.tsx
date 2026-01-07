@@ -25,52 +25,42 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // 자동 로그아웃 시간 설정 (30분 = 1800000ms / 1시간 = 3600000ms)
-  const TIMEOUT_DURATION = 60 * 60 * 1000;
-
-  // 로그아웃 처리 함수
-  const handleLogout = useCallback(async () => {
-    try {
-      await auth.signOut();
-      alert("장시간 활동이 없어 안전을 위해 자동 로그아웃 되었습니다.");
-      router.push("/login");
-    } catch (error) {
-      console.error("Logout failed", error);
-    }
-  }, [router]);
-
-  // 타이머 리셋 함수 (사용자 활동 감지 시 실행)
-  const resetTimer = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(handleLogout, TIMEOUT_DURATION);
-  }, [handleLogout, TIMEOUT_DURATION]);
-
+  // ✅ [수정] 자정 자동 로그아웃 로직
   useEffect(() => {
     // 앱 시작 시 인증 상태 초기화
     store.dispatch(initAuth());
 
-    // 활동 감지 이벤트 등록
-    const events = ["mousemove", "keypress", "click", "scroll"];
-
-    // 이벤트 리스너 등록
-    events.forEach((event) => {
-      window.addEventListener(event, resetTimer);
-    });
-
-    // 초기 타이머 시작
-    resetTimer();
-
-    // 정리 (Cleanup)
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      events.forEach((event) => {
-        window.removeEventListener(event, resetTimer);
-      });
+    // 자정까지 남은 시간 계산
+    const calculateTimeToMidnight = () => {
+      const now = new Date();
+      // 내일 날짜의 0시 0분 0초
+      const midnight = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1,
+        0,
+        0,
+        0
+      );
+      return midnight.getTime() - now.getTime();
     };
-  }, [resetTimer]); // 의존성 배열에 resetTimer 추가
 
+    const timeToMidnight = calculateTimeToMidnight();
+
+    const timer = setTimeout(async () => {
+      try {
+        await auth.signOut();
+        alert(
+          "자정이 경과하여 자동으로 로그아웃 되었습니다.\n내일 업무를 위해 다시 로그인해주세요."
+        );
+        router.push("/login");
+      } catch (error) {
+        console.error("Logout failed", error);
+      }
+    }, timeToMidnight);
+
+    return () => clearTimeout(timer);
+  }, [router]); // 의존성 배열에서 기타 감지 로직 제거
   return (
     <html lang="ko">
       <body
