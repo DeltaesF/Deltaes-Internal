@@ -7,21 +7,23 @@ interface VacationRequest {
   userName: string;
   startDate: string;
   endDate: string;
-  types: string | string[]; // 배열 혹은 문자열
+  types: string | string[];
   status: string;
   daysUsed: number;
   reason: string;
   approvers: {
     first?: string[];
     second?: string[];
+    third?: string[];
     shared?: string[];
   };
   createdAt?: number;
 }
 
 /**
- * ✅ 1️⃣ [POST] 관리자/CEO용
- * 결재자 이름으로 결재 대기 목록 조회
+ * ✅ 1️⃣ [POST] 결재 대기 목록 조회
+ * 기능 1: 내가 결재해야 할 문서 (1차, 2차, 3차)
+ * 기능 2: 내가 신청했는데 아직 대기 중인 문서
  */
 export async function POST(req: NextRequest) {
   try {
@@ -29,93 +31,79 @@ export async function POST(req: NextRequest) {
 
     if (!approverName) {
       return NextResponse.json(
-        { error: "결재자 이름이 누락되었습니다." },
+        { error: "사용자 이름이 누락되었습니다." },
         { status: 400 }
       );
     }
 
-    // 💡 중요: 휴가 신청서는 하위 컬렉션(requests)에 있으므로 collectionGroup 사용
+    // 💡 모든 하위 컬렉션(requests) 검색
     const requestsRef = db.collectionGroup("requests");
 
-    // [조건 1] 내가 1차 결재자이고, 상태가 '1차 결재 대기'인 문서
+    // ---------------------------------------------------------
+    // [A] 내가 '결재'해야 할 문서 찾기
+    // ---------------------------------------------------------
+
+    // 1. 1차 결재자이고, 상태가 '1차 결재 대기'
     const firstQuery = requestsRef
       .where("status", "==", "1차 결재 대기")
       .where("approvers.first", "array-contains", approverName)
       .get();
 
-    // [조건 2] 내가 2차 결재자이고, 상태가 '2차 결재 대기'인 문서
+    // 2. 2차 결재자이고, 상태가 '2차 결재 대기'
     const secondQuery = requestsRef
       .where("status", "==", "2차 결재 대기")
       .where("approvers.second", "array-contains", approverName)
       .get();
 
-    // 3. ✅ 내가 3차 결재자이고 '3차 대기'인 문서
+    // 3. 3차 결재자이고, 상태가 '3차 결재 대기'
     const thirdQuery = requestsRef
       .where("status", "==", "3차 결재 대기")
       .where("approvers.third", "array-contains", approverName)
       .get();
 
-    // 병렬로 실행하여 성능 최적화
-    const [firstSnap, secondSnap, thirdSnap] = await Promise.all([
-      firstQuery,
-      secondQuery,
-      thirdQuery,
-    ]);
+    // ---------------------------------------------------------
+    // [B] 내가 '신청'한 문서 중 대기 중인 것 찾기 (신청자 본인 확인용)
+    // ---------------------------------------------------------
+    const myRequestQuery = requestsRef
+      .where("userName", "==", approverName)
+      .where("status", "in", [
+        "1차 결재 대기",
+        "2차 결재 대기",
+        "3차 결재 대기",
+      ])
+      .get();
 
-    // 결과 합치기
-    const pendingDocs: VacationRequest[] = [
-      ...firstSnap.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as VacationRequest)
-      ),
-      ...secondSnap.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as VacationRequest)
-      ),
-      ...thirdSnap.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as VacationRequest)
-      ),
-    ];
+    // 병렬 실행
+    const [firstSnap, secondSnap, thirdSnap, myRequestSnap] = await Promise.all(
+      [firstQuery, secondQuery, thirdQuery, myRequestQuery]
+    );
 
-    // 날짜 최신순 정렬 (선택 사항)
-    pendingDocs.sort((a, b) => {
-      const dateA = new Date(a.startDate).getTime();
-      const dateB = new Date(b.startDate).getTime();
+    // ---------------------------------------------------------
+    // [C] 결과 합치기 (Map을 사용하여 중복 제거)
+    // ---------------------------------------------------------
+    const docsMap = new Map<string, VacationRequest>();
+
+    const addToMap = (snap: FirebaseFirestore.QuerySnapshot) => {
+      snap.docs.forEach((doc) => {
+        docsMap.set(doc.id, { id: doc.id, ...doc.data() } as VacationRequest);
+      });
+    };
+
+    addToMap(firstSnap);
+    addToMap(secondSnap);
+    addToMap(thirdSnap);
+    addToMap(myRequestSnap);
+
+    // 배열로 변환 및 정렬 (최신순)
+    const pendingDocs = Array.from(docsMap.values()).sort((a, b) => {
+      const dateA = a.createdAt || 0;
+      const dateB = b.createdAt || 0;
       return dateB - dateA;
     });
 
     return NextResponse.json({ pending: pendingDocs });
   } catch (err) {
     console.error("❌ 결재 대기 조회 오류:", err);
-    return NextResponse.json({ error: "서버 오류 발생" }, { status: 500 });
-  }
-}
-
-/**
- * ✅ 2️⃣ [GET] 일반 사용자(신청자)용 - 대시보드 "진행중인 결재" 숫자
- * 기능: 내가 신청한 휴가 중 아직 완료되지 않은(1차/2차 대기) 건수 반환
- */
-export async function GET(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const userDocId = searchParams.get("userDocId");
-
-    if (!userDocId) {
-      return NextResponse.json({ error: "userDocId 누락" }, { status: 400 });
-    }
-
-    const requestsRef = db
-      .collection("vacation")
-      .doc(userDocId)
-      .collection("requests");
-
-    // 상태가 '1차 결재 대기' 또는 '2차 결재 대기'인 것 조회
-    // Firestore 'in' 쿼리 사용
-    const snap = await requestsRef
-      .where("status", "in", ["1차 결재 대기", "2차 결재 대기"])
-      .get();
-
-    return NextResponse.json({ pendingCount: snap.size });
-  } catch (err) {
-    console.error("❌ 내 대기 건수 조회 오류:", err);
     return NextResponse.json({ error: "서버 오류 발생" }, { status: 500 });
   }
 }

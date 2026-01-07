@@ -9,6 +9,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import eventsJson from "@/app/data/calendar.json";
 
 // -----------------------------------------------------------------------
@@ -60,10 +61,9 @@ function addOneDay(dateStr: string) {
 }
 
 // -----------------------------------------------------------------------
-// [2] API 호출 함수 (Fetchers)
+// [2] API 호출 함수
 // -----------------------------------------------------------------------
 
-// 🔔 통합 알림 조회
 const fetchNotifications = async (userName: string) => {
   const res = await fetch("/api/notifications/list", {
     method: "POST",
@@ -74,8 +74,7 @@ const fetchNotifications = async (userName: string) => {
   return data.list || [];
 };
 
-// ✍️ [수정] 결재 대기 목록 조회 (내가 결재해야 할 건)
-// endpoint: /api/vacation/pending, body: { approverName }
+// 결재 대기 목록
 const fetchPendingVacations = async (userName: string) => {
   const res = await fetch("/api/vacation/pending", {
     method: "POST",
@@ -86,7 +85,7 @@ const fetchPendingVacations = async (userName: string) => {
   return data.pending || [];
 };
 
-// ✅ 결재 완료 목록 조회 (내가 승인한 건)
+// 결재 완료 목록
 const fetchCompletedHistory = async (userName: string) => {
   const res = await fetch("/api/vacation/approve-list", {
     method: "POST",
@@ -97,7 +96,7 @@ const fetchCompletedHistory = async (userName: string) => {
   return data.list || [];
 };
 
-// 📅 캘린더 일정 조회
+// 캘린더
 const fetchEvents = async (userDocId: string) => {
   const res = await fetch(
     `/api/today/list?docId=${encodeURIComponent(userDocId)}`
@@ -109,21 +108,20 @@ const fetchEvents = async (userDocId: string) => {
 // [3] 컴포넌트 시작
 // -----------------------------------------------------------------------
 export default function Individual() {
+  // ✅ [수정] role 추가 (권한 확인용)
   const { userDocId, userName, role } = useSelector(
     (state: RootState) =>
       state.auth || { userDocId: null, userName: "사용자", role: null }
   );
+  const router = useRouter();
   const queryClient = useQueryClient();
 
   const [modalType, setModalType] = useState<string | null>(null);
-  const [selectedVacationForApprove, setSelectedVacationForApprove] =
-    useState<VacationType | null>(null);
 
   // =====================================================================
   // Data Fetching
   // =====================================================================
 
-  // 1. 알림 데이터
   const { data: notifications = [] } = useQuery<NotificationType[]>({
     queryKey: ["notifications", userName],
     queryFn: () => fetchNotifications(userName!),
@@ -131,22 +129,18 @@ export default function Individual() {
     refetchInterval: 30000,
   });
 
-  // 2. [수정] 결재 요청 데이터 (내가 결재해야 할 문서들)
-  // role 체크 없이, userName만 있으면 호출 (API 내부에서 내 이름으로 된 결재 찾음)
   const { data: pendingVacations = [] } = useQuery<VacationType[]>({
     queryKey: ["pendingVacations", userName],
     queryFn: () => fetchPendingVacations(userName!),
     enabled: !!userName,
   });
 
-  // 3. 결재 완료 데이터
   const { data: completedList = [] } = useQuery<VacationType[]>({
     queryKey: ["completedHistory", userName],
     queryFn: () => fetchCompletedHistory(userName!),
     enabled: !!userName,
   });
 
-  // 4. 캘린더 데이터
   const { data: myEvents = [] } = useQuery<EventType[]>({
     queryKey: ["events", userDocId],
     queryFn: () => fetchEvents(userDocId!),
@@ -168,64 +162,25 @@ export default function Individual() {
   const allEvents = [...myEvents, ...trainingEvents];
 
   // =====================================================================
-  // Data Filtering (데이터 분류)
+  // Data Filtering
   // =====================================================================
 
-  // [Card 2] 업무 보고 (일일/주간)
   const workReports = notifications.filter(
     (n) => n.type === "daily" || n.type === "weekly"
   );
 
-  // [Card 4] 공유 내용 (그 외 나머지 + 결재완료 알림)
-  // ✅ [수정] vacation_complete 포함 (vacation_request는 결재 요청 카드에서 처리하므로 제외 가능)
   const sharedContents = notifications.filter((n) =>
     ["report", "approval", "notice", "resource", "vacation_complete"].includes(
       n.type
     )
   );
 
-  // [Card 1] 결재 요청 (API로 가져온 실제 문서 개수)
   const approvalRequests = pendingVacations;
-
-  // [Card 3] 결재 완료
   const completedHistory = completedList;
 
   // =====================================================================
-  // Mutations
+  // Mutations (캘린더용)
   // =====================================================================
-
-  const approveMutation = useMutation({
-    mutationFn: async ({
-      id,
-      applicant,
-    }: {
-      id: string;
-      applicant: string;
-    }) => {
-      const res = await fetch("/api/vacation/approve", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          vacationId: id,
-          approverName: userName, // userName 사용
-          applicantUserName: applicant,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "승인 실패");
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      alert("승인되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["pendingVacations"] });
-      queryClient.invalidateQueries({ queryKey: ["completedHistory"] });
-      setSelectedVacationForApprove(null);
-      setModalType(null);
-    },
-    onError: (err) => alert(err.message),
-  });
 
   const addEventMutation = useMutation({
     mutationFn: async (newEvent: NewEventType) => {
@@ -249,10 +204,6 @@ export default function Individual() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["events"] }),
   });
 
-  // =====================================================================
-  // Event Handlers
-  // =====================================================================
-
   const handleDateClick = (arg: DateClickArg) => {
     if (!userDocId) return alert("로그인 필요");
     const title = prompt("일정을 입력하세요:");
@@ -273,21 +224,6 @@ export default function Individual() {
     });
   };
 
-  const handleApproveClick = (item: VacationType) => {
-    setSelectedVacationForApprove(item);
-  };
-
-  const confirmApprove = () => {
-    if (selectedVacationForApprove) {
-      if (confirm("정말 승인하시겠습니까?")) {
-        approveMutation.mutate({
-          id: selectedVacationForApprove.id,
-          applicant: selectedVacationForApprove.userName,
-        });
-      }
-    }
-  };
-
   // =====================================================================
   // Render
   // =====================================================================
@@ -306,7 +242,7 @@ export default function Individual() {
           }`}
         >
           <span
-            className={`font-semibold block mb-2 group-hover:text-red-600 ${
+            className={`font-semibold block mb-2 ${
               modalType === "pending" ? "text-red-600" : "text-gray-600"
             }`}
           >
@@ -328,7 +264,7 @@ export default function Individual() {
           }`}
         >
           <span
-            className={`font-semibold block mb-2 group-hover:text-blue-600 ${
+            className={`font-semibold block mb-2 ${
               modalType === "work" ? "text-blue-600" : "text-gray-600"
             }`}
           >
@@ -350,7 +286,7 @@ export default function Individual() {
           }`}
         >
           <span
-            className={`font-semibold block mb-2 group-hover:text-green-600 ${
+            className={`font-semibold block mb-2 ${
               modalType === "completed" ? "text-green-600" : "text-gray-600"
             }`}
           >
@@ -372,7 +308,7 @@ export default function Individual() {
           }`}
         >
           <span
-            className={`font-semibold block mb-2 group-hover:text-purple-600 ${
+            className={`font-semibold block mb-2 ${
               modalType === "shared" ? "text-purple-600" : "text-gray-600"
             }`}
           >
@@ -413,43 +349,54 @@ export default function Individual() {
 
       {/* ======================= 모달 영역 ======================= */}
 
-      {/* 1. 결재 요청 모달 */}
+      {/* 1. 결재 요청 모달 (간략 보기 -> 클릭 시 페이지 이동) */}
       {modalType === "pending" && (
         <ListModalLayout
-          title="결재 요청 목록"
+          title="결재 요청 목록 (최신 5건)"
           onClose={() => setModalType(null)}
           moreLink="/main/my-approval/pending"
         >
           {approvalRequests.length > 0 ? (
-            approvalRequests.map((v) => (
-              <div
-                key={v.id}
-                className="bg-white p-4 border rounded-lg hover:shadow-sm transition-shadow flex justify-between items-center"
-              >
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded">
-                      휴가
-                    </span>
-                    <span className="font-semibold text-gray-800">
-                      {v.userName}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    {v.startDate} ~ {v.endDate} ({v.daysUsed}일)
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">{v.reason}</p>
-                </div>
-                <button
-                  onClick={() => handleApproveClick(v)}
-                  className="px-3 py-1.5 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors cursor-pointer"
+            approvalRequests.slice(0, 5).map((v) => {
+              // ✅ [수정] 결재 권한이 있고(user 아님), 타인의 신청 건인 경우에만 버튼 표시
+              const canApprove = role !== "user" && v.userName !== userName;
+
+              return (
+                <div
+                  key={v.id}
+                  onClick={() => router.push("/main/my-approval/pending")}
+                  className="bg-white p-3 border rounded-lg hover:bg-red-50 hover:border-red-200 transition-all cursor-pointer flex justify-between items-center group"
                 >
-                  결재하기
-                </button>
-              </div>
-            ))
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded">
+                        {v.status}
+                      </span>
+                      <span className="font-semibold text-gray-800">
+                        {v.userName}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      {v.startDate} ~ {v.endDate} ({v.daysUsed}일)
+                    </p>
+                  </div>
+                  {/* ✅ 조건부 렌더링: user거나 본인 글이면 아무것도 안 보임 */}
+                  {canApprove && (
+                    <span className="text-xs text-red-400 font-medium group-hover:text-red-600">
+                      결재하러 가기 →
+                    </span>
+                  )}
+                </div>
+              );
+            })
           ) : (
             <EmptyState message="대기 중인 결재 요청이 없습니다." />
+          )}
+
+          {approvalRequests.length > 5 && (
+            <p className="text-center text-xs text-gray-400 mt-2">
+              ...외 {approvalRequests.length - 5}건이 더 있습니다.
+            </p>
           )}
         </ListModalLayout>
       )}
@@ -457,18 +404,20 @@ export default function Individual() {
       {/* 2. 업무 보고 모달 */}
       {modalType === "work" && (
         <ListModalLayout
-          title="업무 보고 (공유)"
+          title="업무 보고 (최신 5건)"
           onClose={() => setModalType(null)}
           moreLink="/main/my-approval/shared"
         >
           {workReports.length > 0 ? (
-            workReports.map((noti) => (
-              <NotificationItem
-                key={noti.id}
-                noti={noti}
-                onClose={() => setModalType(null)}
-              />
-            ))
+            workReports
+              .slice(0, 5)
+              .map((noti) => (
+                <NotificationItem
+                  key={noti.id}
+                  noti={noti}
+                  onClose={() => setModalType(null)}
+                />
+              ))
           ) : (
             <EmptyState message="새로운 업무 보고가 없습니다." />
           )}
@@ -478,28 +427,34 @@ export default function Individual() {
       {/* 3. 결재 완료 모달 */}
       {modalType === "completed" && (
         <ListModalLayout
-          title="결재 완료 내역 (전체)"
+          title="결재 완료 내역 (최신 5건)"
           onClose={() => setModalType(null)}
           moreLink="/main/my-approval/completed"
         >
           {completedHistory.length > 0 ? (
-            completedHistory.map((v) => (
+            completedHistory.slice(0, 5).map((v) => (
               <div
                 key={v.id}
-                className="bg-gray-50 p-4 border rounded-lg flex justify-between items-center"
+                onClick={() => router.push("/main/my-approval/completed")}
+                className="bg-gray-50 p-3 border rounded-lg hover:bg-green-50 hover:border-green-200 transition-all cursor-pointer group"
               >
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">
-                      승인완료
-                    </span>
-                    <span className="font-semibold text-gray-700">
-                      {v.userName}
-                    </span>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">
+                        승인완료
+                      </span>
+                      <span className="font-semibold text-gray-700">
+                        {v.userName}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      {v.startDate} ~ {v.endDate}
+                    </p>
                   </div>
-                  <p className="text-sm text-gray-600">
-                    {v.startDate} ~ {v.endDate}
-                  </p>
+                  <span className="text-xs text-green-400 font-medium group-hover:text-green-600 opacity-0 group-hover:opacity-100">
+                    상세보기 →
+                  </span>
                 </div>
               </div>
             ))
@@ -512,61 +467,30 @@ export default function Individual() {
       {/* 4. 공유 내용 모달 */}
       {modalType === "shared" && (
         <ListModalLayout
-          title="공유 내용 (보고서/품의/공지/휴가승인)"
+          title="공유 내용 (최신 5건)"
           onClose={() => setModalType(null)}
           moreLink="/main/my-approval/shared"
         >
           {sharedContents.length > 0 ? (
-            sharedContents.map((noti) => (
-              <NotificationItem
-                key={noti.id}
-                noti={noti}
-                onClose={() => setModalType(null)}
-              />
-            ))
+            sharedContents
+              .slice(0, 5)
+              .map((noti) => (
+                <NotificationItem
+                  key={noti.id}
+                  noti={noti}
+                  onClose={() => setModalType(null)}
+                />
+              ))
           ) : (
             <EmptyState message="공유된 내용이 없습니다." />
           )}
         </ListModalLayout>
       )}
-
-      {/* 승인 확인 팝업 */}
-      {selectedVacationForApprove && (
-        <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-[60]">
-          <div className="bg-white rounded-xl p-6 w-[400px] shadow-2xl">
-            <h3 className="text-lg font-bold mb-4">결재 승인 확인</h3>
-            <p className="text-gray-700 mb-6">
-              <span className="font-semibold">
-                {selectedVacationForApprove.userName}
-              </span>
-              님의 휴가 신청을 승인하시겠습니까?
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setSelectedVacationForApprove(null)}
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm"
-              >
-                취소
-              </button>
-              <button
-                onClick={confirmApprove}
-                disabled={approveMutation.isPending}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm font-bold disabled:bg-gray-400"
-              >
-                {approveMutation.isPending ? "처리중..." : "승인확정"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-// -----------------------------------------------------------------------
-// [4] 하위 컴포넌트
-// -----------------------------------------------------------------------
-
+// ... (하위 컴포넌트는 기존과 동일) ...
 function ListModalLayout({
   title,
   onClose,
@@ -623,7 +547,6 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-// ✅ [수정] 알림 아이템 (새로운 타입 추가)
 function NotificationItem({
   noti,
   onClose,
@@ -638,8 +561,9 @@ function NotificationItem({
     approval: "품의",
     notice: "공지",
     resource: "자료",
-    vacation_request: "결재요청", // 혹시 알림 리스트에 뜰 경우 대비
-    vacation_complete: "휴가승인", // 공유함에 뜸
+    vacation: "휴가",
+    vacation_request: "결재요청",
+    vacation_complete: "휴가승인",
   };
   const colorClass: Record<string, string> = {
     daily: "bg-blue-100 text-blue-700",
@@ -648,11 +572,11 @@ function NotificationItem({
     approval: "bg-pink-100 text-pink-700",
     notice: "bg-orange-100 text-orange-700",
     resource: "bg-gray-200 text-gray-700",
+    vacation: "bg-green-100 text-green-700",
     vacation_request: "bg-red-100 text-red-700",
     vacation_complete: "bg-green-100 text-green-700",
   };
 
-  // 📅 날짜 변환 함수 (YYYY-MM-DD HH:mm)
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
     const year = date.getFullYear();

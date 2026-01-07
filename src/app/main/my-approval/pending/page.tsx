@@ -38,7 +38,8 @@ const fetchPending = async (userName: string) => {
 // ✅ [1] Content 컴포넌트
 // ------------------------------------------------------------------
 function PendingApprovalContent() {
-  const { userName } = useSelector((state: RootState) => state.auth);
+  // ✅ role 추가 가져오기
+  const { userName, role } = useSelector((state: RootState) => state.auth);
   const queryClient = useQueryClient();
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -100,12 +101,12 @@ function PendingApprovalContent() {
 
   return (
     <div className="p-6 w-full">
-      <div className="bg-white border rounded-2xl shadow-sm p-6">
+      <div className="bg-white border rounded-2xl shadow-sm p-4">
         {/* 헤더 부분 */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-1">
           <h2 className="text-2xl font-bold text-orange-500">⏳ 결재 대기함</h2>
 
-          {/* ✅ [수정] 수신/공유함과 동일한 필터 옵션 적용 */}
+          {/* 필터 옵션 */}
           <select
             value={filterType}
             onChange={(e) => {
@@ -131,37 +132,55 @@ function PendingApprovalContent() {
           </p>
         ) : (
           <ul className="divide-y">
-            {currentItems.map((item) => (
-              <li key={item.id} className="py-4 px-2 hover:bg-gray-50 rounded">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="bg-orange-100 text-orange-700 text-xs font-bold px-2 py-0.5 rounded">
+            {currentItems.map((item) => {
+              // ✅ 본인 신청 건인지 확인
+              const isMyRequest = item.userName === userName;
+              // ✅ 결재 권한이 있는지 확인 (user는 권한 없음, 본인 글은 결재 불가)
+              const canApprove = role !== "user" && !isMyRequest;
+
+              return (
+                <li
+                  key={item.id}
+                  className="py-3 px-3 hover:bg-gray-50 rounded"
+                >
+                  <div className="flex justify-between items-center">
+                    {/* 왼쪽 정보 영역 */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-bold text-gray-800">
+                          {item.userName}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-500 ml-1 flex flex-col gap-0.5">
+                        <span>
+                          📅 {item.startDate} ~ {item.endDate} ({item.daysUsed}
+                          일)
+                        </span>
+                        <span className="text-gray-400 text-xs">
+                          📝 {item.reason}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* ✅ 오른쪽 영역: 승인 버튼 OR 상태 텍스트 */}
+                    {canApprove ? (
+                      <button
+                        onClick={() => handleApprove(item)}
+                        disabled={approveMutation.isPending}
+                        className="px-4 py-2 bg-[#519d9e] text-white text-sm font-bold rounded-lg hover:bg-[#407f80] transition-colors shadow-sm disabled:bg-gray-300 cursor-pointer"
+                      >
+                        {approveMutation.isPending ? "처리 중..." : "결재 승인"}
+                      </button>
+                    ) : (
+                      // 결재 권한이 없거나 본인 글인 경우 -> 상태 표시
+                      <span className="px-4 py-2 text-gray-500 text-sm font-bold bg-gray-100 rounded-lg border border-gray-200">
                         {item.status}
                       </span>
-                      <span className="font-bold text-gray-800">
-                        {item.userName}
-                      </span>
-                    </div>
-                    <div className="text-sm text-gray-500 ml-1 flex flex-col gap-0.5">
-                      <span>
-                        📅 {item.startDate} ~ {item.endDate} ({item.daysUsed}일)
-                      </span>
-                      <span className="text-gray-400 text-xs">
-                        📝 {item.reason}
-                      </span>
-                    </div>
+                    )}
                   </div>
-                  <button
-                    onClick={() => handleApprove(item)}
-                    disabled={approveMutation.isPending}
-                    className="px-4 py-2 bg-[#519d9e] text-white text-sm font-bold rounded-lg hover:bg-[#407f80] transition-colors shadow-sm disabled:bg-gray-300 cursor-pointer"
-                  >
-                    {approveMutation.isPending ? "처리 중..." : "결재 승인"}
-                  </button>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
         <Pagination
