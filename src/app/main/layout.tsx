@@ -1,84 +1,27 @@
-"use client";
+// ✅ "use client" 제거해도 됨 (단순 레이아웃)
+// html, body, Provider 모두 제거하고 순수 레이아웃만 남깁니다.
 
-import { Provider } from "react-redux";
-import { store } from "@/store";
-import { useCallback, useEffect, useRef } from "react";
-import { initAuth } from "@/store/slices/authSlice";
-import { Geist, Geist_Mono } from "next/font/google";
-import Sidebar from "@/components/sidebar";
-import { useRouter } from "next/navigation";
-import { auth } from "@/lib/firebase";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-export default function RootLayout({
+export default function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-  // ✅ [수정] 자정 자동 로그아웃 로직
-  useEffect(() => {
-    // 앱 시작 시 인증 상태 초기화
-    store.dispatch(initAuth());
-
-    // 자정까지 남은 시간 계산
-    const calculateTimeToMidnight = () => {
-      const now = new Date();
-      // 내일 날짜의 0시 0분 0초
-      const midnight = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + 1,
-        0,
-        0,
-        0
-      );
-      return midnight.getTime() - now.getTime();
-    };
-
-    const timeToMidnight = calculateTimeToMidnight();
-
-    const timer = setTimeout(async () => {
-      try {
-        await auth.signOut();
-        alert(
-          "자정이 경과하여 자동으로 로그아웃 되었습니다.\n내일 업무를 위해 다시 로그인해주세요."
-        );
-        router.push("/login");
-      } catch (error) {
-        console.error("Logout failed", error);
-      }
-    }, timeToMidnight);
-
-    return () => clearTimeout(timer);
-  }, [router]); // 의존성 배열에서 기타 감지 로직 제거
   return (
-    <html lang="ko">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {/* Provider로 store 주입 */}
-        <Provider store={store}>
-          <div className="flex w-full min-h-screen">
-            {/* 사이드바는 항상 왼쪽에 고정 */}
-            <Sidebar />
-
-            {/* 오른쪽 90% 영역에 페이지 내용(children)이 바뀜 */}
-            <div className="flex-1 ml-[10%] w-[90%] p-6 bg-gray-50 h-screen overflow-y-auto">
-              {children}
-            </div>
-          </div>
-        </Provider>
-      </body>
-    </html>
+    // html, body 태그 삭제함 (상위 레이아웃에서 이미 처리됨)
+    <div className="flex w-full min-h-screen">
+      {/* 사이드바는 여기서 렌더링 */}
+      {/* Sidebar 컴포넌트는 src/app/layout.tsx에서 불러오지 말고 여기서 불러와도 되지만, 
+          사용자님의 기존 구조상 Sidebar가 여기에 있어야 자연스럽습니다. 
+          하지만 Sidebar에 hook이 있으므로 Sidebar는 클라이언트 컴포넌트로 유지합니다. 
+      */}
+      {children}
+      {/* ❗ 주의: Sidebar를 여기서 부르려면 Sidebar 컴포넌트 import가 필요합니다.
+        하지만 아래 src/app/layout.tsx에서 Sidebar를 전역으로 부르고 있으므로
+        여기서는 children만 렌더링해도 됩니다.
+        
+        만약 '로그인 페이지'에는 사이드바가 없어야 한다면,
+        src/app/layout.tsx가 아니라 여기에 Sidebar를 넣어야 합니다.
+      */}
+    </div>
   );
 }

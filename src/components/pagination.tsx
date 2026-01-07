@@ -32,7 +32,7 @@ export default function Pagination({
       <button
         onClick={() => handlePageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-white"
+        className="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-white cursor-pointer"
       >
         &lt;
       </button>
@@ -42,7 +42,7 @@ export default function Pagination({
         <button
           key={p}
           onClick={() => handlePageChange(p)}
-          className={`px-3 py-1 border rounded transition-colors ${
+          className={`px-3 py-1 border rounded transition-colors cursor-pointer ${
             p === currentPage
               ? "bg-[#519d9e] text-white border-[#519d9e]"
               : "hover:bg-gray-100"
@@ -55,7 +55,7 @@ export default function Pagination({
       <button
         onClick={() => handlePageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-white"
+        className="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-white cursor-pointer"
       >
         &gt;
       </button>

@@ -191,7 +191,7 @@ function CompletedApprovalContent() {
             <div className="flex justify-end mt-4 pt-4 border-t">
               <button
                 onClick={() => setSelectedItem(null)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm cursor-pointer"
               >
                 닫기
               </button>
