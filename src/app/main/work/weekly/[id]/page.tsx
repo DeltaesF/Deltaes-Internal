@@ -37,13 +37,11 @@ const fetchDailyList = async (userName: string, role: string) => {
   const res = await fetch("/api/daily/list", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    // 페이지네이션 적용된 API이므로, 해당 주간의 데이터를 충분히 가져오기 위해 limit을 넉넉하게 설정
     body: JSON.stringify({ userName, role, page: 1, limit: 100 }),
   });
   if (!res.ok) throw new Error("Daily fetch failed");
 
   const data = await res.json();
-  // ✅ API가 { list, totalCount }를 반환하므로 list만 추출해서 반환
   return data.list || [];
 };
 
@@ -66,8 +64,9 @@ export default function WeeklyDetailPage() {
   if (!weekly)
     return <div className="p-8 text-center">보고서를 찾을 수 없습니다.</div>;
 
-  // ✅ [권한 체크] : 슈퍼바이저 이거나, 작성자 본인일 때만 내용을 보여줌
-  const isAuthorized = role === "supervisor" || weekly.userName === myName;
+  // ✅ [권한 체크] : 슈퍼바이저, 관리자 이거나, 작성자 본인일 때만 내용을 보여줌
+  const isAuthorized =
+    role === "supervisor" || role === "admin" || weekly.userName === myName;
 
   if (!isAuthorized) {
     return (
@@ -95,7 +94,7 @@ export default function WeeklyDetailPage() {
   return <AuthorizedContent weekly={weekly} myName={myName!} role={role!} />;
 }
 
-// ✅ 권한이 있는 경우 보여줄 실제 콘텐츠 컴포넌트
+// 권한이 있는 경우 보여줄 실제 콘텐츠 컴포넌트
 function AuthorizedContent({
   weekly,
   myName,
@@ -113,36 +112,31 @@ function AuthorizedContent({
   >({
     queryKey: ["dailyListForMeeting", weekly.userName],
     queryFn: async () => {
-      // 슈퍼바이저는 모든 데이터를 가져오므로 API 호출은 그대로 하고, 필터링은 클라이언트에서 수행
       const data = await fetchDailyList(myName, role);
       return data;
     },
   });
 
-  // 📅 [수정됨] "스마트" 날짜 필터링 로직
+  // 날짜 필터링 로직
   const weeklyDate = new Date(weekly.createdAt);
-  const dayOfWeek = weeklyDate.getDay(); // 0(일) ~ 6(토)
+  const dayOfWeek = weeklyDate.getDay();
 
-  // 💡 작성일이 일(0), 월(1), 화(2)요일이라면 -> '지난주' 내용을 작성한 것으로 간주하여 기준일을 7일 전으로 돌림
-  // 예: 12월 15일(월) 작성 -> 12월 8일(월)이 속한 주를 계산
   const targetDate = new Date(weeklyDate);
   if (dayOfWeek <= 2) {
     targetDate.setDate(targetDate.getDate() - 7);
   }
 
-  // 기준일(targetDate)이 속한 주의 월요일 계산
   const targetDay = targetDate.getDay();
   const diffToMon =
     targetDate.getDate() - targetDay + (targetDay === 0 ? -6 : 1);
 
   const monday = new Date(targetDate);
   monday.setDate(diffToMon);
-  monday.setHours(0, 0, 0, 0); // 월요일 00:00:00
+  monday.setHours(0, 0, 0, 0);
 
-  // 해당 주의 금요일 계산
   const friday = new Date(monday);
   friday.setDate(monday.getDate() + 4);
-  friday.setHours(23, 59, 59, 999); // 금요일 23:59:59
+  friday.setHours(23, 59, 59, 999);
 
   const relatedDailys = dailyList
     .filter((daily) => {
@@ -150,11 +144,10 @@ function AuthorizedContent({
       const d = new Date(daily.createdAt);
       return d >= monday && d <= friday;
     })
-    .sort((a, b) => a.createdAt - b.createdAt); // 작성순
+    .sort((a, b) => a.createdAt - b.createdAt);
 
   return (
     <div className="flex flex-col gap-8 p-6 max-w-5xl mx-auto pb-20">
-      {/* 🔙 뒤로가기 & 타이틀 */}
       <div className="flex items-center justify-between">
         <button
           onClick={() => router.back()}
@@ -215,7 +208,6 @@ function AuthorizedContent({
                       {new Date(daily.createdAt).toLocaleDateString()}
                     </span>
 
-                    {/* ✅ [추가됨] 작성자 본인일 경우 수정 버튼 표시 */}
                     {daily.userName === myName && (
                       <Link
                         href={`/main/work/daily/edit/${daily.id}`}
@@ -252,7 +244,6 @@ function AuthorizedContent({
             </h2>
           </div>
 
-          {/* ✅ [추가됨] 주간 보고서 수정 버튼 */}
           {weekly.userName === myName && (
             <Link
               href={`/main/work/weekly/edit/${weekly.id}`}

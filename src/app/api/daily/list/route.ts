@@ -23,9 +23,8 @@ export async function POST(req: Request) {
     // [수정] 변수 타입을 Query로 명시 (CollectionGroup vs Query 타입 불일치 에러 해결)
     let query: Query = db.collectionGroup("userDailys");
 
-    // 1. 슈퍼바이저는 모든 게시물 열람 가능
-    if (role === "supervisor") {
-      // 필터 없음 (전체 조회)
+    // ✅ [수정] 슈퍼바이저 또는 관리자는 모든 게시물 열람 가능
+    if (role === "supervisor" || role === "admin") {
       query = query.orderBy("createdAt", "desc");
     }
     // 2. 그 외 사용자는 본인 것만 열람
