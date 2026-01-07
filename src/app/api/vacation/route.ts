@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
           targetUserName: approverName,
           fromUserName: userName,
           type: "vacation_request",
-          message: `${userName}님의 휴가 결재 요청이 있습니다.`,
+          message: `${userName} 휴가 결재 요청이 있습니다.`,
           link: `/main/my-approval/pending`,
           isRead: false,
 

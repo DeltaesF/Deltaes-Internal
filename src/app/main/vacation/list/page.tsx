@@ -26,6 +26,7 @@ interface VacationResponse {
   approvers: {
     first?: string[];
     second?: string[];
+    third?: string[];
     shared?: string[];
   };
   approvalHistory?: {
@@ -110,6 +111,7 @@ export default function MyVacationHistoryPage() {
     const history = item.approvalHistory || [];
     const firstApprovers = item.approvers?.first || [];
     const secondApprovers = item.approvers?.second || [];
+    const thirdApprovers = item.approvers?.third || [];
 
     const findHistory = (name: string) =>
       history.find((h) => h.approver === name);
@@ -158,6 +160,32 @@ export default function MyVacationHistoryPage() {
               >
                 <span className="w-26 font-semibold text-gray-700">{name}</span>
                 <span className="w-16 text-gray-600 font-medium">2차 결재</span>
+                {h ? (
+                  <>
+                    <span className="text-green-600 font-bold mr-2">
+                      [승인]
+                    </span>
+                    <span className="text-gray-400">
+                      {formatDate(h.approvedAt)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-orange-500 font-medium">[대기]</span>
+                )}
+              </li>
+            );
+          })}
+
+          {/* 3차 결재자 목록 */}
+          {thirdApprovers.map((name) => {
+            const h = findHistory(name);
+            return (
+              <li
+                key={`2nd-${name}`}
+                className="flex items-center text-xs text-gray-500"
+              >
+                <span className="w-26 font-semibold text-gray-700">{name}</span>
+                <span className="w-16 text-gray-600 font-medium">3차 결재</span>
                 {h ? (
                   <>
                     <span className="text-green-600 font-bold mr-2">

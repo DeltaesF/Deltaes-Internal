@@ -15,12 +15,13 @@ interface Employee {
   userName: string;
 }
 
-// ✅ 결재선 정보 타입 정의
+// ✅ 결재선 정보 타입 정의 (3차 추가)
 interface MyInfo {
   recipients?: {
     vacation?: {
       first?: string[];
       second?: string[];
+      third?: string[]; // ✅ 3차 결재자 추가
       shared?: string[];
     };
   };
@@ -61,8 +62,10 @@ export default function VacationWritePage() {
     queryFn: fetchEmployees,
   });
 
+  // ✅ 관리자가 설정한 결재자 목록 가져오기
   const firstApprovers = myInfo?.recipients?.vacation?.first || [];
   const secondApprovers = myInfo?.recipients?.vacation?.second || [];
+  const thirdApprovers = myInfo?.recipients?.vacation?.third || []; // ✅ 3차 추가
 
   useEffect(() => {
     if (myInfo?.recipients?.vacation?.shared) {
@@ -104,9 +107,14 @@ export default function VacationWritePage() {
     if (!reason || !startDate || !endDate)
       return alert("모든 필드를 입력해주세요.");
 
-    if (firstApprovers.length === 0 && secondApprovers.length === 0) {
+    // ✅ 결재선 필수 체크 (1, 2, 3차 모두 있어야 함)
+    if (
+      firstApprovers.length === 0 ||
+      secondApprovers.length === 0 ||
+      thirdApprovers.length === 0
+    ) {
       return alert(
-        "관리자에 의해 설정된 결재자가 없습니다. 관리자에게 문의하세요."
+        "관리자에 의해 설정된 결재선(1차, 2차, 3차)이 불완전합니다. 관리자에게 문의하세요."
       );
     }
 
@@ -126,6 +134,7 @@ export default function VacationWritePage() {
           approvers: {
             first: firstApprovers,
             second: secondApprovers,
+            third: thirdApprovers, // ✅ 3차 포함 전송
             shared: sharedList,
           },
         }),
@@ -157,6 +166,7 @@ export default function VacationWritePage() {
       <h2 className="text-xl font-bold mb-6">📝 휴가원 작성</h2>
 
       <div className="flex gap-10">
+        {/* 좌측 입력 폼 */}
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-4">
           <div className="flex gap-4">
             <label className="flex-1 cursor-pointer">
@@ -165,7 +175,6 @@ export default function VacationWritePage() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                // ✅ 클릭 시 달력 열기 기능 추가
                 onClick={(e) => e.currentTarget.showPicker()}
                 className="border p-2 w-full rounded cursor-pointer"
               />
@@ -176,7 +185,6 @@ export default function VacationWritePage() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                // ✅ 클릭 시 달력 열기 기능 추가
                 onClick={(e) => e.currentTarget.showPicker()}
                 className="border p-2 w-full rounded cursor-pointer"
               />
@@ -198,29 +206,45 @@ export default function VacationWritePage() {
           </button>
         </form>
 
+        {/* 우측 결재선 정보 (Read Only) */}
         <div className="w-[300px] flex flex-col gap-4">
+          {/* 1차 결재자 */}
           <div className="border p-4 rounded bg-gray-50">
             <h4 className="font-bold text-sm text-gray-600 mb-2">1차 결재자</h4>
             {firstApprovers.length > 0 ? (
-              <ul className="list-disc list-inside text-sm">
-                {firstApprovers.map((name) => (
-                  <li key={name}>{name}</li>
-                ))}
-              </ul>
+              <p className="text-sm font-semibold text-gray-800">
+                {firstApprovers[0]}
+              </p>
             ) : (
               <p className="text-gray-400 text-sm">지정되지 않음</p>
             )}
           </div>
 
+          {/* 2차 결재자 */}
           <div className="border p-4 rounded bg-gray-50">
             <h4 className="font-bold text-sm text-gray-600 mb-2">2차 결재자</h4>
             {secondApprovers.length > 0 ? (
-              <p className="text-sm font-semibold">{secondApprovers[0]}</p>
+              <p className="text-sm font-semibold text-gray-800">
+                {secondApprovers[0]}
+              </p>
             ) : (
               <p className="text-gray-400 text-sm">지정되지 않음</p>
             )}
           </div>
 
+          {/* ✅ [추가] 3차 결재자 */}
+          <div className="border p-4 rounded bg-gray-50">
+            <h4 className="font-bold text-sm text-gray-600 mb-2">3차 결재자</h4>
+            {thirdApprovers.length > 0 ? (
+              <p className="text-sm font-semibold text-gray-800">
+                {thirdApprovers[0]}
+              </p>
+            ) : (
+              <p className="text-gray-400 text-sm">지정되지 않음</p>
+            )}
+          </div>
+
+          {/* 참조/공유자 편집 */}
           <div
             className="border p-4 rounded bg-white border-dashed border-gray-400 cursor-pointer hover:bg-gray-50"
             onClick={() => setShowSharedModal(true)}
@@ -244,6 +268,7 @@ export default function VacationWritePage() {
         </div>
       </div>
 
+      {/* 공유자 선택 모달 */}
       {showSharedModal && (
         <VacationModal onClose={() => setShowSharedModal(false)}>
           <h3 className="text-lg font-bold mb-4">공유자 선택</h3>
@@ -253,7 +278,8 @@ export default function VacationWritePage() {
                 (e) =>
                   e.userName !== userName &&
                   !firstApprovers.includes(e.userName) &&
-                  !secondApprovers.includes(e.userName)
+                  !secondApprovers.includes(e.userName) &&
+                  !thirdApprovers.includes(e.userName) // ✅ 3차 결재자도 공유 리스트 제외
               )
               .map((emp) => (
                 <label

@@ -5,14 +5,15 @@ import { useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 
-// ✅ [수정] Recipients 인터페이스 확장
+// ✅ [수정] Recipients 인터페이스 확장 (third 추가)
 interface Recipients {
   work: string[];
   report: string[];
   approval: string[];
   vacation?: {
-    first: string[]; // 1차 (다중)
+    first: string[]; // 1차 (단일)
     second: string[]; // 2차 (단일)
+    third: string[]; // 3차 (단일) - ✅ 추가됨
     shared: string[]; // 공유 (다중)
   };
 }
@@ -33,7 +34,6 @@ interface UpdateEmployeeData {
   recipients: Recipients;
 }
 
-// ✅ [수정] 탭 키에 vacation 추가
 type TabKey = "basic" | "work" | "report" | "approval" | "vacation";
 
 const fetchEmployees = async () => {
@@ -50,7 +50,7 @@ export default function EmployeeManagementPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("basic");
 
-  // ✅ [수정] 초기값에 vacation 추가
+  // ✅ [수정] 초기값에 vacation.third 추가
   const [tempData, setTempData] = useState<{
     role: string;
     department: string;
@@ -62,14 +62,14 @@ export default function EmployeeManagementPage() {
       work: [],
       report: [],
       approval: [],
-      vacation: { first: [], second: [], shared: [] },
+      vacation: { first: [], second: [], third: [], shared: [] },
     },
   });
 
   const { data: employees = [], isLoading } = useQuery<Employee[]>({
     queryKey: ["employees"],
     queryFn: fetchEmployees,
-    enabled: role === "supervisor",
+    enabled: role === "admin",
   });
 
   const updateMutation = useMutation({
@@ -99,10 +99,11 @@ export default function EmployeeManagementPage() {
         work: emp.recipients?.work || [],
         report: emp.recipients?.report || [],
         approval: emp.recipients?.approval || [],
-        // ✅ vacation 데이터가 없으면 빈 배열로 초기화
+        // ✅ vacation 데이터 초기화 (third 추가)
         vacation: emp.recipients?.vacation || {
           first: [],
           second: [],
+          third: [],
           shared: [],
         },
       },
@@ -119,11 +120,11 @@ export default function EmployeeManagementPage() {
     });
   };
 
-  // ✅ [수정] 통합 토글 핸들러 (휴가 로직 포함)
+  // ✅ [수정] 통합 토글 핸들러 (1,2,3차 단일 / 공유 다중)
   const toggleRecipient = (
     category: string,
     name: string,
-    subCategory?: "first" | "second" | "shared"
+    subCategory?: "first" | "second" | "third" | "shared"
   ) => {
     setTempData((prev) => {
       // 1. 휴가 결재 라인 처리
@@ -131,16 +132,18 @@ export default function EmployeeManagementPage() {
         const currentVacation = prev.recipients.vacation || {
           first: [],
           second: [],
+          third: [],
           shared: [],
         };
         const currentList = currentVacation[subCategory] || [];
         let newList: string[] = [];
 
-        if (subCategory === "second") {
-          // 2차 결재자는 단일 선택 (이미 선택된 사람이면 해제, 아니면 교체)
+        // ✅ 1차, 2차, 3차는 단일 선택 (기존 값 있으면 덮어쓰기 or 해제)
+        if (["first", "second", "third"].includes(subCategory)) {
           newList = currentList.includes(name) ? [] : [name];
-        } else {
-          // 1차 및 공유자는 다중 선택 가능
+        }
+        // ✅ 공유자는 다중 선택
+        else {
           newList = currentList.includes(name)
             ? currentList.filter((n) => n !== name)
             : [...currentList, name];
@@ -155,7 +158,7 @@ export default function EmployeeManagementPage() {
         };
       }
 
-      // 2. 일반 알림 처리 (work, report, approval)
+      // 2. 일반 알림 처리 (work, report, approval) - 다중 선택
       const targetKey = category as keyof Omit<Recipients, "vacation">;
       const currentList = prev.recipients[targetKey] || [];
       const newList = currentList.includes(name)
@@ -169,7 +172,7 @@ export default function EmployeeManagementPage() {
     });
   };
 
-  if (role !== "supervisor") {
+  if (role !== "admin") {
     return (
       <div className="flex items-center justify-center h-[50vh]">
         <p className="text-red-500 font-bold">🚫 접근 권한이 없습니다.</p>
@@ -183,7 +186,6 @@ export default function EmployeeManagementPage() {
     <div className="p-3">
       <h2 className="text-2xl font-bold mb-6">👥 직원 권한 및 결재선 관리</h2>
 
-      {/* 직원 목록 테이블 */}
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead className="bg-gray-100">
@@ -247,7 +249,7 @@ export default function EmployeeManagementPage() {
                 { key: "work", label: "업무보고" },
                 { key: "report", label: "보고서" },
                 { key: "approval", label: "품의서" },
-                { key: "vacation", label: "휴가 결재선" }, // ✅ 추가됨
+                { key: "vacation", label: "휴가 결재선" },
               ].map((tab) => (
                 <button
                   key={tab.key}
@@ -295,15 +297,15 @@ export default function EmployeeManagementPage() {
                       className="w-full mt-1.5 border p-2 rounded focus:ring-1 focus:ring-[#519d9e]"
                     >
                       <option value="user">User (일반)</option>
-                      <option value="admin">Admin (팀장)</option>
-                      <option value="supervisor">Supervisor (관리자)</option>
+                      <option value="admin">Supervisor (팀장)</option>
+                      <option value="supervisor">admin (관리자)</option>
                       <option value="ceo">CEO</option>
                     </select>
                   </label>
                 </div>
               )}
 
-              {/* 2. 일반 알림 설정 탭 (work, report, approval) */}
+              {/* 2. 일반 알림 설정 탭 */}
               {(activeTab === "work" ||
                 activeTab === "report" ||
                 activeTab === "approval") && (
@@ -350,13 +352,13 @@ export default function EmployeeManagementPage() {
                 </div>
               )}
 
-              {/* 3. ✅ 휴가 결재선 설정 탭 */}
+              {/* 3. ✅ 휴가 결재선 설정 탭 (3단계) */}
               {activeTab === "vacation" && (
                 <div className="space-y-6">
                   {/* 1차 결재자 */}
                   <div>
                     <h4 className="font-bold text-[#519d9e] mb-2 text-sm">
-                      1. 1차 결재자 (다중 선택 가능)
+                      1. 1차 결재자 (1명만 선택 가능)
                     </h4>
                     <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border p-2 rounded bg-gray-50">
                       {employees
@@ -423,10 +425,45 @@ export default function EmployeeManagementPage() {
                     </div>
                   </div>
 
+                  {/* ✅ [추가] 3차 결재자 */}
+                  <div>
+                    <h4 className="font-bold text-orange-500 mb-2 text-sm">
+                      3. 3차 결재자 (1명만 선택 가능)
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border p-2 rounded bg-gray-50">
+                      {employees
+                        .filter((e) => e.id !== selectedEmp.id)
+                        .map((target) => (
+                          <label
+                            key={`third-${target.id}`}
+                            className="flex items-center gap-2 p-2 rounded hover:bg-gray-200 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 accent-orange-500"
+                              checked={
+                                tempData.recipients.vacation?.third?.includes(
+                                  target.userName
+                                ) || false
+                              }
+                              onChange={() =>
+                                toggleRecipient(
+                                  "vacation",
+                                  target.userName,
+                                  "third"
+                                )
+                              }
+                            />
+                            <span className="text-sm">{target.userName}</span>
+                          </label>
+                        ))}
+                    </div>
+                  </div>
+
                   {/* 공유자 */}
                   <div>
                     <h4 className="font-bold text-purple-600 mb-2 text-sm">
-                      3. 공유/참조자 (승인 완료 시 알림)
+                      4. 공유/참조자 (다중 선택 가능)
                     </h4>
                     <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border p-2 rounded bg-gray-50">
                       {employees

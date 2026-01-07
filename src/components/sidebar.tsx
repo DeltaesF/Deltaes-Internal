@@ -24,7 +24,7 @@ export default function Sidebar() {
   // 대분류 상태
   const [openCategory, setOpenCategory] = useState<
     "approval" | "management" | null
-  >("approval");
+  >(null);
 
   // 중분류 상태 (업무 관리 내부)
   const [subMenus, setSubMenus] = useState({
@@ -124,12 +124,16 @@ export default function Sidebar() {
           </div>
           <p className="font-bold text-gray-800">{userName || "사용자"}님</p>
           <p className="text-xs text-gray-500">
-            {role === "supervisor" ? "관리자" : "사원"}
+            {role === "admin"
+              ? "관리자"
+              : role === "supervisor"
+              ? "결재자"
+              : "사원"}
           </p>
         </Link>
       </div>
 
-      {role === "supervisor" && (
+      {role === "admin" && (
         <Link
           href="/main/supervisor/employees"
           className="mb-4 block text-center p-2 rounded-lg bg-gray-800 text-white text-sm font-bold hover:bg-black transition-colors"

@@ -31,7 +31,9 @@ export async function POST(req: Request) {
     const cancellableStatuses = [
       "1차 결재 대기",
       "2차 결재 대기",
+      "3차 결재 대기",
       "1차 결재 완료",
+      "2차 결재 완료",
       "대기",
     ];
     if (!cancellableStatuses.includes(status)) {
@@ -49,6 +51,7 @@ export async function POST(req: Request) {
     const targetApprovers = [
       ...(approvers.first || []),
       ...(approvers.second || []),
+      ...(approvers.third || []),
     ];
 
     for (const approverName of targetApprovers) {

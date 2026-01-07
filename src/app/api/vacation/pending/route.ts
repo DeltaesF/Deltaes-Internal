@@ -49,10 +49,17 @@ export async function POST(req: NextRequest) {
       .where("approvers.second", "array-contains", approverName)
       .get();
 
+    // 3. ✅ 내가 3차 결재자이고 '3차 대기'인 문서
+    const thirdQuery = requestsRef
+      .where("status", "==", "3차 결재 대기")
+      .where("approvers.third", "array-contains", approverName)
+      .get();
+
     // 병렬로 실행하여 성능 최적화
-    const [firstSnap, secondSnap] = await Promise.all([
+    const [firstSnap, secondSnap, thirdSnap] = await Promise.all([
       firstQuery,
       secondQuery,
+      thirdQuery,
     ]);
 
     // 결과 합치기
@@ -61,6 +68,9 @@ export async function POST(req: NextRequest) {
         (doc) => ({ id: doc.id, ...doc.data() } as VacationRequest)
       ),
       ...secondSnap.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as VacationRequest)
+      ),
+      ...thirdSnap.docs.map(
         (doc) => ({ id: doc.id, ...doc.data() } as VacationRequest)
       ),
     ];
