@@ -60,6 +60,17 @@ function addOneDay(dateStr: string) {
   return date.toISOString().split("T")[0];
 }
 
+// ✅ [추가] 오늘 날짜인지 확인하는 함수
+function isToday(timestamp: number) {
+  const date = new Date(timestamp);
+  const today = new Date();
+  return (
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  );
+}
+
 // -----------------------------------------------------------------------
 // [2] API 호출 함수
 // -----------------------------------------------------------------------
@@ -170,8 +181,9 @@ export default function Individual() {
   // Data Filtering
   // =====================================================================
 
+  // ✅ [수정] 업무 보고: 오늘 날짜인 것만 필터링
   const workReports = notifications.filter(
-    (n) => n.type === "daily" || n.type === "weekly"
+    (n) => (n.type === "daily" || n.type === "weekly") && isToday(n.createdAt)
   );
 
   const sharedContents = notifications.filter((n) =>
@@ -415,25 +427,24 @@ export default function Individual() {
         </ListModalLayout>
       )}
 
-      {/* 2. 업무 보고 모달 */}
+      {/* 2. 업무 보고 모달 (오늘 내역 전체 보기) */}
       {modalType === "work" && (
         <ListModalLayout
-          title="업무 보고 (최신 5건)"
+          title="금일 업무 보고" // 제목 변경
           onClose={() => setModalType(null)}
           moreLink="/main/my-approval/shared"
         >
           {workReports.length > 0 ? (
-            workReports
-              .slice(0, 5)
-              .map((noti) => (
-                <NotificationItem
-                  key={noti.id}
-                  noti={noti}
-                  onClose={() => setModalType(null)}
-                />
-              ))
+            // ✅ [수정] slice 제거 -> 오늘 내역은 다 보여줌 (스크롤)
+            workReports.map((noti) => (
+              <NotificationItem
+                key={noti.id}
+                noti={noti}
+                onClose={() => setModalType(null)}
+              />
+            ))
           ) : (
-            <EmptyState message="새로운 업무 보고가 없습니다." />
+            <EmptyState message="오늘 작성된 업무 보고가 없습니다." />
           )}
         </ListModalLayout>
       )}

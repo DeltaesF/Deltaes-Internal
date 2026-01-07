@@ -1,8 +1,3 @@
-// Redux Toolkit
-// 액션 관리
-
-// 로그인/로그아웃/초기화 로직을 포함
-
 import { auth, db } from "@/lib/firebase";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import {
@@ -10,7 +5,16 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
-import { addDoc, collection, query, where, getDocs } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+  orderBy,
+  limit,
+  Timestamp,
+} from "firebase/firestore";
 
 interface EmployeeDoc {
   email: string;
@@ -18,15 +22,14 @@ interface EmployeeDoc {
   role?: string;
 }
 
-// Redux 상태에 저장될 사용자 정보 타입을 정의합니다. (직렬화 가능하도록)
 interface PlainUser {
   uid: string;
   email: string | null;
 }
 
-// 전체 인증 상태의 타입을 정의합니다.
+// ✅ AuthState 정의
 type AuthState = {
-  user: PlainUser | null; // Firebase User 객체 대신 PlainUser 객체를 사용합니다.
+  user: PlainUser | null;
   userDocId: string | null;
   userName: string | null;
   role: string | null;
@@ -53,39 +56,82 @@ const initialState: AuthState = {
   error: null,
 };
 
-// ✅ 로그인
-// ✨ 변경점 2: createAsyncThunk에 반환 타입(AuthPayload)과 입력 인자 타입을 명시합니다.
+// 🕒 헬퍼: 오늘 자정(00:00:00) 시간 구하기
+const getTodayStart = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
+
+// ✅ 1. 로그인 액션 (수정됨: 조회 먼저 -> 저장 나중에)
 export const loginUser = createAsyncThunk<
   AuthPayload,
   { email: string; password: string }
 >("auth/loginUser", async ({ email, password }) => {
+  // 1. Firebase Auth 로그인
   const cred = await signInWithEmailAndPassword(auth, email, password);
   const user = cred.user;
-  const now = new Date(); // 현재 시간
-  const loginTimeStr = now.toLocaleString("ko-KR"); // 화면 표시용 문자열
+  const now = new Date();
 
+  // 2. Firestore에서 직원 정보 조회
   const q = query(collection(db, "employee"), where("email", "==", user.email));
   const snap = await getDocs(q);
 
-  const serializableUser: PlainUser = {
-    uid: user.uid,
-    email: user.email,
-  };
+  const serializableUser: PlainUser = { uid: user.uid, email: user.email };
 
+  // [CASE 1] DB에 직원 정보가 있는 경우
   if (!snap.empty) {
     const doc = snap.docs[0];
     const data = doc.data() as EmployeeDoc;
     const userDocId = doc.id;
 
-    // ✅ [추가] 로그인 이력(Log) 저장 (employee/{id}/loginHistory 컬렉션)
+    console.log("✅ [로그인 성공] 사용자:", data.userName);
+
+    const historyRef = collection(db, "employee", userDocId, "loginHistory");
+    const todayStart = getTodayStart();
+
+    // ---------------------------------------------------------
+    // 🔍 [1] 오늘 이미 로그인한 기록이 있는지 먼저 확인 (최초 시간 확보)
+    // ---------------------------------------------------------
+    let firstLoginTimeStr = now.toLocaleString("ko-KR"); // 기본값: 지금
+
     try {
-      await addDoc(collection(db, "employee", userDocId, "loginHistory"), {
+      const qFirst = query(
+        historyRef,
+        where("loginAt", ">=", todayStart), // 오늘 0시 이후 기록
+        orderBy("loginAt", "asc"), // 가장 옛날 것부터
+        limit(1)
+      );
+      const firstSnap = await getDocs(qFirst);
+
+      if (!firstSnap.empty) {
+        // 이미 오늘 로그인한 기록이 있다면 -> 그 시간을 가져옴 (고정)
+        const firstData = firstSnap.docs[0].data();
+        const firstDate =
+          firstData.loginAt instanceof Timestamp
+            ? firstData.loginAt.toDate()
+            : new Date(firstData.loginAt);
+        firstLoginTimeStr = firstDate.toLocaleString("ko-KR");
+        console.log("🕒 기존 로그인 기록 발견: ", firstLoginTimeStr);
+      } else {
+        console.log("🕒 오늘의 최초 로그인입니다.");
+        // 기록이 없다면 -> 지금(now)이 최초 시간임
+      }
+    } catch (e) {
+      console.warn("⚠️ 로그인 기록 조회 실패:", e);
+    }
+
+    // ---------------------------------------------------------
+    // 📝 [2] 이번 로그인 로그 저장 (무조건 저장)
+    // ---------------------------------------------------------
+    try {
+      await addDoc(historyRef, {
         loginAt: now,
-        userAgent: window.navigator.userAgent, // 접속 기기 정보 (PC/Mobile 확인용)
+        userAgent: window.navigator.userAgent,
         email: user.email,
+        type: "login",
       });
     } catch (e) {
-      console.error("로그인 기록 저장 실패:", e);
+      console.error("❌ 로그인 로그 저장 실패:", e);
     }
 
     return {
@@ -93,26 +139,27 @@ export const loginUser = createAsyncThunk<
       userDocId,
       userName: data.userName,
       role: data.role || null,
-      loginTime: loginTimeStr, // 리덕스에 저장
+      loginTime: firstLoginTimeStr, // ✅ 고정된 최초 시간 반환
     };
-  } else {
+  }
+  // [CASE 2] DB 정보 없음
+  else {
     return {
       user: serializableUser,
       userDocId: null,
-      userName: null,
+      userName: user.displayName || "사용자(DB미등록)",
       role: null,
-      loginTime: loginTimeStr,
+      loginTime: now.toLocaleString("ko-KR"),
     };
   }
 });
 
-// ✅ 로그아웃
+// ✅ 2. 로그아웃
 export const logoutUser = createAsyncThunk("auth/logoutUser", async () => {
   await signOut(auth);
 });
 
-// ✅ initAuth 수정 (새로고침 시 로그인 시간 유지)
-// 주의: 새로고침 시에는 로그를 다시 쌓지 않고, Firebase Auth의 lastSignInTime을 사용하거나 현재 시간을 사용
+// ✅ 3. 앱 초기화 (새로고침/재접속 시 자동 로그아웃 체크 포함)
 export const initAuth = createAsyncThunk<AuthPayload, void>(
   "auth/initAuth",
   async () => {
@@ -124,34 +171,83 @@ export const initAuth = createAsyncThunk<AuthPayload, void>(
             where("email", "==", user.email)
           );
           const snap = await getDocs(q);
-
-          const serializableUser: PlainUser = {
-            uid: user.uid,
-            email: user.email,
-          };
-
-          // Firebase User 객체에 있는 마지막 로그인 시간 활용
-          const lastSignInTime = user.metadata.lastSignInTime
-            ? new Date(user.metadata.lastSignInTime).toLocaleString("ko-KR")
-            : new Date().toLocaleString("ko-KR");
+          const serializableUser = { uid: user.uid, email: user.email };
 
           if (!snap.empty) {
             const doc = snap.docs[0];
             const data = doc.data() as EmployeeDoc;
-            resolve({
-              user: serializableUser,
-              userDocId: doc.id,
-              userName: data.userName,
-              role: data.role || null,
-              loginTime: lastSignInTime, // 복구된 로그인 시간
-            });
+            const userDocId = doc.id;
+
+            // ---------------------------------------------------------
+            // 🚨 [자정 경과 체크] 오늘 날짜 기록이 없으면 -> 로그아웃
+            // ---------------------------------------------------------
+            const todayStart = getTodayStart();
+            const historyRef = collection(
+              db,
+              "employee",
+              userDocId,
+              "loginHistory"
+            );
+            const qToday = query(
+              historyRef,
+              where("loginAt", ">=", todayStart),
+              orderBy("loginAt", "asc"),
+              limit(1)
+            );
+
+            try {
+              const historySnap = await getDocs(qToday);
+
+              if (historySnap.empty) {
+                // ❌ 오늘 기록 없음 (어제 로그인한 세션) -> 로그아웃 처리
+                console.warn("🚫 날짜가 변경되어 자동 로그아웃됩니다.");
+                await signOut(auth);
+                resolve({
+                  user: null,
+                  userDocId: null,
+                  userName: null,
+                  role: null,
+                  loginTime: null,
+                });
+                return;
+              }
+
+              // ⭕ 오늘 기록 있음 -> 최초 시간 복구
+              const firstData = historySnap.docs[0].data();
+              const firstDate =
+                firstData.loginAt instanceof Timestamp
+                  ? firstData.loginAt.toDate()
+                  : new Date(firstData.loginAt);
+
+              resolve({
+                user: serializableUser,
+                userDocId,
+                userName: data.userName,
+                role: data.role || null,
+                loginTime: firstDate.toLocaleString("ko-KR"),
+              });
+            } catch (e) {
+              console.error("❌ 초기화 중 로그 조회 실패:", e);
+              // 에러 시에도 일단 세션 유지
+              resolve({
+                user: serializableUser,
+                userDocId,
+                userName: data.userName,
+                role: data.role || null,
+                loginTime: new Date().toLocaleString("ko-KR"),
+              });
+            }
           } else {
+            // DB 정보 없음 -> 세션 유지 (Auth Time 사용)
+            const lastTime = user.metadata.lastSignInTime
+              ? new Date(user.metadata.lastSignInTime).toLocaleString("ko-KR")
+              : new Date().toLocaleString("ko-KR");
             resolve({
               user: serializableUser,
               userDocId: null,
-              userName: null,
+              userName: "사용자(DB미등록)",
               role: null,
-              loginTime: lastSignInTime,
+              loginTime: lastTime,
             });
           }
         } else {
@@ -184,7 +280,7 @@ const authSlice = createSlice({
       state.userDocId = action.payload.userDocId;
       state.userName = action.payload.userName;
       state.role = action.payload.role;
-      state.loginTime = action.payload.loginTime; // 저장
+      state.loginTime = action.payload.loginTime;
       state.loading = false;
       state.error = null;
     });
@@ -198,7 +294,7 @@ const authSlice = createSlice({
       state.user = null;
       state.userDocId = null;
       state.userName = null;
-      state.loginTime = null; // 초기화
+      state.loginTime = null;
       state.loading = false;
       state.error = null;
     });
@@ -212,7 +308,7 @@ const authSlice = createSlice({
       state.userDocId = action.payload.userDocId;
       state.userName = action.payload.userName;
       state.role = action.payload.role;
-      state.loginTime = action.payload.loginTime; // 복구
+      state.loginTime = action.payload.loginTime;
       state.loading = false;
       state.error = null;
     });
