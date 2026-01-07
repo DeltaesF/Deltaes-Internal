@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Pagination from "@/components/pagination";
-import { useState } from "react";
+import { useState, Suspense } from "react"; // ✅ Suspense 추가
 
 // ✅ 타입 정의
 interface CompletedItem {
@@ -29,7 +29,10 @@ const fetchCompleted = async (userName: string) => {
   }));
 };
 
-export default function CompletedApprovalPage() {
+// ------------------------------------------------------------------
+// ✅ [1] 실제 로직이 담긴 컴포넌트 (이름 변경: Page -> Content)
+// ------------------------------------------------------------------
+function CompletedApprovalContent() {
   const { userName } = useSelector((state: RootState) => state.auth);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -108,5 +111,17 @@ export default function CompletedApprovalPage() {
         />
       </div>
     </div>
+  );
+}
+
+// ------------------------------------------------------------------
+// ✅ [2] Suspense로 감싼 실제 Page 컴포넌트 (export default)
+// ------------------------------------------------------------------
+export default function CompletedApprovalPage() {
+  return (
+    // fallback에는 로딩 중에 보여줄 간단한 UI를 넣습니다.
+    <Suspense fallback={<div className="p-6">페이지 로딩 중...</div>}>
+      <CompletedApprovalContent />
+    </Suspense>
   );
 }
