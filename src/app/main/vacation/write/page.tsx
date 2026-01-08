@@ -111,13 +111,11 @@ export default function VacationWritePage() {
     if (!reason || !startDate || !endDate)
       return alert("모든 필드를 입력해주세요.");
 
-    if (
-      firstApprovers.length === 0 ||
-      secondApprovers.length === 0 ||
-      thirdApprovers.length === 0
-    ) {
+    // ✅ [수정된 로직] 1차 결재자만 필수 조건으로 변경
+    // 2차, 3차는 없어도(length === 0) 통과됩니다.
+    if (firstApprovers.length === 0) {
       return alert(
-        "관리자에 의해 설정된 결재선(1차, 2차, 3차)이 불완전합니다. 관리자에게 문의하세요."
+        "1차 결재자가 설정되지 않았습니다. 관리자에게 문의하여 결재선을 설정해주세요."
       );
     }
 
@@ -136,8 +134,8 @@ export default function VacationWritePage() {
           reason,
           approvers: {
             first: firstApprovers,
-            second: secondApprovers,
-            third: thirdApprovers,
+            second: secondApprovers, // 없으면 빈 배열로 전송됨 (OK)
+            third: thirdApprovers, // 없으면 빈 배열로 전송됨 (OK)
             shared: sharedList,
           },
         }),
