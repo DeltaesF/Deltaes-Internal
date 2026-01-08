@@ -7,21 +7,20 @@ import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
-type DayType = "연차" | "반차" | "병가" | "공가";
+// ✅ [수정] 반차를 오전/오후로 세분화
+type DayType = "연차" | "오전반차" | "오후반차" | "공가";
 
-// ✅ 직원 타입 정의
 interface Employee {
   id: string;
   userName: string;
 }
 
-// ✅ 결재선 정보 타입 정의 (3차 추가)
 interface MyInfo {
   recipients?: {
     vacation?: {
       first?: string[];
       second?: string[];
-      third?: string[]; // ✅ 3차 결재자 추가
+      third?: string[];
       shared?: string[];
     };
   };
@@ -62,10 +61,9 @@ export default function VacationWritePage() {
     queryFn: fetchEmployees,
   });
 
-  // ✅ 관리자가 설정한 결재자 목록 가져오기
   const firstApprovers = myInfo?.recipients?.vacation?.first || [];
   const secondApprovers = myInfo?.recipients?.vacation?.second || [];
-  const thirdApprovers = myInfo?.recipients?.vacation?.third || []; // ✅ 3차 추가
+  const thirdApprovers = myInfo?.recipients?.vacation?.third || [];
 
   useEffect(() => {
     if (myInfo?.recipients?.vacation?.shared) {
@@ -88,17 +86,23 @@ export default function VacationWritePage() {
   useEffect(() => {
     const dates = getDatesArray(startDate, endDate);
     if (dates.length > 0) {
-      setTypes(dates.map((_, i) => types[i] || "연차"));
+      setTypes((prev) => {
+        // 기존 선택값 유지하되, 없으면 '연차' 기본값
+        const newTypes = dates.map((_, i) => (prev[i] as DayType) || "연차");
+        return newTypes;
+      });
     } else {
       setTypes([]);
     }
   }, [startDate, endDate]);
 
+  // ✅ [수정] 오전/오후 반차는 0.5일로 계산
   useEffect(() => {
-    const total = types.reduce(
-      (sum, type) => sum + (type === "반차" ? 0.5 : 1),
-      0
-    );
+    const total = types.reduce((sum, type) => {
+      if (type === "오전반차" || type === "오후반차") return sum + 0.5;
+      if (type === "공가") return sum + 0; // 공가는 기간엔 포함되지만 차감은 0
+      return sum + 1;
+    }, 0);
     setDays(Math.round(total * 2) / 2);
   }, [types]);
 
@@ -107,7 +111,6 @@ export default function VacationWritePage() {
     if (!reason || !startDate || !endDate)
       return alert("모든 필드를 입력해주세요.");
 
-    // ✅ 결재선 필수 체크 (1, 2, 3차 모두 있어야 함)
     if (
       firstApprovers.length === 0 ||
       secondApprovers.length === 0 ||
@@ -128,13 +131,13 @@ export default function VacationWritePage() {
           userName,
           startDate,
           endDate,
-          types,
+          types, // ["연차", "오전반차", ...] 형태로 전송됨
           days,
           reason,
           approvers: {
             first: firstApprovers,
             second: secondApprovers,
-            third: thirdApprovers, // ✅ 3차 포함 전송
+            third: thirdApprovers,
             shared: sharedList,
           },
         }),
@@ -161,92 +164,121 @@ export default function VacationWritePage() {
     );
   };
 
+  const datesList = getDatesArray(startDate, endDate);
+
   return (
-    <div className="p-6 border rounded-xl bg-white shadow-sm mt-6 max-w-5xl mx-auto">
+    <div className="p-6 border rounded-xl bg-white shadow-sm mt-6 max-w-5xl mx-auto h-full">
       <h2 className="text-xl font-bold mb-6">📝 휴가원 작성</h2>
 
       <div className="flex gap-10">
-        {/* 좌측 입력 폼 */}
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-4">
           <div className="flex gap-4">
-            <label className="flex-1 cursor-pointer">
+            <label className="flex-1 cursor-pointer font-medium text-gray-700">
               시작일
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 onClick={(e) => e.currentTarget.showPicker()}
-                className="border p-2 w-full rounded cursor-pointer"
+                className="border p-2 w-full rounded cursor-pointer mt-1"
               />
             </label>
-            <label className="flex-1 cursor-pointer">
+            <label className="flex-1 cursor-pointer font-medium text-gray-700">
               종료일
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 onClick={(e) => e.currentTarget.showPicker()}
-                className="border p-2 w-full rounded cursor-pointer"
+                className="border p-2 w-full rounded cursor-pointer mt-1"
               />
             </label>
           </div>
+
+          {datesList.length > 0 && (
+            <div className="bg-gray-50 p-4 rounded border">
+              <div className="flex justify-between items-center mb-2 border-b pb-2 border-gray-200">
+                <span className="font-bold text-gray-700 text-sm">
+                  📅 상세 일정 및 종류
+                </span>
+                <span className="font-bold text-[#519d9e] text-sm">
+                  총 {days}일
+                </span>
+              </div>
+              <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
+                {datesList.map((date, idx) => (
+                  <div
+                    key={date}
+                    className="flex justify-between items-center bg-white px-3 py-2 rounded border shadow-sm"
+                  >
+                    <span className="text-sm font-medium text-gray-600">
+                      {date}
+                    </span>
+                    {/* ✅ [수정] 드롭다운 옵션 변경 */}
+                    <select
+                      value={types[idx] || "연차"}
+                      onChange={(e) => {
+                        const newTypes = [...types];
+                        newTypes[idx] = e.target.value as DayType;
+                        setTypes(newTypes);
+                      }}
+                      className="border p-1 rounded text-sm outline-none bg-gray-50 focus:bg-white focus:ring-1 focus:ring-[#519d9e] cursor-pointer"
+                    >
+                      <option value="연차">연차</option>
+                      <option value="오전반차">오전 반차</option>
+                      <option value="오후반차">오후 반차</option>
+                      <option value="공가">공가</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <textarea
             placeholder="사유 입력"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="border p-2 h-32 rounded resize-none"
+            className="border p-3 h-32 rounded resize-none focus:ring-1 focus:ring-[#519d9e] outline-none"
           />
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="bg-[#519d9e] text-white py-3 rounded hover:bg-[#407f80] font-bold cursor-pointer"
+            className="bg-[#519d9e] text-white py-3 rounded hover:bg-[#407f80] font-bold cursor-pointer transition-colors"
           >
             {isSubmitting ? "처리 중..." : "결재 요청"}
           </button>
         </form>
 
-        {/* 우측 결재선 정보 (Read Only) */}
         <div className="w-[300px] flex flex-col gap-4">
-          {/* 1차 결재자 */}
           <div className="border p-4 rounded bg-gray-50">
             <h4 className="font-bold text-sm text-gray-600 mb-2">1차 결재자</h4>
-            {firstApprovers.length > 0 ? (
-              <p className="text-sm font-semibold text-gray-800">
-                {firstApprovers[0]}
-              </p>
-            ) : (
-              <p className="text-gray-400 text-sm">지정되지 않음</p>
-            )}
+            <p className="text-sm font-semibold text-gray-800">
+              {firstApprovers[0] || (
+                <span className="text-gray-400">지정되지 않음</span>
+              )}
+            </p>
           </div>
-
-          {/* 2차 결재자 */}
           <div className="border p-4 rounded bg-gray-50">
             <h4 className="font-bold text-sm text-gray-600 mb-2">2차 결재자</h4>
-            {secondApprovers.length > 0 ? (
-              <p className="text-sm font-semibold text-gray-800">
-                {secondApprovers[0]}
-              </p>
-            ) : (
-              <p className="text-gray-400 text-sm">지정되지 않음</p>
-            )}
+            <p className="text-sm font-semibold text-gray-800">
+              {secondApprovers[0] || (
+                <span className="text-gray-400">지정되지 않음</span>
+              )}
+            </p>
           </div>
-
-          {/* ✅ [추가] 3차 결재자 */}
           <div className="border p-4 rounded bg-gray-50">
             <h4 className="font-bold text-sm text-gray-600 mb-2">3차 결재자</h4>
-            {thirdApprovers.length > 0 ? (
-              <p className="text-sm font-semibold text-gray-800">
-                {thirdApprovers[0]}
-              </p>
-            ) : (
-              <p className="text-gray-400 text-sm">지정되지 않음</p>
-            )}
+            <p className="text-sm font-semibold text-gray-800">
+              {thirdApprovers[0] || (
+                <span className="text-gray-400">지정되지 않음</span>
+              )}
+            </p>
           </div>
 
-          {/* 참조/공유자 편집 */}
           <div
-            className="border p-4 rounded bg-white border-dashed border-gray-400 cursor-pointer hover:bg-gray-50"
+            className="border p-4 rounded bg-white border-dashed border-gray-400 cursor-pointer hover:bg-gray-50 transition-colors"
             onClick={() => setShowSharedModal(true)}
           >
             <div className="flex justify-between items-center mb-2">
@@ -268,18 +300,17 @@ export default function VacationWritePage() {
         </div>
       </div>
 
-      {/* 공유자 선택 모달 */}
       {showSharedModal && (
         <VacationModal onClose={() => setShowSharedModal(false)}>
           <h3 className="text-lg font-bold mb-4">공유자 선택</h3>
-          <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto">
+          <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto custom-scrollbar">
             {allEmployees
               .filter(
                 (e) =>
                   e.userName !== userName &&
                   !firstApprovers.includes(e.userName) &&
                   !secondApprovers.includes(e.userName) &&
-                  !thirdApprovers.includes(e.userName) // ✅ 3차 결재자도 공유 리스트 제외
+                  !thirdApprovers.includes(e.userName)
               )
               .map((emp) => (
                 <label
@@ -298,7 +329,7 @@ export default function VacationWritePage() {
           </div>
           <button
             onClick={() => setShowSharedModal(false)}
-            className="mt-4 w-full bg-[#519d9e] text-white py-2 rounded cursor-pointer"
+            className="mt-4 w-full bg-[#519d9e] text-white py-2 rounded cursor-pointer hover:bg-[#407f80]"
           >
             완료
           </button>

@@ -18,6 +18,7 @@ type VacationDoc = {
   status: string;
   userName: string;
   daysUsed: number;
+  types?: string[]; // ✅ [추가] 상세 휴가 종류 (배열)
   approvalHistory?: ApprovalHistoryEntry[];
 };
 
@@ -40,7 +41,8 @@ export async function POST(req: Request) {
       if (!doc.exists) throw new Error("문서를 찾을 수 없습니다.");
 
       const data = doc.data() as VacationDoc;
-      const { approvers, status, daysUsed } = data;
+      // ✅ types 필드도 가져옵니다.
+      const { approvers, status, daysUsed, types } = data;
 
       const isFirst = approvers.first?.includes(approverName);
       const isSecond = approvers.second?.includes(approverName);
@@ -123,12 +125,27 @@ export async function POST(req: Request) {
         }),
       });
 
-      // 2. 최종 승인 시 휴가 일수 차감
+      // 2. 최종 승인 시 휴가 일수 차감 (✅ 공가/반차 로직 적용)
       if (newStatus === "최종 승인 완료") {
+        let deductibleDays = 0;
+
+        // types 배열이 있으면 상세 계산
+        if (types && Array.isArray(types) && types.length > 0) {
+          deductibleDays = types.reduce((sum, type) => {
+            // "반차", "오전반차", "오후반차" 모두 포함되는지 확인 (includes 사용)
+            if (type.includes("반차")) return sum + 0.5;
+            if (type === "공가") return sum + 0; // 공가는 차감 0
+            return sum + 1; // 연차, 병가 등은 1일
+          }, 0);
+        } else {
+          // 구버전 데이터 호환 (types가 없으면 daysUsed 사용)
+          deductibleDays = daysUsed;
+        }
+
         const empRef = db.collection("employee").doc(applicantUserName);
         transaction.update(empRef, {
-          usedVacation: FieldValue.increment(daysUsed),
-          remainingVacation: FieldValue.increment(-daysUsed),
+          usedVacation: FieldValue.increment(deductibleDays),
+          remainingVacation: FieldValue.increment(-deductibleDays),
         });
       }
 
