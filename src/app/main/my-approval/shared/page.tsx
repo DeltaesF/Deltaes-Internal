@@ -29,6 +29,24 @@ const fetchNotifications = async (userName: string) => {
   return data.list || [];
 };
 
+// ✅ [추가] 날짜 포맷 변환 함수
+const formatCustomDate = (timestamp: number) => {
+  if (!timestamp) return "";
+  const date = new Date(timestamp);
+
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const hour12 = hours % 12 || 12; // 0시는 12시로 표시
+
+  return `${year}년 ${month}월 ${day}일 ${ampm} ${hour12}시 ${minutes}분`;
+};
+
 function SharedBoxContent() {
   const { userName } = useSelector(
     (state: RootState) => state.auth || { userName: "사용자" }
@@ -132,9 +150,12 @@ function SharedBoxContent() {
                       <p className="text-gray-800 font-medium group-hover:text-purple-600 transition-colors">
                         {item.message}
                       </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        보낸사람: {item.fromUserName} |{" "}
-                        {new Date(item.createdAt).toLocaleDateString()}
+                      <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                        <span>보낸사람: {item.fromUserName}</span>
+                        <span className="text-gray-300">|</span>
+                        <span className="text-gray-500">
+                          {formatCustomDate(item.createdAt)}
+                        </span>
                       </p>
                     </div>
                   </div>
