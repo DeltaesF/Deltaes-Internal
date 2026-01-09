@@ -1,7 +1,7 @@
 "use client";
 
-import { Provider } from "react-redux";
-import { store } from "@/store";
+import { Provider, useDispatch, useSelector } from "react-redux";
+import { store, AppDispatch, RootState } from "@/store";
 import { useEffect } from "react";
 import { initAuth } from "@/store/slices/authSlice";
 import Sidebar from "@/components/sidebar";
@@ -9,17 +9,19 @@ import { usePathname, useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import ReactQueryProvider from "@/components/reactQueryProvider";
 
-export default function ClientLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+// ✅ [추가] 인증 보호 컴포넌트 (AuthGuard)
+// Provider 내부에서 Redux 상태를 구독하기 위해 분리했습니다.
+function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const dispatch = useDispatch<AppDispatch>();
+
+  // Redux에서 유저 정보와 로딩 상태 가져오기
+  const { user, loading } = useSelector((state: RootState) => state.auth);
 
   useEffect(() => {
-    // 1. 앱 시작 시 인증 및 "날짜 체크" 실행
-    store.dispatch(initAuth());
+    // 1. 앱 시작 시 인증 초기화
+    dispatch(initAuth());
 
     // 2. 자정 자동 로그아웃 타이머
     const calculateTimeToMidnight = () => {
@@ -36,7 +38,6 @@ export default function ClientLayout({
     };
 
     const timeToMidnight = calculateTimeToMidnight();
-
     const timer = setTimeout(async () => {
       try {
         await auth.signOut();
@@ -48,27 +49,61 @@ export default function ClientLayout({
     }, timeToMidnight);
 
     return () => clearTimeout(timer);
-  }, [router]);
+  }, [dispatch, router]);
 
-  // 로그인 페이지인지 확인
+  // ✅ [핵심] 로그인 안 한 상태로 보호된 페이지 접근 시 강제 이동
+  useEffect(() => {
+    // 로딩이 끝났는데 유저 정보가 없고, 현재 페이지가 로그인 페이지가 아니라면
+    if (!loading && !user && pathname !== "/login") {
+      router.replace("/login"); // 로그인 페이지로 튕겨냄
+    }
+  }, [user, loading, pathname, router]);
+
+  // 1. 로딩 중일 때는 화면을 보여주지 않고 로딩 표시 (깜빡임 방지)
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-gray-50">
+        <div className="text-gray-500 font-medium">
+          Deltaes System 로딩 중...
+        </div>
+      </div>
+    );
+  }
+
+  // 2. 로그인 안 했는데 메인 페이지에 있다면 (리다이렉트 직전) 빈 화면 반환
+  if (!user && pathname !== "/login") {
+    return null;
+  }
+
   const isLoginPage = pathname === "/login" || pathname === "/";
 
   return (
+    <div className="flex w-full min-h-screen">
+      {/* ✅ 로그인 페이지가 아닐 때만 사이드바 표시 */}
+      {!isLoginPage && <Sidebar />}
+
+      {/* 메인 콘텐츠 영역 */}
+      <div
+        className={`flex-1 ${
+          !isLoginPage ? "ml-[12%] w-[88%] p-6" : "w-full"
+        } bg-gray-50 h-screen overflow-y-auto`}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export default function ClientLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
     <Provider store={store}>
       <ReactQueryProvider>
-        <div className="flex w-full min-h-screen">
-          {/* ✅ 로그인 페이지가 아닐 때만 사이드바 표시 */}
-          {!isLoginPage && <Sidebar />}
-
-          {/* 메인 콘텐츠 영역 */}
-          <div
-            className={`flex-1 ${
-              !isLoginPage ? "ml-[12%] w-[88%] p-6" : "w-full"
-            } bg-gray-50 h-screen overflow-y-auto`}
-          >
-            {children}
-          </div>
-        </div>
+        {/* AuthGuard로 감싸서 내부에서 로그인 체크 수행 */}
+        <AuthGuard>{children}</AuthGuard>
       </ReactQueryProvider>
     </Provider>
   );

@@ -41,6 +41,7 @@ export async function POST(req: Request) {
         message: data.message,
         link: data.link,
         isRead: data.isRead,
+        vacationId: data.vacationId || null,
         createdAt:
           data.createdAt && typeof data.createdAt.toMillis === "function"
             ? data.createdAt.toMillis()
