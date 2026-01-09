@@ -63,9 +63,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-gray-50">
-        <div className="text-gray-500 font-medium">
-          Deltaes System 로딩 중...
-        </div>
+        <div className="text-gray-500 font-medium">Delta ES ERP 로딩 중...</div>
       </div>
     );
   }

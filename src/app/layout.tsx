@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Deltaes Internal System",
+  title: "Delta ES ERP",
   description: "델타이에스 내부 업무 보고 시스템",
 };
 

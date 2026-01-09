@@ -322,20 +322,20 @@ export default function Sidebar() {
               {subMenus.reports && (
                 <div className="pl-3 border-l border-gray-300 ml-2 space-y-1">
                   <Link
-                    href="/main/report/posts"
-                    className={getLinkClass("/main/report/posts")}
+                    href="/main/report/internal"
+                    className={getLinkClass("/main/report/internal")}
                   >
                     - 사내교육보고서
                   </Link>
                   <Link
-                    href="/main/report/posts/d"
-                    className={getLinkClass("/main/report/posts/d")}
+                    href="/main/report/external"
+                    className={getLinkClass("/main/report/external")}
                   >
                     - 외부교육보고서
                   </Link>
                   <Link
-                    href="/main/report/posts/dd"
-                    className={getLinkClass("/main/report/posts/dd")}
+                    href="/main/report/vehicle"
+                    className={getLinkClass("/main/report/vehicle")}
                   >
                     - 외근/법인차량
                   </Link>
