@@ -3,10 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
-import Pagination from "@/components/pagination";
-import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import VacationModal from "@/components/vacationModal"; // ✅ 모달 추가
+import { useState, Suspense } from "react"; // Pagination import 제거
+import { useRouter } from "next/navigation";
+import VacationModal from "@/components/vacationModal";
 
 // ✅ 타입 정의
 interface NotificationItem {
@@ -17,10 +16,14 @@ interface NotificationItem {
   link: string;
   isRead: boolean;
   createdAt: number;
-  vacationId?: string; // ✅ 휴가 ID (알림에 포함되어 있어야 함)
+  vacationId?: string;
 }
 
-// ✅ 모달에 표시할 상세 데이터 타입
+interface NotificationApiResponse {
+  list: NotificationItem[];
+  totalCount: number;
+}
+
 interface VacationDetail {
   userName: string;
   startDate: string;
@@ -32,68 +35,61 @@ interface VacationDetail {
   types?: string[];
 }
 
-const fetchNotifications = async (userName: string) => {
+// ✅ API Fetcher 수정
+const fetchNotifications = async (
+  userName: string,
+  page: number,
+  limit: number,
+  filterType: string
+) => {
   const res = await fetch("/api/notifications/list", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userName }),
+    body: JSON.stringify({ userName, page, limit, filterType }),
   });
-  const data = await res.json();
-  return data.list || [];
+  if (!res.ok) throw new Error("Fetch failed");
+  return res.json();
 };
 
-// 날짜 포맷 변환 함수
 const formatCustomDate = (timestamp: number) => {
   if (!timestamp) return "";
   const date = new Date(timestamp);
-
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
-
-  const ampm = hours >= 12 ? "PM" : "AM";
-  const hour12 = hours % 12 || 12;
-
-  return `${year}년 ${month}월 ${day}일 ${ampm} ${hour12}시 ${minutes}분`;
+  return date.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
 function SharedBoxContent() {
   const { userName } = useSelector(
     (state: RootState) => state.auth || { userName: "사용자" }
   );
-  const searchParams = useSearchParams();
   const router = useRouter();
 
-  const currentPage = Number(searchParams.get("page")) || 1;
+  // ✅ 상태 관리 (URL 파라미터 대신 state 사용 권장)
+  const [currentPage, setCurrentPage] = useState(1);
   const [filterType, setFilterType] = useState("all");
   const ITEMS_PER_PAGE = 12;
 
-  // ✅ 모달 상태 관리
   const [selectedVacation, setSelectedVacation] =
     useState<VacationDetail | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { data: list = [], isLoading } = useQuery<NotificationItem[]>({
-    queryKey: ["notifications", userName],
-    queryFn: () => fetchNotifications(userName!),
+  // ✅ useQuery (filterType이나 currentPage가 변경되면 자동으로 재호출됨)
+  const { data, isLoading } = useQuery<NotificationApiResponse>({
+    queryKey: ["notifications", userName, currentPage, filterType],
+    queryFn: () =>
+      fetchNotifications(userName!, currentPage, ITEMS_PER_PAGE, filterType),
     enabled: !!userName,
+    placeholderData: (previousData) => previousData, // 페이지 전환 시 깜빡임 방지
   });
 
-  // 🔹 필터링 로직
-  const filteredList = list.filter((item) => {
-    if (filterType === "all") return true;
-    // 휴가 관련 타입 통합 필터링
-    if (filterType === "vacation") {
-      return item.type.includes("vacation");
-    }
-    return item.type === filterType;
-  });
-
-  const offset = (currentPage - 1) * ITEMS_PER_PAGE;
-  const currentItems = filteredList.slice(offset, offset + ITEMS_PER_PAGE);
+  const list = data?.list || [];
+  const totalCount = data?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE) || 1;
 
   const typeLabels: Record<string, string> = {
     daily: "일일 업무",
@@ -105,6 +101,7 @@ function SharedBoxContent() {
     vacation: "휴가원",
     vacation_request: "휴가신청",
     vacation_complete: "휴가승인",
+    vacation_reject: "휴가반려",
   };
 
   const colorClass: Record<string, string> = {
@@ -117,36 +114,47 @@ function SharedBoxContent() {
     vacation: "bg-red-100 text-red-700",
     vacation_request: "bg-red-100 text-red-700",
     vacation_complete: "bg-green-100 text-green-700",
+    vacation_reject: "bg-red-200 text-red-800",
   };
 
+  // ✅ 필터 변경 핸들러
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setFilterType(e.target.value);
-    router.push("?page=1");
+    setCurrentPage(1); // 필터 변경 시 1페이지로 리셋
   };
 
-  // ✅ 클릭 핸들러 (휴가는 모달, 나머지는 이동)
+  // ✅ 페이지 변경 핸들러 (이전/다음)
+  const handlePrevPage = () => {
+    if (currentPage > 1) setCurrentPage((prev) => prev - 1);
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) setCurrentPage((prev) => prev + 1);
+  };
+
   const handleItemClick = async (item: NotificationItem) => {
     if (item.type.includes("vacation")) {
-      // 1. 휴가 ID가 없으면 경고 (구버전 데이터일 수 있음)
       if (!item.vacationId) {
         alert("상세 정보를 불러올 수 없습니다. (ID 누락)");
         return;
       }
-
-      // 2. 상세 정보 가져오기
       try {
         const res = await fetch("/api/vacation/detail", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fromUserName: item.fromUserName,
-            vacationId: item.vacationId,
+            vacationId: item.vacationId, // API 수정에 맞춰 파라미터 전달
           }),
         });
 
         if (!res.ok) throw new Error("Fetch failed");
-
         const detail = await res.json();
+
+        if (detail.error) {
+          alert(detail.error);
+          return;
+        }
+
         setSelectedVacation(detail);
         setIsModalOpen(true);
       } catch (e) {
@@ -154,19 +162,18 @@ function SharedBoxContent() {
         alert("휴가 상세 정보를 불러오는데 실패했습니다.");
       }
     } else {
-      // 3. 다른 항목은 링크 이동
       router.push(item.link);
     }
   };
 
-  if (isLoading) return <div className="p-6">로딩 중...</div>;
+  if (isLoading && !data)
+    return <div className="p-6 text-gray-500">로딩 중...</div>;
 
   return (
     <div className="p-6 w-full">
       <div className="bg-white border rounded-2xl shadow-sm p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-purple-600">📭 수신/공유함</h2>
-
           <select
             value={filterType}
             onChange={handleFilterChange}
@@ -183,62 +190,92 @@ function SharedBoxContent() {
           </select>
         </div>
 
-        {filteredList.length === 0 ? (
+        {list.length === 0 ? (
           <p className="text-center text-gray-400 py-10">내역이 없습니다.</p>
         ) : (
-          <ul className="divide-y">
-            {currentItems.map((item) => (
-              <li
-                key={item.id}
-                className="py-3 px-2 hover:bg-gray-50 rounded group cursor-pointer"
-                onClick={() => handleItemClick(item)} // ✅ 클릭 이벤트 연결
-              >
-                <div className="flex justify-between items-center w-full">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`px-2 py-1 text-xs font-bold rounded ${
-                        colorClass[item.type] || "bg-gray-200"
-                      }`}
-                    >
-                      {typeLabels[item.type] || item.type}
-                    </span>
-                    <div>
-                      <p className="text-gray-800 font-medium group-hover:text-purple-600 transition-colors">
-                        {item.message}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                        <span>보낸사람: {item.fromUserName}</span>
-                        <span className="text-gray-300">|</span>
-                        <span className="text-gray-500">
-                          {formatCustomDate(item.createdAt)}
-                        </span>
-                      </p>
+          <>
+            <ul className="divide-y">
+              {list.map((item) => (
+                <li
+                  key={item.id}
+                  className="py-3 px-2 hover:bg-gray-50 rounded group cursor-pointer"
+                  onClick={() => handleItemClick(item)}
+                >
+                  <div className="flex justify-between items-center w-full">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`px-2 py-1 text-xs font-bold rounded ${
+                          colorClass[item.type] || "bg-gray-200"
+                        }`}
+                      >
+                        {typeLabels[item.type] || item.type}
+                      </span>
+                      <div>
+                        <p className="text-gray-800 font-medium group-hover:text-purple-600 transition-colors">
+                          {item.message}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                          <span>보낸사람: {item.fromUserName}</span>
+                          <span className="text-gray-300">|</span>
+                          <span className="text-gray-500">
+                            {formatCustomDate(item.createdAt)}
+                          </span>
+                        </p>
+                      </div>
                     </div>
+                    <span className="text-xs text-gray-400">
+                      {item.type.includes("vacation") ? "상세보기" : "바로가기"}{" "}
+                      &gt;
+                    </span>
                   </div>
-                  <span className="text-xs text-gray-400">
-                    {item.type.includes("vacation") ? "상세보기" : "바로가기"}{" "}
-                    &gt;
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+
+            {/* ✅ [수정] 직접 구현한 페이지네이션 UI */}
+            <div className="flex justify-center items-center gap-4 mt-6">
+              <button
+                onClick={handlePrevPage}
+                disabled={currentPage === 1}
+                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  currentPage === 1
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "bg-white text-gray-700 hover:bg-gray-50 hover:text-purple-600"
+                }`}
+              >
+                ◀ 이전
+              </button>
+
+              <span className="text-sm font-medium text-gray-600">
+                Page{" "}
+                <span className="text-purple-600 font-bold">{currentPage}</span>{" "}
+                / {totalPages}
+              </span>
+
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  currentPage === totalPages
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "bg-white text-gray-700 hover:bg-gray-50 hover:text-purple-600"
+                }`}
+              >
+                다음 ▶
+              </button>
+            </div>
+          </>
         )}
-        <Pagination
-          totalItems={filteredList.length}
-          itemsPerPage={ITEMS_PER_PAGE}
-          currentPage={currentPage}
-        />
       </div>
 
-      {/* ✅ 휴가 상세 모달 */}
+      {/* ✅ 휴가 상세 모달 (기존 코드 유지) */}
       {isModalOpen && selectedVacation && (
         <VacationModal onClose={() => setIsModalOpen(false)}>
           <div className="flex flex-col gap-6">
             <h3 className="text-xl font-bold text-gray-800 border-b pb-4">
               ✅ 휴가 상세 정보
             </h3>
-
+            {/* ... 상세 정보 표시 내용 (기존과 동일) ... */}
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="block text-gray-500 font-bold mb-1">
@@ -248,13 +285,7 @@ function SharedBoxContent() {
               </div>
               <div>
                 <span className="block text-gray-500 font-bold mb-1">상태</span>
-                <span
-                  className={`px-2 py-0.5 rounded text-xs font-bold ${
-                    selectedVacation.status.includes("승인")
-                      ? "bg-green-100 text-green-700"
-                      : "bg-yellow-100 text-yellow-700"
-                  }`}
-                >
+                <span className="px-2 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-700">
                   {selectedVacation.status}
                 </span>
               </div>
@@ -275,14 +306,12 @@ function SharedBoxContent() {
                 </p>
               </div>
             </div>
-
             <div>
               <span className="block text-gray-500 font-bold mb-2">사유</span>
               <div className="bg-gray-50 p-4 rounded-lg text-gray-700 text-sm min-h-[80px] border">
                 {selectedVacation.reason}
               </div>
             </div>
-
             <div className="flex justify-end mt-4 pt-4 border-t">
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -298,7 +327,6 @@ function SharedBoxContent() {
   );
 }
 
-// 2️⃣ 메인 페이지 컴포넌트
 export default function SharedBoxPage() {
   return (
     <Suspense fallback={<div className="p-6">페이지 로딩 중...</div>}>

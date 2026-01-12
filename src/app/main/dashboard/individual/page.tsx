@@ -142,7 +142,6 @@ export default function Individual() {
     queryKey: ["notifications", userName],
     queryFn: () => fetchNotifications(userName!),
     enabled: !!userName,
-    refetchInterval: 30000,
   });
 
   const { data: pendingVacations = [] } = useQuery<VacationType[]>({

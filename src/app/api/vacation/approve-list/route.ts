@@ -2,72 +2,129 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/firebaseAdmin";
 import { Timestamp } from "firebase-admin/firestore";
 
-// 데이터 타입 정의
-type VacationType = {
+// ✅ 통합 데이터 타입 정의
+type ApprovalDoc = {
   id: string;
   userName: string;
-  startDate: string;
-  endDate: string;
-  reason: string;
   status: string;
-  approvers: { first?: string[]; second?: string[]; third?: string[] };
-  approvalHistory?: ApprovalHistoryEntry[];
-  createdAt?: number;
-};
+  approvers: {
+    first?: string[];
+    second?: string[];
+    third?: string[];
+    shared?: string[];
+  };
+  approvalHistory?: {
+    approver: string;
+    status: string;
+    approvedAt: Timestamp;
+  }[];
+  createdAt?: number; // 정렬용
 
-type ApprovalHistoryEntry = {
-  approver: string;
-  status: string;
-  approvedAt: Timestamp;
+  // 휴가 전용 필드
+  startDate?: string;
+  endDate?: string;
+  reason?: string;
+  types?: string[];
+  daysUsed?: number;
+
+  // 보고서/품의서 전용 필드
+  title?: string;
+  reportType?: string; // 보고서 구분용
+
+  // 카테고리 (API 내부 처리용)
+  category?: string;
 };
 
 export async function POST(req: Request) {
   try {
-    const { userName } = await req.json(); // 예: "홍성원 프로"
+    const {
+      userName,
+      page = 1,
+      limit = 12,
+      filterType = "all",
+    } = await req.json();
 
     if (!userName) {
-      return NextResponse.json({ list: [] });
+      return NextResponse.json({ list: [], totalCount: 0 });
     }
 
-    const requestsRef = db.collectionGroup("requests");
+    // ----------------------------------------------------------------
+    // [1] 데이터 페칭 헬퍼 함수
+    // ----------------------------------------------------------------
+    const fetchDocs = async (
+      collectionName: string
+    ): Promise<ApprovalDoc[]> => {
+      const colRef = db.collectionGroup(collectionName);
 
-    // ----------------------------------------------------------------
-    // [1] DB 쿼리: 내가 관여된 문서 찾기 (결재자 OR 신청자)
-    // ----------------------------------------------------------------
-    const [firstSnap, secondSnap, thirdSnap, mySnap] = await Promise.all([
-      // 내가 1, 2, 3차 결재자에 포함된 문서 조회
-      requestsRef.where("approvers.first", "array-contains", userName).get(),
-      requestsRef.where("approvers.second", "array-contains", userName).get(),
-      requestsRef.where("approvers.third", "array-contains", userName).get(),
-      // 내가 신청한 문서 조회
-      requestsRef.where("userName", "==", userName).get(),
-    ]);
+      // '내가 관여된 문서'를 찾기 위해 여러 조건으로 병렬 쿼리 실행
+      const [first, second, third, my] = await Promise.all([
+        colRef.where("approvers.first", "array-contains", userName).get(),
+        colRef.where("approvers.second", "array-contains", userName).get(),
+        colRef.where("approvers.third", "array-contains", userName).get(),
+        colRef.where("userName", "==", userName).get(),
+      ]);
 
-    // ----------------------------------------------------------------
-    // [2] 데이터 병합 및 필터링 (중복 제거)
-    // ----------------------------------------------------------------
-    const docsMap = new Map<string, VacationType>();
+      const docsMap = new Map<string, ApprovalDoc>();
+      const addToMap = (snap: FirebaseFirestore.QuerySnapshot) => {
+        snap.docs.forEach((doc) => {
+          docsMap.set(doc.id, { id: doc.id, ...doc.data() } as ApprovalDoc);
+        });
+      };
 
-    const processSnapshot = (snap: FirebaseFirestore.QuerySnapshot) => {
-      snap.docs.forEach((doc) => {
-        const data = doc.data() as VacationType;
-        docsMap.set(doc.id, { ...data, id: doc.id });
-      });
+      addToMap(first);
+      addToMap(second);
+      addToMap(third);
+      addToMap(my);
+
+      return Array.from(docsMap.values());
     };
 
-    processSnapshot(firstSnap);
-    processSnapshot(secondSnap);
-    processSnapshot(thirdSnap);
-    processSnapshot(mySnap);
+    // ----------------------------------------------------------------
+    // [2] 필터에 따른 데이터 수집
+    // ----------------------------------------------------------------
+    // ❌ [삭제됨] 사용하지 않는 allItems 변수 제거
+
+    // 병렬 처리를 위한 프로미스 배열 (타입 명시)
+    const promises: Promise<ApprovalDoc[]>[] = [];
+
+    // 1. 휴가 (Vacation)
+    if (filterType === "all" || filterType === "vacation") {
+      promises.push(
+        fetchDocs("requests").then((docs) =>
+          docs.map((d) => ({ ...d, category: "vacation" }))
+        )
+      );
+    }
+
+    // 2. 보고서 (Report)
+    if (filterType === "all" || filterType === "report") {
+      promises.push(
+        fetchDocs("userReports").then((docs) =>
+          docs.map((d) => ({ ...d, category: "report" }))
+        )
+      );
+    }
+
+    // 3. 품의서 (Approval)
+    if (filterType === "all" || filterType === "approval") {
+      promises.push(
+        fetchDocs("userApprovals").then((docs) =>
+          docs.map((d) => ({ ...d, category: "approval" }))
+        )
+      );
+    }
+
+    // 모든 데이터 가져오기
+    const results = await Promise.all(promises);
+    const rawList = results.flat();
 
     // ----------------------------------------------------------------
-    // [3] "완료된 건"만 남기기 (JS 필터링)
-    // 조건 A: 내가 결재 승인을 한 이력이 있음 (History 체크)
-    // 조건 B: 내가 신청자이고, 최종 승인이 완료됨
+    // [3] "완료된 건" 필터링 & 정렬 (메모리 연산)
     // ----------------------------------------------------------------
-    const list = Array.from(docsMap.values())
+    const filteredList = rawList
       .filter((item) => {
-        // [조건 A] 내가 승인했는지 확인
+        // [조건 A] 내가 승인했는지 확인 (History 체크)
+        // item이 ApprovalDoc 타입이므로 entry의 타입이 자동으로 추론됨 (any 제거)
         const myApproval = item.approvalHistory?.find(
           (entry) => entry.approver === userName
         );
@@ -81,13 +138,20 @@ export async function POST(req: Request) {
         return false;
       })
       .sort((a, b) => {
-        // 최신순 정렬 (createdAt 기준, 없으면 0)
         const timeA = a.createdAt || 0;
         const timeB = b.createdAt || 0;
-        return timeB - timeA;
+        return timeB - timeA; // 최신순
       });
 
-    return NextResponse.json({ list });
+    // ----------------------------------------------------------------
+    // [4] 페이지네이션 (Slice)
+    // ----------------------------------------------------------------
+    const totalCount = filteredList.length;
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedList = filteredList.slice(startIndex, endIndex);
+
+    return NextResponse.json({ list: paginatedList, totalCount });
   } catch (err) {
     console.error("❌ 결재 완료 목록 조회 오류:", err);
     return NextResponse.json({ error: "서버 오류 발생" }, { status: 500 });
