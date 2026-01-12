@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       .doc(userName) // 내 이름으로 된 문서 접근
       .collection("userNotifications") // 하위 컬렉션 접근
       .orderBy("createdAt", "desc")
-      .limit(30)
+      .limit(20)
       .get();
 
     const list = snapshot.docs.map((doc) => {
