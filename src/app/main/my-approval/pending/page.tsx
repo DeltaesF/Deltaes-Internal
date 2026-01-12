@@ -24,6 +24,12 @@ interface PendingItem {
     third?: string[];
     shared?: string[];
   };
+  approvalHistory?: {
+    approver: string;
+    status: string;
+    comment?: string;
+    approvedAt: { seconds: number } | string;
+  }[];
 }
 
 // ✅ 대기 문서 조회 Fetcher

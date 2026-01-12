@@ -5,6 +5,7 @@ import { FieldValue } from "firebase-admin/firestore";
 type ApprovalHistoryEntry = {
   approver: string;
   status: string;
+  comment?: string; // ✅ 코멘트 필드 추가
   approvedAt: Date | FirebaseFirestore.Timestamp;
 };
 
@@ -18,17 +19,21 @@ type VacationDoc = {
   status: string;
   userName: string;
   daysUsed: number;
-  types?: string[]; // ✅ [추가] 상세 휴가 종류 (배열)
+  types?: string[];
   approvalHistory?: ApprovalHistoryEntry[];
 };
 
 export async function POST(req: Request) {
   try {
-    const { vacationId, approverName, applicantUserName } = await req.json();
+    // ✅ status(approve/reject), comment 추가 수신
+    const { vacationId, approverName, applicantUserName, status, comment } =
+      await req.json();
 
     if (!vacationId || !approverName || !applicantUserName) {
       return NextResponse.json({ error: "필수 정보 누락" }, { status: 400 });
     }
+
+    const action = status === "reject" ? "reject" : "approve"; // action 구분
 
     const vacationRef = db
       .collection("vacation")
@@ -41,104 +46,98 @@ export async function POST(req: Request) {
       if (!doc.exists) throw new Error("문서를 찾을 수 없습니다.");
 
       const data = doc.data() as VacationDoc;
-      // ✅ types 필드도 가져옵니다.
-      const { approvers, status, daysUsed, types } = data;
+      const { approvers, status: currentStatus, daysUsed, types } = data;
 
       const isFirst = approvers.first?.includes(approverName);
       const isSecond = approvers.second?.includes(approverName);
       const isThird = approvers.third?.includes(approverName);
 
-      // 다음 결재자가 존재하는지 확인하는 헬퍼 변수
       const hasSecondApprover = approvers.second && approvers.second.length > 0;
       const hasThirdApprover = approvers.third && approvers.third.length > 0;
 
-      let newStatus = status;
+      let newStatus = currentStatus;
       let notificationTargets: string[] = [];
       let notiMessage = "";
       let historyStatus = "";
 
-      // =========================================================
-      // [CASE 1] 1차 결재자 승인
-      // =========================================================
-      if (isFirst) {
-        if (status !== "1차 결재 대기")
-          throw new Error("순서가 아니거나 이미 처리되었습니다.");
-
-        // 🚀 다음 단계 결정 로직 (건너뛰기 포함)
-        if (hasSecondApprover) {
-          newStatus = "2차 결재 대기";
-          notificationTargets = approvers.second || [];
-          notiMessage = `[1차 승인] ${applicantUserName} 휴가, 2차 결재 부탁드립니다.`;
-        } else if (hasThirdApprover) {
-          newStatus = "3차 결재 대기"; // 2차 없으면 바로 3차로
-          notificationTargets = approvers.third || [];
-          notiMessage = `[1차 승인] ${applicantUserName} 휴가, 3차(최종) 결재 부탁드립니다.`;
+      // 🛑 [반려 로직]
+      if (action === "reject") {
+        newStatus = `반려됨 (${approverName})`;
+        notificationTargets = [applicantUserName]; // 신청자에게 알림
+        notiMessage = `[반려] ${approverName}님이 결재를 반려했습니다. 사유: ${
+          comment || "없음"
+        }`;
+        historyStatus = "반려";
+      }
+      // ✅ [승인 로직] (기존 로직 유지)
+      else {
+        if (isFirst) {
+          if (currentStatus !== "1차 결재 대기")
+            throw new Error("순서가 아니거나 이미 처리되었습니다.");
+          if (hasSecondApprover) {
+            newStatus = "2차 결재 대기";
+            notificationTargets = approvers.second || [];
+            notiMessage = `[1차 승인] ${applicantUserName}님의 결재 요청 (2차 대기)`;
+          } else if (hasThirdApprover) {
+            newStatus = "3차 결재 대기";
+            notificationTargets = approvers.third || [];
+            notiMessage = `[1차 승인] ${applicantUserName}님의 결재 요청 (3차 대기)`;
+          } else {
+            newStatus = "최종 승인 완료";
+            notificationTargets = approvers.shared || [];
+            notiMessage = `[최종 승인] ${applicantUserName}님의 결재가 승인되었습니다.`;
+          }
+          historyStatus = "1차 승인";
+        } else if (isSecond) {
+          if (currentStatus !== "2차 결재 대기")
+            throw new Error("순서가 아니거나 이미 처리되었습니다.");
+          if (hasThirdApprover) {
+            newStatus = "3차 결재 대기";
+            notificationTargets = approvers.third || [];
+            notiMessage = `[2차 승인] ${applicantUserName}님의 결재 요청 (3차 대기)`;
+          } else {
+            newStatus = "최종 승인 완료";
+            notificationTargets = approvers.shared || [];
+            notiMessage = `[최종 승인] ${applicantUserName}님의 결재가 승인되었습니다.`;
+          }
+          historyStatus = "2차 승인";
+        } else if (isThird) {
+          if (currentStatus !== "3차 결재 대기")
+            throw new Error("순서가 아니거나 이미 처리되었습니다.");
+          newStatus = "최종 승인 완료";
+          notificationTargets = [
+            applicantUserName,
+            ...(approvers.shared || []),
+          ];
+          notiMessage = `[최종 승인] ${applicantUserName}님의 결재가 승인되었습니다.`;
+          historyStatus = "최종 승인";
         } else {
-          newStatus = "최종 승인 완료"; // 2, 3차 다 없으면 바로 최종
-          notificationTargets = approvers.shared || [];
-          notiMessage = `[최종 승인] ${applicantUserName} 휴가가 승인되었습니다 (1차 전결).`;
+          throw new Error("결재 권한이 없습니다.");
         }
-        historyStatus = "1차 승인";
-      }
-      // =========================================================
-      // [CASE 2] 2차 결재자 승인
-      // =========================================================
-      else if (isSecond) {
-        if (status !== "2차 결재 대기")
-          throw new Error("이전 결재가 완료되지 않았습니다.");
-
-        // 🚀 다음 단계 결정 로직
-        if (hasThirdApprover) {
-          newStatus = "3차 결재 대기";
-          notificationTargets = approvers.third || [];
-          notiMessage = `[2차 승인] ${applicantUserName} 휴가, 3차(최종) 결재 부탁드립니다.`;
-        } else {
-          newStatus = "최종 승인 완료"; // 3차 없으면 바로 최종
-          notificationTargets = approvers.shared || [];
-          notiMessage = `[최종 승인] ${applicantUserName} 휴가가 승인되었습니다 (2차 전결).`;
-        }
-        historyStatus = "2차 승인";
-      }
-      // =========================================================
-      // [CASE 3] 3차 결재자 승인 (무조건 최종)
-      // =========================================================
-      else if (isThird) {
-        if (status !== "3차 결재 대기")
-          throw new Error("이전 결재가 완료되지 않았습니다.");
-
-        newStatus = "최종 승인 완료";
-        notificationTargets = [applicantUserName, ...(approvers.shared || [])];
-        notiMessage = `[최종 승인] ${applicantUserName} 휴가가 승인되었습니다.`;
-        historyStatus = "최종 승인";
-      } else {
-        throw new Error("결재 권한이 없습니다.");
       }
 
-      // 1. 상태 및 이력 업데이트
+      // 1. 상태 및 이력 업데이트 (코멘트 포함)
       transaction.update(vacationRef, {
         status: newStatus,
         lastApprovedAt: new Date(),
         approvalHistory: FieldValue.arrayUnion({
           approver: approverName,
           status: historyStatus,
+          comment: comment || "", // ✅ 코멘트 저장
           approvedAt: new Date(),
         }),
       });
 
-      // 2. 최종 승인 시 휴가 일수 차감 (✅ 공가/반차 로직 적용)
+      // 2. 최종 승인 시 휴가 일수 차감 (반려 시에는 차감 안 함)
       if (newStatus === "최종 승인 완료") {
         let deductibleDays = 0;
-
-        // types 배열이 있으면 상세 계산
         if (types && Array.isArray(types) && types.length > 0) {
           deductibleDays = types.reduce((sum, type) => {
-            // "반차", "오전반차", "오후반차" 모두 포함되는지 확인 (includes 사용)
             if (type.includes("반차")) return sum + 0.5;
-            if (type === "공가") return sum + 0; // 공가는 차감 0
-            return sum + 1; // 연차, 병가 등은 1일
+            if (type === "공가") return sum + 0;
+            return sum + 1;
           }, 0);
         } else {
-          // 구버전 데이터 호환 (types가 없으면 daysUsed 사용)
           deductibleDays = daysUsed;
         }
 
@@ -152,11 +151,14 @@ export async function POST(req: Request) {
       // 3. 알림 발송
       if (notificationTargets.length > 0) {
         notificationTargets.forEach((target) => {
-          let link = "/main/my-approval/pending"; // 기본: 결재 대기함
-          let type = "vacation_request"; // 기본: 요청
+          // 반려일 경우와 승인일 경우 링크 구분
+          let link = "/main/my-approval/pending";
+          let type = "vacation_request";
 
-          // 최종 승인 알림인 경우
-          if (newStatus === "최종 승인 완료") {
+          if (action === "reject") {
+            link = "/main/vacation/list"; // 반려되면 내 목록으로
+            type = "vacation_reject";
+          } else if (newStatus === "최종 승인 완료") {
             type = "vacation_complete";
             link =
               target === applicantUserName
@@ -169,7 +171,6 @@ export async function POST(req: Request) {
             .doc(target)
             .collection("userNotifications")
             .doc();
-
           transaction.set(notiRef, {
             targetUserName: target,
             fromUserName: approverName,
