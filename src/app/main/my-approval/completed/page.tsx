@@ -203,7 +203,7 @@ function CompletedApprovalContent() {
               <button
                 onClick={handlePrevPage}
                 disabled={currentPage === 1}
-                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${
                   currentPage === 1
                     ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
                     : "bg-white text-gray-700 hover:bg-gray-50 hover:text-green-600 border-gray-300"
@@ -221,7 +221,7 @@ function CompletedApprovalContent() {
               <button
                 onClick={handleNextPage}
                 disabled={currentPage === totalPages}
-                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${
                   currentPage === totalPages
                     ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
                     : "bg-white text-gray-700 hover:bg-gray-50 hover:text-green-600 border-gray-300"

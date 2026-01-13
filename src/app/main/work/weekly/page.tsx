@@ -4,9 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import Pagination from "@/components/pagination";
-import { Suspense } from "react";
+import { useState, Suspense } from "react";
 
 interface WeeklyReport {
   id: string;
@@ -20,7 +18,7 @@ interface WeeklyApiResponse {
   totalCount: number;
 }
 
-const fetchWeeklys = async (
+const fetchMyWeeklys = async (
   userName: string,
   role: string,
   page: number,
@@ -38,23 +36,33 @@ const fetchWeeklys = async (
 function WeeklyMeetingContent() {
   const { userName, role } = useSelector((state: RootState) => state.auth);
 
-  // ✅ URL에서 현재 페이지 번호 가져오기 (없으면 1)
-  const searchParams = useSearchParams();
-  const page = Number(searchParams.get("page")) || 1;
-  const ITEMS_PER_PAGE = 12; // ✅ 18개씩 보기
+  // ✅ 상태 기반 페이지네이션
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 18;
 
   const { data, isLoading } = useQuery<WeeklyApiResponse>({
-    queryKey: ["weeklys", "meeting", userName, page],
+    queryKey: ["weeklys", userName, currentPage], // 페이지 변경 시 자동 재요청
     queryFn: () =>
-      fetchWeeklys(userName || "", role || "", page, ITEMS_PER_PAGE),
+      fetchMyWeeklys(userName || "", role || "", currentPage, ITEMS_PER_PAGE),
     enabled: !!userName,
+    placeholderData: (prev) => prev, // 로딩 중 이전 데이터 유지
   });
 
-  // 데이터 안전하게 추출 (초기 로딩 시 undefined 방지)
   const weeklyList = data?.list || [];
   const totalCount = data?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE) || 1;
 
-  if (isLoading) return <div className="p-6 text-gray-500">로딩 중...</div>;
+  // 페이지 변경 핸들러
+  const handlePrevPage = () => {
+    if (currentPage > 1) setCurrentPage((prev) => prev - 1);
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) setCurrentPage((prev) => prev + 1);
+  };
+
+  if (isLoading && !data)
+    return <div className="p-4 text-gray-500">로딩 중...</div>;
 
   return (
     <div className="flex flex-col w-full p-6">
@@ -74,46 +82,75 @@ function WeeklyMeetingContent() {
             등록된 주간 업무 보고서가 없습니다.
           </div>
         ) : (
-          <ul>
-            {weeklyList.map((item) => (
-              <li
-                key={item.id}
-                className="border-b border-gray-400  group hover:bg-gray-50 transition-colors"
-              >
-                <Link
-                  href={`/main/work/weekly/${item.id}`}
-                  className="flex justify-between items-center w-full py-1"
+          <>
+            <ul>
+              {weeklyList.map((item) => (
+                <li
+                  key={item.id}
+                  className="border-b border-gray-400  group hover:bg-gray-50 transition-colors"
                 >
-                  <div className="flex items-center gap-4 overflow-hidden">
-                    <span className="text-[#519d9e] font-bold whitespace-nowrap">
-                      [주간]
-                    </span>
-                    <p className="text-ms text-gray-800 truncate group-hover:text-[#519d9e] transition-colors">
-                      {item.title}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm text-gray-500 flex-shrink-0">
-                    <span className="font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded">
-                      {item.userName}
-                    </span>
-                    <span>
-                      {new Date(item.createdAt).toLocaleDateString("ko-KR", {
-                        year: "2-digit",
-                        month: "2-digit",
-                        day: "2-digit",
-                      })}
-                    </span>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
+                  <Link
+                    href={`/main/work/weekly/${item.id}`}
+                    className="flex justify-between items-center w-full py-1"
+                  >
+                    <div className="flex items-center gap-4 overflow-hidden">
+                      <span className="text-[#519d9e] font-bold whitespace-nowrap">
+                        [주간]
+                      </span>
+                      <p className="text-ms text-gray-800 truncate group-hover:text-[#519d9e] transition-colors">
+                        {item.title}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-gray-500 flex-shrink-0">
+                      <span className="font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded">
+                        {item.userName}
+                      </span>
+                      <span>
+                        {new Date(item.createdAt).toLocaleDateString("ko-KR", {
+                          year: "2-digit",
+                          month: "2-digit",
+                          day: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            {/* ✅ 페이지네이션 버튼 UI */}
+            <div className="flex justify-center items-center gap-4 mt-6 py-2">
+              <button
+                onClick={handlePrevPage}
+                disabled={currentPage === 1}
+                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${
+                  currentPage === 1
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                    : "bg-white text-gray-700 hover:bg-gray-50 hover:text-blue-600 border-gray-300"
+                }`}
+              >
+                ◀ 이전
+              </button>
+
+              <span className="text-sm font-medium text-gray-600">
+                Page{" "}
+                <span className="text-blue-600 font-bold">{currentPage}</span> /{" "}
+                {totalPages}
+              </span>
+
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${
+                  currentPage === totalPages
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                    : "bg-white text-gray-700 hover:bg-gray-50 hover:text-blue-600 border-gray-300"
+                }`}
+              >
+                다음 ▶
+              </button>
+            </div>
+          </>
         )}
-        <Pagination
-          totalItems={totalCount}
-          itemsPerPage={ITEMS_PER_PAGE}
-          currentPage={page}
-        />
       </div>
     </div>
   );

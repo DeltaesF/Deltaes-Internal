@@ -18,7 +18,7 @@ const db = getFirestore();
 export async function POST(req: Request) {
   try {
     // [수정] department는 아직 사용하지 않으므로 제거 (unused-vars 에러 해결)
-    const { userName, role, page = 1, limit = 12 } = await req.json();
+    const { userName, role, page = 1, limit = 18 } = await req.json();
 
     // [수정] 변수 타입을 Query로 명시 (CollectionGroup vs Query 타입 불일치 에러 해결)
     let query: Query = db.collectionGroup("userWeeklys");
