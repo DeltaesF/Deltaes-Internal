@@ -24,6 +24,19 @@ interface CompletedItem {
 
   // 보고서/품의서용 필드
   title?: string;
+
+  approvers?: {
+    first?: string[];
+    second?: string[];
+    third?: string[];
+    shared?: string[];
+  };
+  approvalHistory?: {
+    approver: string;
+    status: string;
+    comment?: string;
+    approvedAt: number;
+  }[];
 }
 
 interface CompletedApiResponse {
@@ -46,6 +59,17 @@ const fetchCompleted = async (
   return data; // API에서 이미 매핑된 데이터를 반환함
 };
 
+const formatHistoryDate = (timestamp: number | undefined) => {
+  if (!timestamp) return "";
+  const date = new Date(timestamp);
+  return date.toLocaleString("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 function CompletedApprovalContent() {
   const { userName } = useSelector((state: RootState) => state.auth);
   const router = useRouter();
@@ -53,7 +77,7 @@ function CompletedApprovalContent() {
   // 상태 관리
   const [currentPage, setCurrentPage] = useState(1);
   const [filterType, setFilterType] = useState("all");
-  const ITEMS_PER_PAGE = 15;
+  const ITEMS_PER_PAGE = 12;
 
   // 모달 상태
   const [selectedVacation, setSelectedVacation] =
@@ -126,12 +150,48 @@ function CompletedApprovalContent() {
     }
   };
 
+  // ✅ 결재자 렌더링 헬퍼
+  const renderApproverRow = (roleName: string, approvers: string[] = []) => {
+    if (approvers.length === 0) return null;
+
+    return approvers.map((name) => {
+      const history = selectedVacation?.approvalHistory?.find(
+        (h) => h.approver === name
+      );
+      const isApproved = !!history;
+      const isRejected = history?.status === "반려";
+
+      return (
+        <div
+          key={name}
+          className="flex justify-between items-center text-xs border-b border-dashed border-gray-200 py-1 last:border-0"
+        >
+          <div className="flex items-center gap-1">
+            <span className="text-gray-400 font-normal">[{roleName}]</span>
+            <span className="font-semibold text-gray-700">{name}</span>
+          </div>
+          {isRejected ? (
+            <span className="text-red-600 font-bold">
+              [반려] {formatHistoryDate(history?.approvedAt)}
+            </span>
+          ) : isApproved ? (
+            <span className="text-green-600 font-bold">
+              [승인] {formatHistoryDate(history?.approvedAt)}
+            </span>
+          ) : (
+            <span className="text-gray-400">[대기]</span>
+          )}
+        </div>
+      );
+    });
+  };
+
   if (isLoading && !data) return <div className="p-6">로딩 중...</div>;
 
   return (
     <div className="p-6 w-full">
-      <div className="bg-white border rounded-2xl shadow-sm p-6">
-        <div className="flex justify-between items-center mb-6">
+      <div className="bg-white border rounded-2xl shadow-sm px-6 py-4">
+        <div className="flex justify-between items-center mb-2">
           <h2 className="text-2xl font-bold text-green-600">✅ 결재 완료함</h2>
 
           <select
@@ -157,7 +217,7 @@ function CompletedApprovalContent() {
                 <li
                   key={item.id}
                   onClick={() => handleItemClick(item)}
-                  className="py-4 px-2 hover:bg-green-50 rounded cursor-pointer transition-colors group"
+                  className="py-3 px-2 hover:bg-green-50 rounded cursor-pointer transition-colors group"
                 >
                   <div className="flex justify-between items-center">
                     <div>
@@ -234,14 +294,13 @@ function CompletedApprovalContent() {
         )}
       </div>
 
-      {/* ✅ 휴가 상세 모달 (VacationModal 재사용) */}
+      {/* ✅ 휴가 상세 모달 */}
       {selectedVacation && (
         <VacationModal onClose={() => setSelectedVacation(null)}>
           <div className="flex flex-col gap-6">
             <h3 className="text-xl font-bold text-gray-800 border-b pb-4">
               ✅ 결재 완료 상세
             </h3>
-
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="block text-gray-500 font-bold mb-1">
@@ -249,12 +308,40 @@ function CompletedApprovalContent() {
                 </span>
                 <p className="text-gray-800">{selectedVacation.userName}</p>
               </div>
-              <div>
+
+              {/* ✅ 결재 진행 현황 통합 */}
+              <div className="row-span-2">
                 <span className="block text-gray-500 font-bold mb-1">상태</span>
-                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-bold">
-                  {selectedVacation.status}
-                </span>
+                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                  <span
+                    className={`inline-block mb-2 px-2 py-0.5 rounded text-xs font-bold ${
+                      selectedVacation.status.includes("승인")
+                        ? "bg-green-100 text-green-700"
+                        : selectedVacation.status.includes("반려")
+                        ? "bg-red-100 text-red-700"
+                        : "bg-yellow-100 text-yellow-700"
+                    }`}
+                  >
+                    {selectedVacation.status}
+                  </span>
+
+                  <div className="flex flex-col gap-1">
+                    {renderApproverRow(
+                      "1차",
+                      selectedVacation.approvers?.first
+                    )}
+                    {renderApproverRow(
+                      "2차",
+                      selectedVacation.approvers?.second
+                    )}
+                    {renderApproverRow(
+                      "3차",
+                      selectedVacation.approvers?.third
+                    )}
+                  </div>
+                </div>
               </div>
+
               <div>
                 <span className="block text-gray-500 font-bold mb-1">기간</span>
                 <p className="text-gray-800">
@@ -283,6 +370,46 @@ function CompletedApprovalContent() {
                 {selectedVacation.reason}
               </div>
             </div>
+
+            {selectedVacation.approvalHistory &&
+              selectedVacation.approvalHistory.some((h) => h.comment) && (
+                <div>
+                  <span className="block text-gray-500 font-bold mb-2">
+                    결재 의견
+                  </span>
+                  <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 flex flex-col gap-2">
+                    {selectedVacation.approvalHistory.map((history, idx) =>
+                      history.comment ? (
+                        <div
+                          key={idx}
+                          className="text-sm border-b border-yellow-200 last:border-0 pb-2 last:pb-0"
+                        >
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="font-bold text-gray-800">
+                              {history.approver}
+                              <span
+                                className={`ml-1 text-xs ${
+                                  history.status === "반려"
+                                    ? "text-red-600"
+                                    : "text-green-600"
+                                }`}
+                              >
+                                ({history.status})
+                              </span>
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {formatHistoryDate(history.approvedAt)}
+                            </span>
+                          </div>
+                          <p className="text-gray-700 whitespace-pre-wrap">
+                            {history.comment}
+                          </p>
+                        </div>
+                      ) : null
+                    )}
+                  </div>
+                </div>
+              )}
 
             <div className="flex justify-end mt-4 pt-4 border-t">
               <button

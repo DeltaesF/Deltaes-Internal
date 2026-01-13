@@ -58,10 +58,12 @@ function PendingApprovalContent() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [filterType, setFilterType] = useState("all");
-  const ITEMS_PER_PAGE = 15;
+  const ITEMS_PER_PAGE = 12;
 
   // ✅ 선택된 항목 상태 (모달용)
   const [selectedItem, setSelectedItem] = useState<PendingItem | null>(null);
+
+  const [comment, setComment] = useState("");
 
   const { data: list = [], isLoading } = useQuery<PendingItem[]>({
     queryKey: ["pendingVacations", userName],
@@ -73,9 +75,13 @@ function PendingApprovalContent() {
     mutationFn: async ({
       id,
       applicant,
+      status, // 'approve' | 'reject'
+      comment, // 입력한 코멘트
     }: {
       id: string;
       applicant: string;
+      status: string;
+      comment: string;
     }) => {
       const res = await fetch("/api/vacation/approve", {
         method: "POST",
@@ -84,6 +90,8 @@ function PendingApprovalContent() {
           vacationId: id,
           approverName: userName,
           applicantUserName: applicant,
+          status, // ✅ 승인/반려 여부 전송
+          comment, // ✅ 코멘트 전송
         }),
       });
       if (!res.ok) {
@@ -92,20 +100,32 @@ function PendingApprovalContent() {
       }
       return res.json();
     },
-    onSuccess: () => {
-      alert("결재가 승인되었습니다.");
+    onSuccess: (_, variables) => {
+      const msg =
+        variables.status === "reject" ? "반려되었습니다." : "승인되었습니다.";
+      alert(msg);
       queryClient.invalidateQueries({ queryKey: ["pendingVacations"] });
-      setSelectedItem(null); // 승인 후 모달 닫기
+      setSelectedItem(null);
+      setComment(""); // 코멘트 초기화
     },
     onError: (err) => alert(err.message),
   });
 
-  const handleApprove = () => {
+  // ✅ [수정] 핸들러: 승인/반려 구분
+  const handleProcess = (status: "approve" | "reject") => {
     if (!selectedItem) return;
-    if (confirm(`'${selectedItem.userName}'님의 휴가를 승인하시겠습니까?`)) {
+    const actionName = status === "reject" ? "반려" : "승인";
+
+    if (
+      confirm(
+        `'${selectedItem.userName}'님의 휴가를 ${actionName}하시겠습니까?`
+      )
+    ) {
       approveMutation.mutate({
         id: selectedItem.id,
         applicant: selectedItem.userName,
+        status,
+        comment,
       });
     }
   };
@@ -123,9 +143,8 @@ function PendingApprovalContent() {
 
   return (
     <div className="p-6 w-full">
-      <div className="bg-white border rounded-2xl shadow-sm p-6">
-        {/* 헤더 부분 */}
-        <div className="flex justify-between items-center mb-6">
+      <div className="bg-white border rounded-2xl shadow-sm px-6 py-4">
+        <div className="flex justify-between items-center mb-2">
           <h2 className="text-2xl font-bold text-orange-500">⏳ 결재 대기함</h2>
 
           <select
@@ -157,7 +176,7 @@ function PendingApprovalContent() {
               <li
                 key={item.id}
                 onClick={() => setSelectedItem(item)} // ✅ 클릭 시 모달 열기
-                className="py-4 px-2 hover:bg-orange-50 rounded cursor-pointer transition-colors group"
+                className="py-3 px-2 hover:bg-orange-50 rounded cursor-pointer transition-colors group"
               >
                 <div className="flex justify-between items-center">
                   <div>
@@ -243,25 +262,56 @@ function PendingApprovalContent() {
               </div>
             </div>
 
-            {/* ✅ 하단 버튼 영역 */}
-            <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+            {/* ✅ [추가] 결재 의견 입력란 (결재 권한이 있을 때만 표시) */}
+            {(role === "admin" || role === "supervisor") &&
+              selectedItem.userName !== userName && (
+                <div>
+                  <label className="block text-gray-500 font-bold mb-2 text-sm">
+                    결재 의견 (선택)
+                  </label>
+                  <textarea
+                    className="w-full border p-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none"
+                    placeholder="반려 사유 또는 코멘트를 입력하세요."
+                    rows={3}
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                  />
+                </div>
+              )}
+
+            {/* ✅ 하단 버튼 영역 (반려 버튼 추가) */}
+            <div className="flex justify-end gap-2 mt-2 pt-4 border-t">
               <button
-                onClick={() => setSelectedItem(null)}
+                onClick={() => {
+                  setSelectedItem(null);
+                  setComment("");
+                }}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm cursor-pointer"
               >
                 닫기
               </button>
 
-              {/* 🚀 권한 체크: admin/supervisor 이고, 타인의 신청 건일 때만 승인 버튼 노출 */}
               {(role === "admin" || role === "supervisor") &&
                 selectedItem.userName !== userName && (
-                  <button
-                    onClick={handleApprove}
-                    disabled={approveMutation.isPending}
-                    className="px-6 py-2 bg-[#519d9e] text-white rounded-lg hover:bg-[#407f80] transition-colors font-bold text-sm shadow-md disabled:bg-gray-400 cursor-pointer"
-                  >
-                    {approveMutation.isPending ? "처리 중..." : "결재 승인"}
-                  </button>
+                  <>
+                    {/* 🔴 반려 버튼 */}
+                    <button
+                      onClick={() => handleProcess("reject")}
+                      disabled={approveMutation.isPending}
+                      className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-bold text-sm shadow-md disabled:bg-gray-400 cursor-pointer"
+                    >
+                      반려
+                    </button>
+
+                    {/* 🟢 승인 버튼 */}
+                    <button
+                      onClick={() => handleProcess("approve")}
+                      disabled={approveMutation.isPending}
+                      className="px-6 py-2 bg-[#519d9e] text-white rounded-lg hover:bg-[#407f80] transition-colors font-bold text-sm shadow-md disabled:bg-gray-400 cursor-pointer"
+                    >
+                      승인
+                    </button>
+                  </>
                 )}
             </div>
           </div>

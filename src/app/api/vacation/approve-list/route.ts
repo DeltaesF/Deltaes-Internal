@@ -151,7 +151,16 @@ export async function POST(req: Request) {
     const endIndex = startIndex + limit;
     const paginatedList = filteredList.slice(startIndex, endIndex);
 
-    return NextResponse.json({ list: paginatedList, totalCount });
+    // ✅ [추가] Timestamp -> Number(밀리초) 변환하여 클라이언트로 전송
+    const responseList = paginatedList.map((item) => ({
+      ...item,
+      approvalHistory: item.approvalHistory?.map((history) => ({
+        ...history,
+        approvedAt: history.approvedAt.toMillis(), // Timestamp를 숫자로 변환
+      })),
+    }));
+
+    return NextResponse.json({ list: responseList, totalCount });
   } catch (err) {
     console.error("❌ 결재 완료 목록 조회 오류:", err);
     return NextResponse.json({ error: "서버 오류 발생" }, { status: 500 });
