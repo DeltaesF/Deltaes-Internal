@@ -13,8 +13,9 @@ import { useRouter } from "next/navigation";
 import eventsJson from "@/app/data/calendar.json";
 
 // -----------------------------------------------------------------------
-// [1] 타입 정의
+// [1] 타입 정의 (Strict Typing)
 // -----------------------------------------------------------------------
+
 type NotificationType = {
   id: string;
   fromUserName: string;
@@ -25,18 +26,39 @@ type NotificationType = {
   createdAt: number;
 };
 
-type VacationType = {
+// 결재 대기 아이템 통합 타입
+interface PendingItem {
   id: string;
   userName: string;
-  startDate: string;
-  endDate: string;
-  reason: string;
   status: string;
-  daysUsed: number;
-  approvers: { first?: string[]; second?: string[]; shared?: string[] };
+  createdAt: number;
+  docType: "vacation" | "report";
+  // 휴가 전용
+  startDate?: string;
+  endDate?: string;
+  daysUsed?: number;
+  // 보고서 전용
+  title?: string;
+}
+
+// 캘린더 관련 타입
+interface CalendarItem {
+  id: number;
+  summary: string;
+  start: { date: string };
+  end: { date: string };
+}
+
+type EventType = {
+  id?: string;
+  title: string;
+  start: string;
+  end?: string;
+  color?: string;
+  display?: string;
+  editable?: boolean;
 };
 
-type EventType = { id?: string; title: string; start: string; end?: string };
 type NewEventType = {
   docId: string;
   title: string;
@@ -44,11 +66,32 @@ type NewEventType = {
   end: string;
 };
 
-interface CalendarItem {
-  id: number;
-  summary: string;
-  start: { date: string };
-  end: { date: string };
+// 컴포넌트 Props 타입
+interface DashboardCardProps {
+  title: string;
+  count: number;
+  color: "red" | "blue" | "green" | "purple";
+  isActive: boolean;
+  onClick: () => void;
+}
+
+interface ListModalLayoutProps {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  moreLink?: string;
+}
+
+interface NotificationItemProps {
+  noti: NotificationType;
+  onClose: () => void;
+}
+
+interface CompletedItem {
+  id: string;
+  userName: string;
+  startDate: string;
+  endDate: string;
 }
 
 // -----------------------------------------------------------------------
@@ -60,7 +103,6 @@ function addOneDay(dateStr: string) {
   return date.toISOString().split("T")[0];
 }
 
-// ✅ [추가] 오늘 날짜인지 확인하는 함수
 function isToday(timestamp: number) {
   const date = new Date(timestamp);
   const today = new Date();
@@ -70,6 +112,22 @@ function isToday(timestamp: number) {
     date.getDate() === today.getDate()
   );
 }
+
+// 카드 내용 렌더링 헬퍼
+const getCardContent = (item: PendingItem) => {
+  if (item.docType === "report") {
+    return (
+      <p className="text-sm text-gray-800 font-medium truncate">
+        📄 {item.title || "제목 없음"}
+      </p>
+    );
+  }
+  return (
+    <p className="text-sm text-gray-600">
+      🏖️ {item.startDate} ~ {item.endDate} ({item.daysUsed}일)
+    </p>
+  );
+};
 
 // -----------------------------------------------------------------------
 // [2] API 호출 함수
@@ -82,18 +140,44 @@ const fetchNotifications = async (userName: string) => {
     body: JSON.stringify({ userName }),
   });
   const data = await res.json();
-  return data.list || [];
+  return (data.list as NotificationType[]) || [];
 };
 
-// 결재 대기 목록
-const fetchPendingVacations = async (userName: string) => {
-  const res = await fetch("/api/vacation/pending", {
+// 통합 결재 대기 목록
+const fetchCombinedPending = async (
+  userName: string
+): Promise<PendingItem[]> => {
+  // 1. 휴가 대기 목록
+  const vacationRes = await fetch("/api/vacation/pending", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ approverName: userName }),
   });
-  const data = await res.json();
-  return data.pending || [];
+  const vacationData = await vacationRes.json();
+
+  // 타입 단언 및 매핑
+  const vacations: PendingItem[] = (vacationData.pending || []).map(
+    (v: Omit<PendingItem, "docType">) => ({ ...v, docType: "vacation" })
+  );
+
+  // 2. 보고서 대기 목록
+  const reportRes = await fetch("/api/report/pending", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ approverName: userName }),
+  });
+  const reportData = await reportRes.json();
+
+  // 타입 단언 및 매핑
+  const reports: PendingItem[] = (reportData.pending || []).map(
+    (r: Omit<PendingItem, "docType">) => ({ ...r, docType: "report" })
+  );
+
+  // 3. 합치기 & 정렬
+  const combined = [...vacations, ...reports];
+  combined.sort((a, b) => b.createdAt - a.createdAt);
+
+  return combined;
 };
 
 // 결재 완료 목록
@@ -104,7 +188,7 @@ const fetchCompletedHistory = async (userName: string) => {
     body: JSON.stringify({ userName }),
   });
   const data = await res.json();
-  return data.list || [];
+  return (data.list as CompletedItem[]) || [];
 };
 
 // 캘린더
@@ -119,7 +203,6 @@ const fetchEvents = async (userDocId: string) => {
 // [3] 컴포넌트 시작
 // -----------------------------------------------------------------------
 export default function Individual() {
-  // ✅ [수정] role 추가 (권한 확인용), loginTime 추가로 가져오기
   const { userDocId, userName, role, loginTime } = useSelector(
     (state: RootState) =>
       state.auth || {
@@ -144,13 +227,13 @@ export default function Individual() {
     enabled: !!userName,
   });
 
-  const { data: pendingVacations = [] } = useQuery<VacationType[]>({
-    queryKey: ["pendingVacations", userName],
-    queryFn: () => fetchPendingVacations(userName!),
+  const { data: approvalRequests = [] } = useQuery<PendingItem[]>({
+    queryKey: ["combinedPending", userName],
+    queryFn: () => fetchCombinedPending(userName!),
     enabled: !!userName,
   });
 
-  const { data: completedList = [] } = useQuery<VacationType[]>({
+  const { data: completedList = [] } = useQuery<CompletedItem[]>({
     queryKey: ["completedHistory", userName],
     queryFn: () => fetchCompletedHistory(userName!),
     enabled: !!userName,
@@ -180,7 +263,6 @@ export default function Individual() {
   // Data Filtering
   // =====================================================================
 
-  // ✅ [수정] 업무 보고: 오늘 날짜인 것만 필터링
   const workReports = notifications.filter(
     (n) => (n.type === "daily" || n.type === "weekly") && isToday(n.createdAt)
   );
@@ -191,11 +273,8 @@ export default function Individual() {
     )
   );
 
-  const approvalRequests = pendingVacations;
-  const completedHistory = completedList;
-
   // =====================================================================
-  // Mutations (캘린더용)
+  // Mutations
   // =====================================================================
 
   const addEventMutation = useMutation({
@@ -246,7 +325,7 @@ export default function Individual() {
 
   return (
     <div className="flex flex-col gap-10 mt-6 items-center w-full">
-      {/* ✅ [추가] 로그인 시간 표시 UI */}
+      {/* 로그인 시간 표시 UI */}
       <div className="w-full max-w-[1200px] flex justify-end">
         <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full shadow-sm">
           🕒 접속 시간:{" "}
@@ -255,95 +334,37 @@ export default function Individual() {
           </span>
         </div>
       </div>
+
       {/* 4개의 카드 그리드 */}
       <div className="grid grid-cols-4 gap-6 w-full max-w-[1200px]">
-        {/* 1. 결재 요청 */}
-        <div
+        <DashboardCard
+          title="결재 요청"
+          count={approvalRequests.length}
+          color="red"
+          isActive={modalType === "pending"}
           onClick={() => setModalType("pending")}
-          className={`shadow-sm border rounded-2xl p-6 text-center cursor-pointer transition-all group ${
-            modalType === "pending"
-              ? "bg-red-50 border-red-200 ring-2 ring-red-200"
-              : "bg-white hover:bg-red-50 hover:border-red-200"
-          }`}
-        >
-          <span
-            className={`font-semibold block mb-2 ${
-              modalType === "pending" ? "text-red-600" : "text-gray-600"
-            }`}
-          >
-            결재 요청
-          </span>
-          <span className="text-4xl font-bold text-red-500">
-            {approvalRequests.length}
-          </span>
-          <span className="text-gray-400 text-sm ml-1">건</span>
-        </div>
-
-        {/* 2. 업무 보고 */}
-        <div
+        />
+        <DashboardCard
+          title="업무 보고"
+          count={workReports.length}
+          color="blue"
+          isActive={modalType === "work"}
           onClick={() => setModalType("work")}
-          className={`shadow-sm border rounded-2xl p-6 text-center cursor-pointer transition-all group ${
-            modalType === "work"
-              ? "bg-blue-50 border-blue-200 ring-2 ring-blue-200"
-              : "bg-white hover:bg-blue-50 hover:border-blue-200"
-          }`}
-        >
-          <span
-            className={`font-semibold block mb-2 ${
-              modalType === "work" ? "text-blue-600" : "text-gray-600"
-            }`}
-          >
-            업무 보고
-          </span>
-          <span className="text-4xl font-bold text-blue-500">
-            {workReports.length}
-          </span>
-          <span className="text-gray-400 text-sm ml-1">건</span>
-        </div>
-
-        {/* 3. 결재 완료 */}
-        <div
+        />
+        <DashboardCard
+          title="결재 완료"
+          count={completedList.length}
+          color="green"
+          isActive={modalType === "completed"}
           onClick={() => setModalType("completed")}
-          className={`shadow-sm border rounded-2xl p-6 text-center cursor-pointer transition-all group ${
-            modalType === "completed"
-              ? "bg-green-50 border-green-200 ring-2 ring-green-200"
-              : "bg-white hover:bg-green-50 hover:border-green-200"
-          }`}
-        >
-          <span
-            className={`font-semibold block mb-2 ${
-              modalType === "completed" ? "text-green-600" : "text-gray-600"
-            }`}
-          >
-            결재 완료
-          </span>
-          <span className="text-4xl font-bold text-green-500">
-            {completedHistory.length}
-          </span>
-          <span className="text-gray-400 text-sm ml-1">건</span>
-        </div>
-
-        {/* 4. 공유 내용 */}
-        <div
+        />
+        <DashboardCard
+          title="공유 내용"
+          count={sharedContents.length}
+          color="purple"
+          isActive={modalType === "shared"}
           onClick={() => setModalType("shared")}
-          className={`shadow-sm border rounded-2xl p-6 text-center cursor-pointer transition-all group ${
-            modalType === "shared"
-              ? "bg-purple-50 border-purple-200 ring-2 ring-purple-200"
-              : "bg-white hover:bg-purple-50 hover:border-purple-200"
-          }`}
-        >
-          <span
-            className={`font-semibold block mb-2 ${
-              modalType === "shared" ? "text-purple-600" : "text-gray-600"
-            }`}
-          >
-            공유 내용
-          </span>
-          <span className="text-4xl font-bold text-purple-500">
-            {sharedContents.length}
-          </span>
-          <span className="text-gray-400 text-sm ml-1">건</span>
-        </div>
+        />
       </div>
 
       {/* 캘린더 영역 */}
@@ -374,7 +395,7 @@ export default function Individual() {
 
       {/* ======================= 모달 영역 ======================= */}
 
-      {/* 1. 결재 요청 모달 (간략 보기 -> 클릭 시 페이지 이동) */}
+      {/* 1. 결재 요청 모달 */}
       {modalType === "pending" && (
         <ListModalLayout
           title="결재 요청 목록 (최신 5건)"
@@ -383,7 +404,6 @@ export default function Individual() {
         >
           {approvalRequests.length > 0 ? (
             approvalRequests.slice(0, 5).map((v) => {
-              // ✅ [수정] 결재 권한이 있고(user 아님), 타인의 신청 건인 경우에만 버튼 표시
               const canApprove = role !== "user" && v.userName !== userName;
 
               return (
@@ -392,7 +412,7 @@ export default function Individual() {
                   onClick={() => router.push("/main/my-approval/pending")}
                   className="bg-white p-3 border rounded-lg hover:bg-red-50 hover:border-red-200 transition-all cursor-pointer flex justify-between items-center group"
                 >
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded">
                         {v.status}
@@ -400,15 +420,15 @@ export default function Individual() {
                       <span className="font-semibold text-gray-800">
                         {v.userName}
                       </span>
+                      <span className="text-xs text-gray-400 border px-1 rounded bg-gray-50">
+                        {v.docType === "report" ? "보고서" : "휴가"}
+                      </span>
                     </div>
-                    <p className="text-sm text-gray-600">
-                      {v.startDate} ~ {v.endDate} ({v.daysUsed}일)
-                    </p>
+                    {getCardContent(v)}
                   </div>
-                  {/* ✅ 조건부 렌더링: user거나 본인 글이면 아무것도 안 보임 */}
                   {canApprove && (
-                    <span className="text-xs text-red-400 font-medium group-hover:text-red-600">
-                      결재하러 가기 →
+                    <span className="text-xs text-red-400 font-medium group-hover:text-red-600 whitespace-nowrap ml-2">
+                      결재하기 →
                     </span>
                   )}
                 </div>
@@ -417,7 +437,6 @@ export default function Individual() {
           ) : (
             <EmptyState message="대기 중인 결재 요청이 없습니다." />
           )}
-
           {approvalRequests.length > 5 && (
             <p className="text-center text-xs text-gray-400 mt-2">
               ...외 {approvalRequests.length - 5}건이 더 있습니다.
@@ -426,15 +445,14 @@ export default function Individual() {
         </ListModalLayout>
       )}
 
-      {/* 2. 업무 보고 모달 (오늘 내역 전체 보기) */}
+      {/* 2. 업무 보고 모달 */}
       {modalType === "work" && (
         <ListModalLayout
-          title="금일 업무 보고" // 제목 변경
+          title="금일 업무 보고"
           onClose={() => setModalType(null)}
           moreLink="/main/my-approval/shared"
         >
           {workReports.length > 0 ? (
-            // ✅ [수정] slice 제거 -> 오늘 내역은 다 보여줌 (스크롤)
             workReports.map((noti) => (
               <NotificationItem
                 key={noti.id}
@@ -455,8 +473,8 @@ export default function Individual() {
           onClose={() => setModalType(null)}
           moreLink="/main/my-approval/completed"
         >
-          {completedHistory.length > 0 ? (
-            completedHistory.slice(0, 5).map((v) => (
+          {completedList.length > 0 ? (
+            completedList.slice(0, 5).map((v) => (
               <div
                 key={v.id}
                 onClick={() => router.push("/main/my-approval/completed")}
@@ -514,18 +532,76 @@ export default function Individual() {
   );
 }
 
-// ... (하위 컴포넌트는 기존과 동일) ...
+// -----------------------------------------------------------------------
+// [4] 하위 컴포넌트들 (Strict Props)
+// -----------------------------------------------------------------------
+
+function DashboardCard({
+  title,
+  count,
+  color,
+  isActive,
+  onClick,
+}: DashboardCardProps) {
+  const colorStyles: Record<
+    string,
+    { bg: string; border: string; text: string; num: string }
+  > = {
+    red: {
+      bg: "bg-red-50",
+      border: "border-red-200",
+      text: "text-red-600",
+      num: "text-red-500",
+    },
+    blue: {
+      bg: "bg-blue-50",
+      border: "border-blue-200",
+      text: "text-blue-600",
+      num: "text-blue-500",
+    },
+    green: {
+      bg: "bg-green-50",
+      border: "border-green-200",
+      text: "text-green-600",
+      num: "text-green-500",
+    },
+    purple: {
+      bg: "bg-purple-50",
+      border: "border-purple-200",
+      text: "text-purple-600",
+      num: "text-purple-500",
+    },
+  };
+  const style = colorStyles[color] || colorStyles.red;
+
+  return (
+    <div
+      onClick={onClick}
+      className={`shadow-sm border rounded-2xl p-6 text-center cursor-pointer transition-all group ${
+        isActive
+          ? `${style.bg} ${style.border} ring-2`
+          : "bg-white hover:bg-gray-50"
+      }`}
+    >
+      <span
+        className={`font-semibold block mb-2 ${
+          isActive ? style.text : "text-gray-600"
+        }`}
+      >
+        {title}
+      </span>
+      <span className={`text-4xl font-bold ${style.num}`}>{count}</span>
+      <span className="text-gray-400 text-sm ml-1">건</span>
+    </div>
+  );
+}
+
 function ListModalLayout({
   title,
   onClose,
   children,
   moreLink,
-}: {
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-  moreLink?: string;
-}) {
+}: ListModalLayoutProps) {
   return (
     <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50">
       <div className="bg-white rounded-xl p-6 w-[600px] max-h-[80vh] flex flex-col shadow-2xl">
@@ -538,21 +614,18 @@ function ListModalLayout({
             ×
           </button>
         </div>
-
         <div className="overflow-y-auto flex-1 pr-1 space-y-3">{children}</div>
-
         <div className="mt-4 flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 bg-gray-200 py-3 rounded-lg hover:bg-gray-300 font-medium text-gray-600 transition-colors cursor-pointer"
+            className="flex-1 bg-gray-200 py-3 rounded-lg hover:bg-gray-300 font-medium text-gray-600"
           >
             닫기
           </button>
-
           {moreLink && (
             <Link
               href={moreLink}
-              className="flex-1 bg-[#519d9e] flex items-center justify-center py-3 rounded-lg hover:bg-[#407f80] font-medium text-white transition-colors cursor-pointer"
+              className="flex-1 bg-[#519d9e] flex items-center justify-center py-3 rounded-lg hover:bg-[#407f80] font-medium text-white"
             >
               전체 보기 →
             </Link>
@@ -571,13 +644,7 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-function NotificationItem({
-  noti,
-  onClose,
-}: {
-  noti: NotificationType;
-  onClose: () => void;
-}) {
+function NotificationItem({ noti, onClose }: NotificationItemProps) {
   const typeLabel: Record<string, string> = {
     daily: "일일",
     weekly: "주간",
@@ -603,12 +670,12 @@ function NotificationItem({
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hour = String(date.getHours()).padStart(2, "0");
-    const minute = String(date.getMinutes()).padStart(2, "0");
-    return `${year}-${month}-${day} ${hour}:${minute}`;
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(date.getDate()).padStart(2, "0")} ${String(
+      date.getHours()
+    ).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   };
 
   return (
