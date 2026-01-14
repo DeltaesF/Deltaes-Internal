@@ -65,7 +65,7 @@ export async function POST(req: Request) {
             targetUserName: recipientName, // 받는 사람
             fromUserName: userName,
             type: "approval",
-            message: `${userName}님이 보고서를 작성했습니다.`,
+            message: `${userName} 보고서 작성했습니다.`,
             link: `/main/workoutside/approvals/${docRef.id}`,
             isRead: false,
             createdAt: Date.now(),
