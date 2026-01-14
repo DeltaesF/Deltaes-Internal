@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { initializeApp, cert, getApps } from "firebase-admin/app";
-import { getFirestore, Query } from "firebase-admin/firestore"; // [수정] Query 타입 import
+import { getFirestore, Query, Timestamp } from "firebase-admin/firestore";
 
-// Firebase Admin 초기화 (기존 코드 유지)
 if (!getApps().length) {
   initializeApp({
     credential: cert({
@@ -17,29 +16,48 @@ const db = getFirestore();
 
 export async function POST(req: Request) {
   try {
-    // [수정] department는 아직 사용하지 않으므로 제거 (unused-vars 에러 해결)
-    const { userName, role, page = 1, limit = 18 } = await req.json();
+    // ✅ startDate, endDate 추가 수신
+    const {
+      userName,
+      role,
+      page = 1,
+      limit = 5,
+      startDate,
+      endDate,
+    } = await req.json();
 
-    // [수정] 변수 타입을 Query로 명시 (CollectionGroup vs Query 타입 불일치 에러 해결)
     let query: Query = db.collectionGroup("userDailys");
 
-    // ✅ [수정] 슈퍼바이저 또는 관리자는 모든 게시물 열람 가능
-    if (role === "supervisor" || role === "admin") {
-      query = query.orderBy("createdAt", "desc");
-    }
-    // 2. 그 외 사용자는 본인 것만 열람
-    else {
+    // ✅ [중요] 주간 보고서 상세 페이지용 조회 로직 분기
+    // startDate와 endDate가 있으면 "특정 주간의 일일 업무"를 찾는 것이므로
+    // 관리자(supervisor) 여부와 상관없이 '그 주간 보고서 작성자(userName)'의 데이터만 가져와야 함.
+    if (startDate && endDate) {
+      // ✅ [중요] 숫자(ms)를 Firestore Timestamp 객체로 변환
+      // DB에 createdAt이 숫자로 저장되어 있다면 이 변환은 필요 없지만,
+      // 보통 Firestore 기본 저장 방식은 Timestamp 객체입니다.
+      const startTs = Timestamp.fromMillis(startDate);
+      const endTs = Timestamp.fromMillis(endDate);
+
       query = query
         .where("userName", "==", userName)
-        .orderBy("createdAt", "desc");
+        .where("createdAt", ">=", startTs) // 변환된 객체 사용
+        .where("createdAt", "<=", endTs) // 변환된 객체 사용
+        .orderBy("createdAt", "asc");
+    } else {
+      if (role === "supervisor" || role === "admin") {
+        query = query.orderBy("createdAt", "desc");
+      } else {
+        query = query
+          .where("userName", "==", userName)
+          .orderBy("createdAt", "desc");
+      }
     }
 
-    // 2. 전체 개수 조회 (페이지네이션 계산용)
-    // count() 쿼리는 데이터를 다 가져오지 않아 비용이 저렴합니다.
+    // 카운트 쿼리 (날짜 필터링이 적용된 상태에서 개수 세기)
     const countSnapshot = await query.count().get();
     const totalCount = countSnapshot.data().count;
 
-    // 3. 페이지네이션 적용 (offset, limit)
+    // 페이지네이션 (날짜 검색일 경우 limit을 굳이 크게 잡을 필요 없음)
     const offset = (page - 1) * limit;
     const snapshot = await query.limit(limit).offset(offset).get();
 
@@ -59,10 +77,8 @@ export async function POST(req: Request) {
       };
     });
 
-    // ✅ list와 totalCount를 함께 반환
     return NextResponse.json({ list, totalCount });
   } catch (error: unknown) {
-    // [수정] error 타입을 unknown으로 변경하고 타입 가드 사용 (no-explicit-any 에러 해결)
     console.error("Error fetching dailys:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error occurred";
