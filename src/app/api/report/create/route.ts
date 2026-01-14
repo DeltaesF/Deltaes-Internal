@@ -23,9 +23,7 @@ export async function POST(req: Request) {
       content,
       fileUrl,
       fileName,
-      reportType, // ✅ 추가: 'internal_edu', 'external_edu', 'vehicle' 등 구분
-
-      // ✅ 사내교육보고서 전용 필드
+      reportType,
       educationName,
       educationPeriod,
       educationPlace,
@@ -37,7 +35,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "필수 항목 누락" }, { status: 400 });
     }
 
-    // 1. 작성자의 결재선 정보 가져오기 (Recipients의 'report' 라인 사용)
+    // 1. 작성자의 결재선 정보 가져오기
     const employeeQuery = await db
       .collection("employee")
       .where("userName", "==", userName)
@@ -51,7 +49,6 @@ export async function POST(req: Request) {
     }
 
     const empData = employeeQuery.docs[0].data();
-    // ✅ 'report' 결재선 가져오기 (없으면 빈 배열)
     const reportLine = empData.recipients?.report || {
       first: [],
       second: [],
@@ -67,52 +64,84 @@ export async function POST(req: Request) {
       .doc();
 
     await docRef.set({
-      reportType: reportType || "general", // 기본값
+      reportType: reportType || "general",
       title,
-      content, // 교육내용 요약 (에디터 내용)
+      content,
       userName,
-      department: empData.department || "", // 부서 정보 저장
-      position: empData.role || "", // 직위 정보 저장 (role을 직위로 가정)
-
-      // 사내교육보고서 필드
+      department: empData.department || "",
+      position: empData.role || "",
       educationName: educationName || null,
       educationPeriod: educationPeriod || null,
       educationPlace: educationPlace || null,
       educationTime: educationTime || null,
       usefulness: usefulness || null,
-
       fileUrl: fileUrl || null,
       fileName: fileName || null,
-
-      // ✅ 결재선 및 상태 저장 (휴가/결재 시스템과 호환되도록 구조 통일 권장)
       approvers: reportLine,
-      status: "1차 결재 대기", // 초기 상태
+      status: "1차 결재 대기",
       createdAt: FieldValue.serverTimestamp(),
     });
 
-    // 3. [알림] 1차 결재자에게 알림 발송
+    // 3. [알림] 결재자(요청) + 나머지(참조) 발송
+    const batch = db.batch();
+
+    // -------------------------------------------------------------
+    // [A] 1차 결재자 (결재 요청)
+    // -------------------------------------------------------------
     const firstApprovers: string[] = reportLine.first || [];
-    if (firstApprovers.length > 0) {
-      const batch = db.batch();
-      firstApprovers.forEach((approver) => {
-        const notiRef = db
-          .collection("notifications")
-          .doc(approver)
-          .collection("userNotifications")
-          .doc();
-        batch.set(notiRef, {
-          targetUserName: approver,
-          fromUserName: userName,
-          type: "report", // 알림 타입
-          message: `[${title}] 결재 요청이 도착했습니다.`,
-          link: `/main/my-approval/pending`, // 결재 대기함으로 이동
-          isRead: false,
-          createdAt: Date.now(),
-          reportId: docRef.id, // 참조 ID
-        });
+    firstApprovers.forEach((approver) => {
+      const notiRef = db
+        .collection("notifications")
+        .doc(approver)
+        .collection("userNotifications")
+        .doc();
+      batch.set(notiRef, {
+        targetUserName: approver,
+        fromUserName: userName,
+        type: "report",
+        message: `[${title}] 결재 요청이 도착했습니다.`,
+        link: `/main/my-approval/pending`, // 결재 대기함으로 이동
+        isRead: false,
+        createdAt: Date.now(),
+        reportId: docRef.id,
       });
-      await batch.commit();
-    }
+    });
+
+    // -------------------------------------------------------------
+    // [B] 2차, 3차 결재자 + 공유자 (참조 알림)
+    // -------------------------------------------------------------
+    const referenceUsers = [
+      ...(reportLine.second || []),
+      ...(reportLine.third || []),
+      ...(reportLine.shared || []),
+    ];
+
+    // 중복 제거
+    const uniqueRefs = [...new Set(referenceUsers)];
+
+    uniqueRefs.forEach((targetName: string) => {
+      // 1차 결재자와 겹치면 제외 (이미 보냈으므로)
+      if (firstApprovers.includes(targetName)) return;
+
+      const notiRef = db
+        .collection("notifications")
+        .doc(targetName)
+        .collection("userNotifications")
+        .doc();
+
+      batch.set(notiRef, {
+        targetUserName: targetName,
+        fromUserName: userName,
+        type: "report",
+        message: `[공유/예정] ${title} 결재 요청이 도착했습니다.`,
+        link: `/main/report/${docRef.id}`, // 보고서 상세 페이지로 바로 이동
+        isRead: false,
+        createdAt: Date.now(),
+        reportId: docRef.id,
+      });
+    });
+
+    await batch.commit();
 
     return NextResponse.json({ success: true, id: docRef.id });
   } catch (error) {

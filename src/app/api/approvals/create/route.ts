@@ -24,6 +24,20 @@ export async function POST(req: Request) {
         { status: 400 }
       );
 
+    // 1. 직원 정보(결재선) 조회
+    const employeeQuery = await db
+      .collection("employee")
+      .where("userName", "==", userName)
+      .get();
+
+    let approvalLine = { first: [], second: [], third: [], shared: [] };
+
+    if (!employeeQuery.empty) {
+      const empData = employeeQuery.docs[0].data();
+      approvalLine = empData.recipients?.approval || approvalLine;
+    }
+
+    // 2. 문서 저장
     const docRef = db
       .collection("approvals")
       .doc(userName)
@@ -36,44 +50,69 @@ export async function POST(req: Request) {
       userName,
       fileUrl: fileUrl || null,
       fileName: fileName || null,
+      approvers: approvalLine,
+      status: "1차 결재 대기",
       createdAt: FieldValue.serverTimestamp(),
     });
 
-    // 2. [알림] reportRecipients 조회 및 발송
-    const employeeQuery = await db
-      .collection("employee")
-      .where("userName", "==", userName)
-      .get();
+    // 3. [알림] 결재자(요청) + 나머지(참조) 발송
+    const batch = db.batch();
 
-    if (!employeeQuery.empty) {
-      const empData = employeeQuery.docs[0].data();
-      // report 수신자 가져오기 (없으면 빈 배열)
-      const recipients: string[] = empData.recipients?.approval || [];
+    // -------------------------------------------------------------
+    // [A] 1차 결재자 (결재 요청)
+    // -------------------------------------------------------------
+    const firstApprovers: string[] = approvalLine.first || [];
+    firstApprovers.forEach((approver) => {
+      const notiRef = db
+        .collection("notifications")
+        .doc(approver)
+        .collection("userNotifications")
+        .doc();
 
-      if (recipients.length > 0) {
-        const batch = db.batch();
-        recipients.forEach((recipientName) => {
-          // [변경 2] 알림 저장 경로 수정
-          // notifications 컬렉션 -> [받는사람] 문서 -> userNotifications 서브컬렉션
-          const notiRef = db
-            .collection("notifications")
-            .doc(recipientName) // 받는 사람 이름으로 된 문서
-            .collection("userNotifications")
-            .doc();
+      batch.set(notiRef, {
+        targetUserName: approver,
+        fromUserName: userName,
+        type: "approval",
+        message: `[${title}] 결재 요청이 도착했습니다.`,
+        link: `/main/my-approval/pending`, // 결재 대기함으로 이동
+        isRead: false,
+        createdAt: Date.now(),
+      });
+    });
 
-          batch.set(notiRef, {
-            targetUserName: recipientName, // 받는 사람
-            fromUserName: userName,
-            type: "approval",
-            message: `${userName} 보고서 작성했습니다.`,
-            link: `/main/workoutside/approvals/${docRef.id}`,
-            isRead: false,
-            createdAt: Date.now(),
-          });
-        });
-        await batch.commit();
-      }
-    }
+    // -------------------------------------------------------------
+    // [B] 2차, 3차 결재자 + 공유자 (참조 알림)
+    // -------------------------------------------------------------
+    const referenceUsers = [
+      ...(approvalLine.second || []),
+      ...(approvalLine.third || []),
+      ...(approvalLine.shared || []),
+    ];
+
+    const uniqueRefs = [...new Set(referenceUsers)];
+
+    uniqueRefs.forEach((targetName: string) => {
+      // 1차 결재자와 겹치면 제외
+      if (firstApprovers.includes(targetName)) return;
+
+      const notiRef = db
+        .collection("notifications")
+        .doc(targetName)
+        .collection("userNotifications")
+        .doc();
+
+      batch.set(notiRef, {
+        targetUserName: targetName,
+        fromUserName: userName,
+        type: "approval",
+        message: `[공유/예정] ${title} 결재 요청이 도착했습니다.`,
+        link: `/main/workoutside/approvals/${docRef.id}`, // 품의서 상세 페이지로 이동
+        isRead: false,
+        createdAt: Date.now(),
+      });
+    });
+
+    await batch.commit();
 
     return NextResponse.json({ success: true, id: docRef.id });
   } catch (error) {

@@ -14,10 +14,8 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-// ✅ [추가] 오늘 날짜를 "YYYY-MM-DD" 문자열로 반환하는 함수
 function getTodayString() {
   const date = new Date();
-  // 한국 시간(KST) 보정 (필요 시) - 서버 설정에 따라 다르지만 보통 이렇게 하면 됨
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
@@ -40,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     const vacationRef = db.collection("vacation").doc(userDocId);
 
-    // 1. 휴가 신청 문서 생성 (여기 createdAt은 Firestore Timestamp로 유지 권장)
+    // 1. 휴가 신청 문서 생성
     const newDocRef = await vacationRef.collection("requests").add({
       startDate,
       endDate,
@@ -51,21 +49,21 @@ export async function POST(req: NextRequest) {
       approvers,
       userName,
       approvalStep: 0,
-      createdAt: FieldValue.serverTimestamp(), // DB 정렬용
-      createdDate: getTodayString(), // ✅ [추가] 보기 편한 날짜 ("2026-01-05")
+      createdAt: FieldValue.serverTimestamp(),
+      createdDate: getTodayString(),
     });
 
     const vacationId = newDocRef.id;
 
-    // 2. [알림] 1차 결재자들에게 발송
+    // ✅ [수정] 알림 발송 로직 (전체 발송)
+    const batch = db.batch();
+    const todayStr = getTodayString();
+
+    // -------------------------------------------------------------
+    // [A] 1차 결재자 (실제 결재 요청)
+    // -------------------------------------------------------------
     if (approvers.first && approvers.first.length > 0) {
-      const batch = db.batch();
-      const firstApprovers: string[] = approvers.first;
-
-      // ✅ 오늘 날짜 문자열 생성
-      const todayStr = getTodayString();
-
-      for (const approverName of firstApprovers) {
+      approvers.first.forEach((approverName: string) => {
         const notiRef = db
           .collection("notifications")
           .doc(approverName)
@@ -75,20 +73,55 @@ export async function POST(req: NextRequest) {
         batch.set(notiRef, {
           targetUserName: approverName,
           fromUserName: userName,
-          type: "vacation_request",
+          type: "vacation_request", // 결재 요청 타입
           message: `${userName} 휴가 결재 요청이 있습니다.`,
-          link: `/main/my-approval/pending`,
+          link: `/main/my-approval/pending`, // 결재함으로 이동
           isRead: false,
-
-          // ✨ [수정 포인트]
-          createdAt: Date.now(), // 정렬용 (숫자 유지: 1767...)
-          createdDate: todayStr, // ✅ 읽기용 (문자열 추가: "2026-01-05")
-
-          vacationId: vacationId, // 취소 시 삭제를 위해 필요
+          createdAt: Date.now(),
+          createdDate: todayStr,
+          vacationId: vacationId,
         });
-      }
-      await batch.commit();
+      });
     }
+
+    // -------------------------------------------------------------
+    // [B] 2차, 3차 결재자 + 공유자 (참조 알림)
+    // -------------------------------------------------------------
+    // 2차, 3차 결재자도 미리 내용을 볼 수 있도록 '공유' 형태로 알림을 보냅니다.
+    // (아직 본인 결재 순서가 아니므로 pending 함에는 뜨지 않기 때문입니다.)
+    const referenceUsers = [
+      ...(approvers.second || []),
+      ...(approvers.third || []),
+      ...(approvers.shared || []),
+    ];
+
+    // 중복 제거
+    const uniqueRefs = [...new Set(referenceUsers)];
+
+    uniqueRefs.forEach((refName: string) => {
+      // 1차 결재자와 겹치면 제외 (이미 보냈으므로)
+      if (approvers.first?.includes(refName)) return;
+
+      const notiRef = db
+        .collection("notifications")
+        .doc(refName)
+        .collection("userNotifications")
+        .doc();
+
+      batch.set(notiRef, {
+        targetUserName: refName,
+        fromUserName: userName,
+        type: "vacation", // 참조/공유 타입
+        message: `[공유/예정] ${userName} 휴가 신청 내역입니다.`,
+        link: `/main/my-approval/shared`, // 공유함으로 이동 -> 클릭 시 상세 모달
+        isRead: false,
+        createdAt: Date.now(),
+        createdDate: todayStr,
+        vacationId: vacationId,
+      });
+    });
+
+    await batch.commit();
 
     return NextResponse.json({ success: true });
   } catch (err) {
