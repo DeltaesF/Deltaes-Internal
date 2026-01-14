@@ -153,7 +153,7 @@ function AuthorizedContent({
   const relatedDailys = dailyList.sort((a, b) => a.createdAt - b.createdAt);
 
   return (
-    // ✅ [수정] max-w-5xl -> max-w-[96%] (화면 꽉 차게), p-6 -> p-4 (여백 축소)
+    // ✅ [수정] max-w-5xl -> max-w-[80%] (화면 꽉 차게), p-6 -> p-4 (여백 축소)
     <div className="flex flex-col gap-6 p-4 max-w-[80%] mx-auto pb-20">
       <div className="flex items-center justify-between">
         <button

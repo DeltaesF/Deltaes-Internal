@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebaseAdmin";
+// ✅ [수정] 필요한 Firestore 타입 Import
+import {
+  Query,
+  QueryDocumentSnapshot,
+  DocumentData,
+} from "firebase-admin/firestore";
 
 interface VacationRequest {
   startDate: string;
@@ -8,7 +14,7 @@ interface VacationRequest {
   daysUsed: number;
   reason: string;
   status: string;
-  createdAt: string;
+  createdAt: number;
   userName: string;
   userId: string;
 }
@@ -16,6 +22,7 @@ interface VacationRequest {
 type ApprovalHistoryEntry = {
   approver: string;
   status: string;
+  comment?: string;
   approvedAt: FirebaseFirestore.Timestamp;
 };
 
@@ -28,105 +35,150 @@ type VacationDoc = {
 
 export async function POST(req: Request) {
   try {
-    const { role, userName } = await req.json();
+    const { role, userName, page = 1, limit = 8 } = await req.json();
     const requestsRef = db.collectionGroup("requests");
-    let snapshot;
+
+    // ✅ list의 타입을 DocumentData로 구체화
+    let list: (VacationDoc | DocumentData)[] = [];
+    let totalCount = 0;
 
     // ------------------------------------------------------------------
-    // [1] DB 조회 단계 (역할별로 가져올 데이터 범위 설정)
+    // [CASE 1] 일반 사용자 (내 휴가 내역)
     // ------------------------------------------------------------------
     if (role === "user") {
-      // 내 문서 전체 조회
-      snapshot = await requestsRef.where("userName", "==", userName).get();
-    } else if (role === "admin") {
-      // 1차 결재자: 내가 'first'에 포함된 '대기' 상태 문서
-      snapshot = await requestsRef
-        .where("status", "==", "대기")
-        .where("approvers.first", "array-contains", userName)
-        .get();
-    } else if (role === "ceo") {
-      // 🔽 [수정] CEO는 1차 결재자일 수도 있고, 2차 결재자일 수도 있습니다.
-      // 따라서 두 경우를 모두 조회해서 하나로 합칩니다.
-      const [firstSnap, secondSnap] = await Promise.all([
-        // 내가 1차 결재자에 포함된 경우 조회
-        requestsRef.where("approvers.first", "array-contains", userName).get(),
-        // 내가 2차 결재자에 포함된 경우 조회
-        requestsRef.where("approvers.second", "array-contains", userName).get(),
-      ]);
+      let query: Query = requestsRef.where("userName", "==", userName);
 
-      // 문서 ID를 키로 사용하여 중복 제거 (Map 사용)
-      const mergedDocs = new Map();
-      firstSnap.docs.forEach((doc) => mergedDocs.set(doc.id, doc));
-      secondSnap.docs.forEach((doc) => mergedDocs.set(doc.id, doc));
+      const countSnapshot = await query.count().get();
+      totalCount = countSnapshot.data().count;
 
-      // 합쳐진 결과를 snapshot 형태로 모방
-      snapshot = { docs: Array.from(mergedDocs.values()) };
-    } else {
-      return NextResponse.json({ list: [] });
+      query = query.orderBy("createdAt", "desc");
+
+      const offset = (page - 1) * limit;
+      const snapshot = await query.limit(limit).offset(offset).get();
+
+      list = snapshot.docs.map((doc: QueryDocumentSnapshot) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+    }
+    // ------------------------------------------------------------------
+    // [CASE 2] 관리자/CEO (결재 대기/처리 문서)
+    // ------------------------------------------------------------------
+    else {
+      let snapshot;
+
+      if (role === "admin") {
+        snapshot = await requestsRef
+          .where("status", "==", "대기")
+          .where("approvers.first", "array-contains", userName)
+          .get();
+      } else if (role === "ceo") {
+        const [firstSnap, secondSnap] = await Promise.all([
+          requestsRef
+            .where("approvers.first", "array-contains", userName)
+            .get(),
+          requestsRef
+            .where("approvers.second", "array-contains", userName)
+            .get(),
+        ]);
+        const mergedDocs = new Map();
+        firstSnap.docs.forEach((doc) => mergedDocs.set(doc.id, doc));
+        secondSnap.docs.forEach((doc) => mergedDocs.set(doc.id, doc));
+        snapshot = { docs: Array.from(mergedDocs.values()) };
+      }
+
+      if (snapshot) {
+        let docsToMap = snapshot.docs;
+
+        if (role === "admin") {
+          docsToMap = snapshot.docs.filter((doc) => {
+            const data = doc.data() as VacationDoc;
+            const history = data.approvalHistory || [];
+            return !history.some((entry) => entry.approver === userName);
+          });
+        } else if (role === "ceo") {
+          docsToMap = snapshot.docs.filter((doc) => {
+            const data = doc.data() as VacationDoc;
+            const status = data.status;
+            const history = data.approvalHistory || [];
+            const firstApprovers = data.approvers?.first || [];
+            const secondApprovers = data.approvers?.second || [];
+
+            if (history.some((entry) => entry.approver === userName))
+              return false;
+
+            if (firstApprovers.includes(userName)) {
+              if (status === "대기") return true;
+            }
+            if (secondApprovers.includes(userName)) {
+              if (status === "1차 결재 완료") return true;
+              if (status === "대기" && firstApprovers.length === 0) return true;
+            }
+            return false;
+          });
+        }
+
+        totalCount = docsToMap.length;
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedDocs = docsToMap.slice(startIndex, endIndex);
+
+        list = paginatedDocs.map((doc: QueryDocumentSnapshot) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+      }
     }
 
     // ------------------------------------------------------------------
-    // [2] 필터링 단계 (상세 조건 체크)
+    // [공통] 데이터 변환 (Timestamp -> Number)
     // ------------------------------------------------------------------
-    let docsToMap = snapshot.docs;
+    const formattedList = list.map((item) => {
+      // item을 VacationDoc으로 타입 단언하여 내부 속성 접근
+      const docData = item as VacationDoc;
 
-    // [Admin 필터] 내가 이미 승인한 건 제외
-    if (role === "admin") {
-      docsToMap = snapshot.docs.filter((doc) => {
-        const data = doc.data() as VacationDoc;
-        const history = data.approvalHistory || [];
-        const alreadyApproved = history.some(
-          (entry) => entry.approver === userName
-        );
-        return !alreadyApproved;
-      });
-    }
-    // [CEO 필터] 내가 결재해야 할 문서인지 확인
-    else if (role === "ceo") {
-      docsToMap = snapshot.docs.filter((doc) => {
-        const data = doc.data() as VacationDoc;
-        const status = data.status;
-        const history = data.approvalHistory || [];
-        const firstApprovers = data.approvers?.first || [];
-        const secondApprovers = data.approvers?.second || [];
+      const approvalHistory =
+        docData.approvalHistory?.map((h) => {
+          // ✅ [수정] 'as any' 대신 안전한 타입 체크 사용
+          // unknown으로 먼저 변환 후, 객체이며 toMillis 함수가 있는지 확인
+          const rawTime = h.approvedAt as unknown;
 
-        // 1. 이미 내가 승인했으면 목록에서 제외
-        if (history.some((entry) => entry.approver === userName)) {
-          return false;
-        }
+          let timeMillis: number | null = null;
 
-        // 2. [CASE A] 내가 1차 결재자로 지정된 경우 (안 보이던 건 해결)
-        if (firstApprovers.includes(userName)) {
-          // 대기 상태면 내가 결재해야 함
-          if (status === "대기") return true;
-        }
+          if (
+            rawTime &&
+            typeof rawTime === "object" &&
+            "toMillis" in rawTime &&
+            typeof (rawTime as { toMillis: () => number }).toMillis ===
+              "function"
+          ) {
+            // Firestore Timestamp인 경우
+            timeMillis = (rawTime as { toMillis: () => number }).toMillis();
+          } else if (typeof rawTime === "number") {
+            // 이미 숫자인 경우
+            timeMillis = rawTime;
+          }
 
-        // 3. [CASE B] 내가 2차 결재자로 지정된 경우
-        if (secondApprovers.includes(userName)) {
-          // 1차 결재가 끝난 건 (정상 흐름)
-          if (status === "1차 결재 완료") return true;
-          // 1차 결재자가 아예 없는 건 (바로 넘어옴)
-          if (status === "대기" && firstApprovers.length === 0) return true;
-        }
+          return {
+            ...h,
+            approvedAt: timeMillis,
+          };
+        }) || [];
 
-        return false;
-      });
-    }
+      return {
+        ...item,
+        approvalHistory,
+      };
+    });
 
-    // [3] 최종 결과 반환
-    const list = docsToMap.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    return NextResponse.json({ list });
+    return NextResponse.json({ list: formattedList, totalCount });
   } catch (err) {
     console.error("휴가 리스트 조회 오류:", err);
     return NextResponse.json({ error: "서버 오류 발생" }, { status: 500 });
   }
 }
 
-// GET 핸들러 (캘린더용)
+// GET 핸들러 (캘린더용 - 기존 코드 유지)
 export async function GET() {
   try {
     const employeesSnap = await db.collection("employee").get();
