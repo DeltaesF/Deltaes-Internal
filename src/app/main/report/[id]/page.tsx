@@ -16,7 +16,7 @@ const fetchDetail = async (id: string) => {
   return res.json();
 };
 
-export default function InternalReportDetailPage() {
+export default function ReportDetailPage() {
   const { id } = useParams() as { id: string };
   const { userName } = useSelector((state: RootState) => state.auth);
   const router = useRouter();
@@ -31,20 +31,36 @@ export default function InternalReportDetailPage() {
   if (!report)
     return <div className="p-10 text-center">데이터를 찾을 수 없습니다.</div>;
 
+  // ✅ [핵심] 보고서 타입에 따라 제목과 목록 경로 결정
+  const isExternal = report.reportType === "external_edu";
+
+  const pageTitle = isExternal ? "외부 교육 보고서" : "사내 교육 보고서";
+  const listPath = isExternal
+    ? "/main/report/external"
+    : "/main/report/internal";
+
+  // 수정 페이지 경로도 구분 (혹은 수정 페이지도 하나로 합칠 수 있음)
+  const editPath = isExternal
+    ? `/main/report/external/edit/${id}`
+    : `/main/report/internal/edit/${id}`;
+
   return (
-    <div className="p-8 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6">
+    <div className="p-8 border rounded-xl bg-white shadow-sm w-4xl mx-auto mt-2 h-auto">
       <div className="flex justify-between items-center mb-6 border-b pb-4">
-        <h2 className="text-2xl font-bold text-gray-800">{report.title}</h2>
+        {/* 동적 제목 표시 */}
+        <h2 className="text-2xl font-bold text-gray-800">{pageTitle}</h2>
         <div className="flex gap-2">
-          <button
-            onClick={() => router.back()}
-            className="px-3 py-1.5 border rounded hover:bg-gray-100 text-sm"
+          {/* 동적 목록 경로 이동 */}
+          <Link
+            href={listPath}
+            className="px-3 py-1.5 border rounded hover:bg-gray-100 text-sm flex items-center"
           >
             목록으로
-          </button>
+          </Link>
+
           {userName === report.userName && (
             <Link
-              href={`/main/report/internal/edit/${id}`}
+              href={editPath}
               className="px-3 py-1.5 bg-[#519d9e] text-white rounded hover:bg-[#407f80] text-sm"
             >
               수정
@@ -53,15 +69,17 @@ export default function InternalReportDetailPage() {
         </div>
       </div>
 
-      {/* 테이블 형태의 정보 표시 */}
+      <div className="mb-3">
+        <h3 className="text-xl font-semibold text-gray-700">{report.title}</h3>
+      </div>
+
+      {/* 테이블 형태의 정보 표시 (공통 양식) */}
       <table className="w-full border-collapse border border-gray-300 mb-8 text-sm">
         <tbody>
           <tr>
-            <th className="bg-gray-100 border p-3 w-32">작성자</th>
-            <td className="border p-3">{report.userName}</td>
-            <th className="bg-gray-100 border p-3 w-32">소속/직위</th>
-            <td className="border p-3">
-              {report.department} / {report.position}
+            <th className="bg-gray-100 border p-3">작성자</th>
+            <td className="border p-3" colSpan={3}>
+              {report.userName}
             </td>
           </tr>
           <tr>
@@ -102,19 +120,6 @@ export default function InternalReportDetailPage() {
           dangerouslySetInnerHTML={{ __html: report.content }}
         />
       </div>
-
-      {report.fileUrl && (
-        <div className="mt-6 pt-4 border-t">
-          <p className="text-sm font-bold text-gray-600 mb-2">첨부파일</p>
-          <a
-            href={report.fileUrl}
-            target="_blank"
-            className="text-blue-600 hover:underline flex items-center gap-1 text-sm"
-          >
-            📎 {report.fileName}
-          </a>
-        </div>
-      )}
     </div>
   );
 }

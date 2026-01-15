@@ -16,7 +16,7 @@ const db = getFirestore();
 
 export async function POST(req: Request) {
   try {
-    const { page = 1, limit = 15, reportType } = await req.json();
+    const { page = 1, limit = 12, reportType } = await req.json();
 
     let query: Query = db.collectionGroup("userReports");
 

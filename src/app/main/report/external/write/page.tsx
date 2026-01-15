@@ -6,7 +6,6 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Editor from "@/components/editor";
 
-// ✅ 오늘 날짜 포맷 함수 (YYYY.MM.DD)
 const getTodayString = () => {
   const date = new Date();
   const year = date.getFullYear();
@@ -15,12 +14,12 @@ const getTodayString = () => {
   return `${year}.${month}.${day}`;
 };
 
-export default function InternalReportWritePage() {
+export default function ExternalReportWritePage() {
   const router = useRouter();
   const { userName } = useSelector((state: RootState) => state.auth);
 
   const [form, setForm] = useState({
-    title: "", // 초기값 비워둠 (useEffect에서 설정)
+    title: "",
     educationName: "",
     startDate: "",
     endDate: "",
@@ -31,26 +30,24 @@ export default function InternalReportWritePage() {
   const [content, setContent] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // ✅ [1] 페이지 진입 시 제목 자동 설정 (수정 불가)
   useEffect(() => {
     const today = getTodayString();
     setForm((prev) => ({
       ...prev,
-      title: `Delta ES 사내교육보고서_${today}_${userName}`,
+      title: `Delta ES 외부교육보고서_${today}_${userName}`, // ✅ 제목 자동 설정 (외부)
     }));
   }, []);
 
-  // ✅ [2] 새로고침/탭 닫기 방지 (작성 중 이탈 방지)
+  // 새로고침 방지
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      e.returnValue = ""; // 크롬 등 브라우저 표준 동작
+      e.returnValue = "";
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
-  // ✅ [3] 취소/뒤로가기 핸들러 (컨펌 창 띄우기)
   const handleCancel = () => {
     const confirmExit = window.confirm(
       "작성 중인 내용이 저장되지 않을 수 있습니다. 정말 나가시겠습니까?"
@@ -80,8 +77,8 @@ export default function InternalReportWritePage() {
         method: "POST",
         body: JSON.stringify({
           userName,
-          reportType: "internal_edu",
-          title: form.title, // 자동 생성된 제목 전송
+          reportType: "external_edu", // ✅ 외부 교육 보고서 타입 지정
+          title: form.title,
           content,
 
           educationName: form.educationName,
@@ -95,7 +92,7 @@ export default function InternalReportWritePage() {
       if (!res.ok) throw new Error("저장 실패");
 
       alert("보고서가 작성되었습니다.");
-      router.push("/main/report/internal");
+      router.push("/main/report/external"); // 작성 후 외부 보고서 목록으로 이동
     } catch (error) {
       console.error(error);
       alert("오류가 발생했습니다.");
@@ -106,7 +103,6 @@ export default function InternalReportWritePage() {
 
   return (
     <div className="p-6 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6">
-      {/* ✅ [4] 상단 뒤로가기 버튼 추가 */}
       <button
         onClick={handleCancel}
         className="mb-4 px-4 py-2 border rounded hover:bg-gray-100 cursor-pointer text-sm text-gray-600 transition-colors"
@@ -115,23 +111,20 @@ export default function InternalReportWritePage() {
       </button>
 
       <h2 className="text-2xl font-bold mb-6 text-gray-800">
-        사내 교육 보고서 작성
+        외부 교육 보고서 작성
       </h2>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-        {/* 1. 기본 정보 (작성자) */}
         <div className="p-4 bg-gray-50 rounded-lg border">
           <span className="block text-xs text-gray-500 mb-1">작성자</span>
           <div className="font-bold text-gray-700">{userName}</div>
         </div>
 
-        {/* 2. 교육 정보 입력 */}
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">
               보고서 제목
             </label>
-            {/* readOnly 적용 및 스타일 변경 */}
             <input
               type="text"
               name="title"
@@ -193,7 +186,7 @@ export default function InternalReportWritePage() {
             </div>
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">
-                교육 시간 (총 시간)
+                교육 시간
               </label>
               <input
                 type="text"
@@ -207,7 +200,6 @@ export default function InternalReportWritePage() {
           </div>
         </div>
 
-        {/* 3. 유용성 평가 */}
         <div className="border p-4 rounded-lg">
           <label className="block text-sm font-bold text-gray-700 mb-3">
             업무 수행상 유용성
@@ -232,7 +224,6 @@ export default function InternalReportWritePage() {
           </div>
         </div>
 
-        {/* 4. 내용 (에디터) */}
         <div>
           <label className="block text-sm font-bold text-gray-700 mb-2">
             교육 내용 요약
@@ -243,7 +234,7 @@ export default function InternalReportWritePage() {
         <div className="flex justify-end gap-3 mt-4">
           <button
             type="button"
-            onClick={handleCancel} // ✅ [5] 하단 취소 버튼에도 핸들러 적용
+            onClick={handleCancel}
             className="px-4 py-2 bg-gray-200 rounded text-gray-700 font-bold hover:bg-gray-300 transition-colors cursor-pointer"
           >
             취소

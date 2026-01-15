@@ -27,24 +27,24 @@ const fetchReports = async (page: number, limit: number) => {
     body: JSON.stringify({
       page,
       limit,
-      reportType: "internal_edu", // ✅ 사내교육보고서 필터
+      reportType: "external_edu", // ✅ 외부교육보고서 필터
     }),
   });
   if (!res.ok) throw new Error("Failed to fetch reports");
   return res.json();
 };
 
-function InternalReportContent() {
+function ExternalReportContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const currentPage = Number(searchParams.get("page")) || 1;
-  const ITEMS_PER_PAGE = 12; // ✅ 읽기 비용 최적화를 위해 12개로 조정
+  const ITEMS_PER_PAGE = 12; // ✅ 읽기 비용 최적화
 
   const { data, isLoading } = useQuery<ApiResponse>({
-    queryKey: ["reports", "internal", currentPage],
+    queryKey: ["reports", "external", currentPage],
     queryFn: () => fetchReports(currentPage, ITEMS_PER_PAGE),
-    placeholderData: (prev) => prev, // ✅ [최적화] 로딩 중 이전 데이터 유지 (깜빡임 방지)
+    placeholderData: (prev) => prev, // ✅ 로딩 중 이전 데이터 유지
   });
 
   const list = data?.list || [];
@@ -67,9 +67,9 @@ function InternalReportContent() {
     <div className="flex flex-col w-full p-6">
       <div className="bg-white border rounded-2xl shadow-sm p-6">
         <div className="flex justify-between items-center mb-2">
-          <h2 className="text-2xl font-bold text-gray-800">사내 교육 보고서</h2>
+          <h2 className="text-2xl font-bold text-gray-800">외부 교육 보고서</h2>
           <Link
-            href="/main/report/internal/write"
+            href="/main/report/external/write"
             className="px-4 py-2 bg-[#519d9e] text-white rounded-lg hover:bg-[#407f80] transition-colors font-bold text-sm"
           >
             보고서 작성 ✎
@@ -123,7 +123,7 @@ function InternalReportContent() {
           </table>
         </div>
 
-        {/* ✅ 페이지네이션 버튼 (shared 스타일 적용) */}
+        {/* ✅ 페이지네이션 버튼 */}
         <div className="flex justify-center items-center gap-4 mt-6 py-2 border-t border-gray-100">
           <button
             onClick={handlePrevPage}
@@ -159,12 +159,12 @@ function InternalReportContent() {
   );
 }
 
-export default function InternalReportListPage() {
+export default function ExternalReportListPage() {
   return (
     <Suspense
       fallback={<div className="p-10 text-center">페이지 로딩 중...</div>}
     >
-      <InternalReportContent />
+      <ExternalReportContent />
     </Suspense>
   );
 }
