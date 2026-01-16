@@ -36,7 +36,7 @@ export default async function NoticeDetailPage({
   if (!notice) return notFound();
 
   return (
-    <div className="p-6 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6">
+    <div className="p-6 border rounded-xl bg-white shadow-sm max-w-4xl w-full mx-auto mt-6">
       <div className="flex justify-between items-center mb-4">
         <Link
           href="/main/notice"
