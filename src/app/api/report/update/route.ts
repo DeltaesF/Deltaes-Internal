@@ -14,18 +14,25 @@ if (!getApps().length) {
 
 const db = getFirestore();
 
-// ✅ [추가] 업데이트할 데이터의 타입 정의
+// 업데이트할 데이터의 타입 정의
 interface UpdatePayload {
   title: string;
   content: string;
   updatedAt: FieldValue;
+  // 교육 보고서 관련 필드
   educationName?: string;
   educationPeriod?: string;
   educationPlace?: string;
   educationTime?: string;
   usefulness?: string;
-  fileUrl?: string;
-  fileName?: string;
+  // 외근/차량 보고서 관련 필드
+  contact?: string;
+  purpose?: string;
+  isExternalWork?: boolean;
+  isVehicleUse?: boolean;
+  implementDate?: string;
+  vehicleModel?: string;
+  usagePeriod?: string;
 }
 
 export async function POST(req: Request) {
@@ -36,13 +43,18 @@ export async function POST(req: Request) {
       userName,
       title,
       content,
-      fileUrl,
-      fileName,
       educationName,
       educationPeriod,
       educationPlace,
       educationTime,
       usefulness,
+      contact,
+      purpose,
+      isExternalWork,
+      isVehicleUse,
+      implementDate,
+      vehicleModel,
+      usagePeriod,
     } = body;
 
     if (!id || !userName || !title) {
@@ -86,11 +98,15 @@ export async function POST(req: Request) {
     if (educationTime) updateData.educationTime = educationTime;
     if (usefulness) updateData.usefulness = usefulness;
 
-    // 파일 변경 시
-    if (fileUrl) {
-      updateData.fileUrl = fileUrl;
-      updateData.fileName = fileName;
-    }
+    // 차량/외근 필드 업데이트 로직 추가
+    if (contact) updateData.contact = contact;
+    if (purpose) updateData.purpose = purpose;
+    if (isExternalWork !== undefined)
+      updateData.isExternalWork = isExternalWork;
+    if (isVehicleUse !== undefined) updateData.isVehicleUse = isVehicleUse;
+    if (implementDate) updateData.implementDate = implementDate;
+    if (vehicleModel) updateData.vehicleModel = vehicleModel;
+    if (usagePeriod) updateData.usagePeriod = usagePeriod;
 
     await docRef.update({ ...updateData });
 

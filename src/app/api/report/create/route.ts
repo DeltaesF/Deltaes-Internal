@@ -21,14 +21,21 @@ export async function POST(req: Request) {
       userName,
       title,
       content,
-      fileUrl,
-      fileName,
       reportType,
+      // 교육 보고서 관련 필드
       educationName,
       educationPeriod,
       educationPlace,
       educationTime,
       usefulness,
+      // 외근/차량 보고서 관련 필드
+      contact,
+      purpose,
+      isExternalWork,
+      isVehicleUse,
+      implementDate,
+      vehicleModel,
+      usagePeriod,
     } = body;
 
     if (!userName || !title) {
@@ -70,13 +77,22 @@ export async function POST(req: Request) {
       userName,
       department: empData.department || "",
       position: empData.role || "",
+      // 교육 관련 필드
       educationName: educationName || null,
       educationPeriod: educationPeriod || null,
       educationPlace: educationPlace || null,
       educationTime: educationTime || null,
       usefulness: usefulness || null,
-      fileUrl: fileUrl || null,
-      fileName: fileName || null,
+
+      // 차량/외근 필드
+      contact: contact || null,
+      purpose: purpose || null,
+      isExternalWork: isExternalWork || false,
+      isVehicleUse: isVehicleUse || false,
+      implementDate: implementDate || null,
+      vehicleModel: vehicleModel || null,
+      usagePeriod: usagePeriod || null,
+
       approvers: reportLine,
       status: "1차 결재 대기",
       createdAt: FieldValue.serverTimestamp(),

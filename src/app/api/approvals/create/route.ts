@@ -16,7 +16,7 @@ const db = getFirestore();
 
 export async function POST(req: Request) {
   try {
-    const { userName, title, content, fileUrl, fileName } = await req.json();
+    const { userName, title, content } = await req.json();
 
     if (!userName || !title || !content)
       return NextResponse.json(
@@ -48,8 +48,6 @@ export async function POST(req: Request) {
       title,
       content,
       userName,
-      fileUrl: fileUrl || null,
-      fileName: fileName || null,
       approvers: approvalLine,
       status: "1차 결재 대기",
       createdAt: FieldValue.serverTimestamp(),
