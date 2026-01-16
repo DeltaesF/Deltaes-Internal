@@ -63,7 +63,7 @@ export async function POST(req: Request) {
     };
 
     // 파일이 새로 업로드된 경우에만 파일 정보 업데이트
-    if (fileUrl) {
+    if (fileUrl !== undefined) {
       updateData.fileUrl = fileUrl;
       updateData.fileName = fileName;
     }

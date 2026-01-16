@@ -4,16 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
-import Editor from "@/components/editor"; // Editor 컴포넌트 경로 확인 필요
+import Editor from "@/components/editor";
 
-// 상세 내용 가져오기 (재사용)
-const fetchDailyDetail = async (id: string) => {
+const fetchNoticeDetail = async (id: string) => {
   const res = await fetch(`/api/notice/${id}`);
   if (!res.ok) throw new Error("Failed to fetch");
   return res.json();
 };
 
-export default function DailyEditPage() {
+export default function NoticeEditPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const { userName } = useSelector((state: RootState) => state.auth);
@@ -28,12 +27,10 @@ export default function DailyEditPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
 
-  // 기존 데이터 불러오기
   useEffect(() => {
     if (id) {
-      fetchDailyDetail(id)
+      fetchNoticeDetail(id)
         .then((data) => {
-          // 권한 체크: 작성자가 아니면 쫓아냄
           if (userName && data.userName !== userName) {
             alert("수정 권한이 없습니다.");
             router.back();
@@ -61,10 +58,12 @@ export default function DailyEditPage() {
     setIsLoading(true);
 
     try {
-      let fileUrl = "";
-      let fileName = "";
+      // ✅ [수정 핵심] 파일 상태에 따라 null 또는 URL 설정
+      // 기본값 undefined: 변경 없음 (기존 유지)
+      let finalFileUrl: string | null | undefined = undefined;
+      let finalFileName: string | null | undefined = undefined;
 
-      // 1. 새 파일이 있으면 업로드
+      // 1. 새 파일이 첨부된 경우 -> 업로드 후 URL 사용
       if (file) {
         const formData = new FormData();
         formData.append("file", file);
@@ -74,27 +73,34 @@ export default function DailyEditPage() {
         });
         if (!uploadRes.ok) throw new Error("파일 업로드 실패");
         const uploadData = await uploadRes.json();
-        fileUrl = uploadData.fileUrl;
-        fileName = file.name;
+
+        finalFileUrl = uploadData.fileUrl;
+        finalFileName = file.name;
       }
+      // 2. 새 파일은 없는데 기존 파일도 삭제된 경우 -> DB 삭제를 위해 null 전송
+      else if (!existingFile) {
+        finalFileUrl = null;
+        finalFileName = null;
+      }
+      // 3. 그 외(새 파일 없고 existingFile이 있는 경우) -> undefined로 전송되어 DB 기존 값 유지
 
       // 2. 업데이트 요청
       const res = await fetch("/api/notice/update", {
         method: "POST",
         body: JSON.stringify({
           id,
-          userName, // 경로 찾기용
+          userName,
           title,
           content,
-          fileUrl: fileUrl || undefined, // 새 파일 없으면 undefined (기존 유지)
-          fileName: fileName || undefined,
+          fileUrl: finalFileUrl, // 변경된 로직 적용
+          fileName: finalFileName, // 변경된 로직 적용
         }),
       });
 
       if (!res.ok) throw new Error("수정 실패");
 
       alert("수정되었습니다.");
-      router.push(`/main/notice/${id}`); // 상세 페이지로 이동
+      router.push(`/main/notice/${id}`);
     } catch (error) {
       console.error(error);
       alert("오류가 발생했습니다.");
@@ -108,7 +114,7 @@ export default function DailyEditPage() {
   return (
     <div className="p-6 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">공지사항 수정</h2>
+        <h2 className="text-2xl font-bold">📝 공지사항 수정</h2>
         <button
           onClick={() => router.back()}
           className="px-4 py-2 border rounded hover:bg-gray-100 text-sm cursor-pointer"
@@ -140,7 +146,7 @@ export default function DailyEditPage() {
               <span>현재 파일: {existingFile.name}</span>
               <button
                 type="button"
-                onClick={() => setExistingFile(null)} // 파일 삭제(교체 준비)
+                onClick={() => setExistingFile(null)}
                 className="text-red-500 text-xs border border-red-200 px-2 py-0.5 rounded hover:bg-red-50"
               >
                 삭제/변경
