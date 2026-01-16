@@ -14,6 +14,37 @@ if (!getApps().length) {
 
 const db = getFirestore();
 
+// ✅ [추가] 보고서 데이터 타입 정의 (any 제거용)
+interface ReportData {
+  reportType: string;
+  title: string;
+  content: string;
+  userName: string;
+  department: string;
+  position: string;
+  approvers: {
+    first: string[];
+    second: string[];
+    third: string[];
+    shared: string[];
+  };
+  status: string;
+  createdAt: FieldValue;
+  // 🔹 차량/외근용 선택 필드
+  contact?: string | null;
+  isExternalWork?: boolean;
+  isVehicleUse?: boolean;
+  implementDate?: string | null;
+  vehicleModel?: string | null;
+  usagePeriod?: string | null;
+  // 🔹 교육용 선택 필드
+  educationName?: string | null;
+  educationPeriod?: string | null;
+  educationPlace?: string | null;
+  educationTime?: string | null;
+  usefulness?: string | null;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -21,7 +52,7 @@ export async function POST(req: Request) {
       userName,
       title,
       content,
-      reportType,
+      reportType = "general", // 기본값
       // 교육 보고서 관련 필드
       educationName,
       educationPeriod,
@@ -30,7 +61,6 @@ export async function POST(req: Request) {
       usefulness,
       // 외근/차량 보고서 관련 필드
       contact,
-      purpose,
       isExternalWork,
       isVehicleUse,
       implementDate,
@@ -63,40 +93,46 @@ export async function POST(req: Request) {
       shared: [],
     };
 
-    // 2. DB 저장
+    // 2. ✅ [수정] 저장할 데이터 객체 동적 구성
+    // 공통 필드 먼저 정의
+    const docData: ReportData = {
+      reportType,
+      title,
+      content,
+      userName,
+      department: empData.department || "",
+      position: empData.role || "",
+      approvers: reportLine,
+      status: "1차 결재 대기",
+      createdAt: FieldValue.serverTimestamp(),
+    };
+
+    // 🔹 [분기 1] 차량/외근 보고서일 때만 추가
+    if (reportType === "vehicle_usage") {
+      docData.contact = contact || null;
+      docData.isExternalWork = isExternalWork || false;
+      docData.isVehicleUse = isVehicleUse || false;
+      docData.implementDate = implementDate || null;
+      docData.vehicleModel = vehicleModel || null;
+      docData.usagePeriod = usagePeriod || null;
+    }
+    // 🔹 [분기 2] 교육 보고서일 때만 추가 (내부/외부)
+    else if (reportType === "internal_edu" || reportType === "external_edu") {
+      docData.educationName = educationName || null;
+      docData.educationPeriod = educationPeriod || null;
+      docData.educationPlace = educationPlace || null;
+      docData.educationTime = educationTime || null;
+      docData.usefulness = usefulness || null;
+    }
+
+    // 3. DB 저장
     const docRef = db
       .collection("reports")
       .doc(userName)
       .collection("userReports")
       .doc();
 
-    await docRef.set({
-      reportType: reportType || "general",
-      title,
-      content,
-      userName,
-      department: empData.department || "",
-      position: empData.role || "",
-      // 교육 관련 필드
-      educationName: educationName || null,
-      educationPeriod: educationPeriod || null,
-      educationPlace: educationPlace || null,
-      educationTime: educationTime || null,
-      usefulness: usefulness || null,
-
-      // 차량/외근 필드
-      contact: contact || null,
-      purpose: purpose || null,
-      isExternalWork: isExternalWork || false,
-      isVehicleUse: isVehicleUse || false,
-      implementDate: implementDate || null,
-      vehicleModel: vehicleModel || null,
-      usagePeriod: usagePeriod || null,
-
-      approvers: reportLine,
-      status: "1차 결재 대기",
-      createdAt: FieldValue.serverTimestamp(),
-    });
+    await docRef.set(docData);
 
     // 3. [알림] 결재자(요청) + 나머지(참조) 발송
     const batch = db.batch();

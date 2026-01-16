@@ -49,7 +49,6 @@ export async function POST(req: Request) {
       educationTime,
       usefulness,
       contact,
-      purpose,
       isExternalWork,
       isVehicleUse,
       implementDate,
@@ -91,22 +90,22 @@ export async function POST(req: Request) {
       updatedAt: FieldValue.serverTimestamp(),
     };
 
-    // 값이 있는 경우에만 업데이트 객체에 추가
-    if (educationName) updateData.educationName = educationName;
-    if (educationPeriod) updateData.educationPeriod = educationPeriod;
-    if (educationPlace) updateData.educationPlace = educationPlace;
-    if (educationTime) updateData.educationTime = educationTime;
-    if (usefulness) updateData.usefulness = usefulness;
+    // ✅ 값이 있는 경우에만 필드 추가 (undefined 체크)
+    if (educationName !== undefined) updateData.educationName = educationName;
+    if (educationPeriod !== undefined)
+      updateData.educationPeriod = educationPeriod;
+    if (educationPlace !== undefined)
+      updateData.educationPlace = educationPlace;
+    if (educationTime !== undefined) updateData.educationTime = educationTime;
+    if (usefulness !== undefined) updateData.usefulness = usefulness;
 
-    // 차량/외근 필드 업데이트 로직 추가
-    if (contact) updateData.contact = contact;
-    if (purpose) updateData.purpose = purpose;
+    if (contact !== undefined) updateData.contact = contact;
     if (isExternalWork !== undefined)
       updateData.isExternalWork = isExternalWork;
     if (isVehicleUse !== undefined) updateData.isVehicleUse = isVehicleUse;
-    if (implementDate) updateData.implementDate = implementDate;
-    if (vehicleModel) updateData.vehicleModel = vehicleModel;
-    if (usagePeriod) updateData.usagePeriod = usagePeriod;
+    if (implementDate !== undefined) updateData.implementDate = implementDate;
+    if (vehicleModel !== undefined) updateData.vehicleModel = vehicleModel;
+    if (usagePeriod !== undefined) updateData.usagePeriod = usagePeriod;
 
     await docRef.update({ ...updateData });
 

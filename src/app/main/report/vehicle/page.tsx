@@ -42,7 +42,7 @@ function VehicleReportContent() {
   const ITEMS_PER_PAGE = 12; // ✅ 읽기 비용 최적화
 
   const { data, isLoading } = useQuery<ApiResponse>({
-    queryKey: ["reports", "external", currentPage],
+    queryKey: ["reports", "vehicle", currentPage],
     queryFn: () => fetchReports(currentPage, ITEMS_PER_PAGE),
     placeholderData: (prev) => prev, // ✅ 로딩 중 이전 데이터 유지
   });
@@ -67,9 +67,11 @@ function VehicleReportContent() {
     <div className="flex flex-col w-full p-6">
       <div className="bg-white border rounded-2xl shadow-sm p-6">
         <div className="flex justify-between items-center mb-2">
-          <h2 className="text-2xl font-bold text-gray-800">외부 교육 보고서</h2>
+          <h2 className="text-2xl font-bold text-gray-800">
+            외근 / 법인 차량이용 보고서
+          </h2>
           <Link
-            href="/main/report/external/write"
+            href="/main/report/vehicle/write"
             className="px-4 py-2 bg-[#519d9e] text-white rounded-lg hover:bg-[#407f80] transition-colors font-bold text-sm"
           >
             보고서 작성 ✎
