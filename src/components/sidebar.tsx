@@ -189,16 +189,28 @@ export default function Sidebar() {
               {subMenus.approvalDocs && (
                 <div className="pl-3 border-l border-gray-300 ml-2 space-y-1">
                   <Link
-                    href="/main/workoutside/approvals"
-                    className={getLinkClass("/main/workoutside/approvals")}
+                    href="/main/workoutside/approvals/purchase"
+                    className={getLinkClass(
+                      "/main/workoutside/approvals/purchase"
+                    )}
                   >
                     - 구매품의서
                   </Link>
                   <Link
-                    href="/main/workoutside/approvals/d"
-                    className={getLinkClass("/main/workoutside/approvals/d")}
+                    href="/main/workoutside/approvals/sales"
+                    className={getLinkClass(
+                      "/main/workoutside/approvals/sales"
+                    )}
                   >
                     - 판매품의서
+                  </Link>
+                  <Link
+                    href="/main/workoutside/approvals/vehicle"
+                    className={getLinkClass(
+                      "/main/workoutside/approvals/vehicle"
+                    )}
+                  >
+                    - 외근/법인차량 품의서
                   </Link>
                 </div>
               )}
@@ -334,10 +346,10 @@ export default function Sidebar() {
                     - 외부교육보고서
                   </Link>
                   <Link
-                    href="/main/report/vehicle"
-                    className={getLinkClass("/main/report/vehicle")}
+                    href="/main/report/ㅇ"
+                    className={getLinkClass("/main/report/ㅇ")}
                   >
-                    - 외근/법인차량
+                    - 출장보고서
                   </Link>
                 </div>
               )}

@@ -14,99 +14,147 @@ if (!getApps().length) {
 
 const db = getFirestore();
 
+// ✅ [추가] 품의서 데이터 타입 정의
+interface ApprovalData {
+  approvalType: string; // 'purchase'(기본), 'vehicle', 'business_trip_request' 등
+  title: string;
+  content: string;
+  userName: string;
+  department: string; // 부서 정보 추가
+  approvers: {
+    first: string[];
+    second: string[];
+    third: string[];
+    shared: string[];
+  };
+  status: string;
+  createdAt: FieldValue;
+  // 🔹 차량/외근용 선택 필드
+  contact?: string | null;
+  isExternalWork?: boolean;
+  isVehicleUse?: boolean;
+  implementDate?: string | null;
+  vehicleModel?: string | null;
+  usagePeriod?: string | null;
+}
+
 export async function POST(req: Request) {
   try {
-    const { userName, title, content } = await req.json();
+    const body = await req.json();
+    const {
+      userName,
+      title,
+      content,
+      approvalType = "purchase", // 기본값은 구매 품의서
+      // 차량용 필드
+      contact,
+      isExternalWork,
+      isVehicleUse,
+      implementDate,
+      vehicleModel,
+      usagePeriod,
+    } = body;
 
-    if (!userName || !title || !content)
+    if (!userName || !title || !content) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
+    }
 
     // 1. 직원 정보(결재선) 조회
     const employeeQuery = await db
       .collection("employee")
       .where("userName", "==", userName)
       .get();
-
     let approvalLine = { first: [], second: [], third: [], shared: [] };
+    let department = "";
 
     if (!employeeQuery.empty) {
       const empData = employeeQuery.docs[0].data();
+      // 결재선 정보 가져오기 (approval 라인 사용)
       approvalLine = empData.recipients?.approval || approvalLine;
+      department = empData.department || "";
     }
 
-    // 2. 문서 저장
+    // 2. 저장할 데이터 구성
+    const docData: ApprovalData = {
+      approvalType,
+      title,
+      content,
+      userName,
+      department,
+      approvers: approvalLine,
+      status: "1차 결재 대기",
+      createdAt: FieldValue.serverTimestamp(),
+    };
+
+    // 타입별 필드 추가
+    if (approvalType === "vehicle") {
+      docData.contact = contact || null;
+      docData.isExternalWork = isExternalWork || false;
+      docData.isVehicleUse = isVehicleUse || false;
+      docData.implementDate = implementDate || null;
+      docData.vehicleModel = vehicleModel || null;
+      docData.usagePeriod = usagePeriod || null;
+    }
+
+    // 3. DB 저장 (approvals 컬렉션)
     const docRef = db
       .collection("approvals")
       .doc(userName)
       .collection("userApprovals")
       .doc();
 
-    await docRef.set({
-      title,
-      content,
-      userName,
-      approvers: approvalLine,
-      status: "1차 결재 대기",
-      createdAt: FieldValue.serverTimestamp(),
-    });
+    await docRef.set(docData);
 
-    // 3. [알림] 결재자(요청) + 나머지(참조) 발송
+    // 4. 알림 발송 (기존 로직 유지 + 링크 수정)
     const batch = db.batch();
-
-    // -------------------------------------------------------------
-    // [A] 1차 결재자 (결재 요청)
-    // -------------------------------------------------------------
     const firstApprovers: string[] = approvalLine.first || [];
+
     firstApprovers.forEach((approver) => {
       const notiRef = db
         .collection("notifications")
         .doc(approver)
         .collection("userNotifications")
         .doc();
-
       batch.set(notiRef, {
         targetUserName: approver,
         fromUserName: userName,
         type: "approval",
-        message: `[${title}] 결재 요청이 도착했습니다.`,
-        link: `/main/my-approval/pending`, // 결재 대기함으로 이동
+        message: `${title}_${userName} 결재 요청이 도착했습니다.`,
+        link: `/main/my-approval/pending`,
         isRead: false,
         createdAt: Date.now(),
+        approvalId: docRef.id, // ID 필드명 통일
       });
     });
 
-    // -------------------------------------------------------------
-    // [B] 2차, 3차 결재자 + 공유자 (참조 알림)
-    // -------------------------------------------------------------
+    // 참조자 알림
     const referenceUsers = [
       ...(approvalLine.second || []),
       ...(approvalLine.third || []),
       ...(approvalLine.shared || []),
     ];
-
-    const uniqueRefs = [...new Set(referenceUsers)];
+    const uniqueRefs = [...new Set(referenceUsers)] as string[];
 
     uniqueRefs.forEach((targetName: string) => {
-      // 1차 결재자와 겹치면 제외
       if (firstApprovers.includes(targetName)) return;
-
       const notiRef = db
         .collection("notifications")
         .doc(targetName)
         .collection("userNotifications")
         .doc();
-
       batch.set(notiRef, {
         targetUserName: targetName,
         fromUserName: userName,
         type: "approval",
-        message: `[공유/예정] ${title} 결재 요청이 도착했습니다.`,
-        link: `/main/workoutside/approvals/${docRef.id}`, // 품의서 상세 페이지로 이동
+        message: `[공유/예정] ${title}_${userName} 결재 요청이 도착했습니다.`,
+        // 상세 페이지 링크 (타입에 따라 다를 수 있음. 일단 통합 상세 페이지로 가정)
+        link: `/main/workoutside/approvals/${docRef.id}`,
         isRead: false,
         createdAt: Date.now(),
+        approvalId: docRef.id,
       });
     });
 

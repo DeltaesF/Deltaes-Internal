@@ -21,13 +21,13 @@ interface ApiResponse {
 }
 
 const fetchReports = async (page: number, limit: number) => {
-  const res = await fetch("/api/report/list", {
+  const res = await fetch("/api/approvals/list", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       page,
       limit,
-      reportType: "vehicle_usage", // ✅ 외부교육보고서 필터
+      reportType: "vehicle",
     }),
   });
   if (!res.ok) throw new Error("Failed to fetch reports");
@@ -42,7 +42,7 @@ function VehicleReportContent() {
   const ITEMS_PER_PAGE = 12; // ✅ 읽기 비용 최적화
 
   const { data, isLoading } = useQuery<ApiResponse>({
-    queryKey: ["reports", "vehicle", currentPage],
+    queryKey: ["approvals", "vehicle", currentPage],
     queryFn: () => fetchReports(currentPage, ITEMS_PER_PAGE),
     placeholderData: (prev) => prev, // ✅ 로딩 중 이전 데이터 유지
   });
@@ -71,10 +71,10 @@ function VehicleReportContent() {
             외근 / 법인 차량이용 보고서
           </h2>
           <Link
-            href="/main/report/vehicle/write"
+            href="/main/workoutside/approvals/vehicle/write"
             className="px-4 py-2 bg-[#519d9e] text-white rounded-lg hover:bg-[#407f80] transition-colors font-bold text-sm"
           >
-            보고서 작성 ✎
+            품의서 작성 ✎
           </Link>
         </div>
 
@@ -92,7 +92,7 @@ function VehicleReportContent() {
               {list.length === 0 ? (
                 <tr>
                   <td colSpan={3} className="py-10 text-center text-gray-400">
-                    등록된 보고서가 없습니다.
+                    등록된 품의서가 없습니다.
                   </td>
                 </tr>
               ) : (
@@ -104,7 +104,7 @@ function VehicleReportContent() {
                     <td className="py-3 px-4">
                       {/* 통합 상세 페이지로 이동 */}
                       <Link
-                        href={`/main/report/${item.id}`}
+                        href={`/main/workoutside/approvals/${item.id}`}
                         className="block w-full"
                       >
                         <span className="text-gray-800 hover:text-[#519d9e] font-medium transition-colors">

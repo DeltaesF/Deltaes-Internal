@@ -30,13 +30,6 @@ interface ReportData {
   };
   status: string;
   createdAt: FieldValue;
-  // 🔹 차량/외근용 선택 필드
-  contact?: string | null;
-  isExternalWork?: boolean;
-  isVehicleUse?: boolean;
-  implementDate?: string | null;
-  vehicleModel?: string | null;
-  usagePeriod?: string | null;
   // 🔹 교육용 선택 필드
   educationName?: string | null;
   educationPeriod?: string | null;
@@ -59,13 +52,6 @@ export async function POST(req: Request) {
       educationPlace,
       educationTime,
       usefulness,
-      // 외근/차량 보고서 관련 필드
-      contact,
-      isExternalWork,
-      isVehicleUse,
-      implementDate,
-      vehicleModel,
-      usagePeriod,
     } = body;
 
     if (!userName || !title) {
@@ -107,17 +93,8 @@ export async function POST(req: Request) {
       createdAt: FieldValue.serverTimestamp(),
     };
 
-    // 🔹 [분기 1] 차량/외근 보고서일 때만 추가
-    if (reportType === "vehicle_usage") {
-      docData.contact = contact || null;
-      docData.isExternalWork = isExternalWork || false;
-      docData.isVehicleUse = isVehicleUse || false;
-      docData.implementDate = implementDate || null;
-      docData.vehicleModel = vehicleModel || null;
-      docData.usagePeriod = usagePeriod || null;
-    }
-    // 🔹 [분기 2] 교육 보고서일 때만 추가 (내부/외부)
-    else if (reportType === "internal_edu" || reportType === "external_edu") {
+    //  교육 보고서일 때만 추가 (내부/외부)
+    if (reportType === "internal_edu" || reportType === "external_edu") {
       docData.educationName = educationName || null;
       docData.educationPeriod = educationPeriod || null;
       docData.educationPlace = educationPlace || null;

@@ -25,14 +25,6 @@ interface UpdatePayload {
   educationPlace?: string;
   educationTime?: string;
   usefulness?: string;
-  // 외근/차량 보고서 관련 필드
-  contact?: string;
-  purpose?: string;
-  isExternalWork?: boolean;
-  isVehicleUse?: boolean;
-  implementDate?: string;
-  vehicleModel?: string;
-  usagePeriod?: string;
 }
 
 export async function POST(req: Request) {
@@ -48,12 +40,6 @@ export async function POST(req: Request) {
       educationPlace,
       educationTime,
       usefulness,
-      contact,
-      isExternalWork,
-      isVehicleUse,
-      implementDate,
-      vehicleModel,
-      usagePeriod,
     } = body;
 
     if (!id || !userName || !title) {
@@ -98,14 +84,6 @@ export async function POST(req: Request) {
       updateData.educationPlace = educationPlace;
     if (educationTime !== undefined) updateData.educationTime = educationTime;
     if (usefulness !== undefined) updateData.usefulness = usefulness;
-
-    if (contact !== undefined) updateData.contact = contact;
-    if (isExternalWork !== undefined)
-      updateData.isExternalWork = isExternalWork;
-    if (isVehicleUse !== undefined) updateData.isVehicleUse = isVehicleUse;
-    if (implementDate !== undefined) updateData.implementDate = implementDate;
-    if (vehicleModel !== undefined) updateData.vehicleModel = vehicleModel;
-    if (usagePeriod !== undefined) updateData.usagePeriod = usagePeriod;
 
     await docRef.update({ ...updateData });
 

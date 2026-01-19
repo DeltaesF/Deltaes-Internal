@@ -22,7 +22,7 @@ export default function DailyWritePage() {
   );
 
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState("<ol><li></li></ol>");
+  const [content, setContent] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
