@@ -25,6 +25,11 @@ interface UpdatePayload {
   educationPlace?: string;
   educationTime?: string;
   usefulness?: string;
+
+  tripDestination?: string;
+  tripCompanions?: string;
+  tripPeriod?: string;
+  tripExpenses?: { date: string; detail: string }[];
 }
 
 export async function POST(req: Request) {
@@ -40,6 +45,10 @@ export async function POST(req: Request) {
       educationPlace,
       educationTime,
       usefulness,
+      tripDestination,
+      tripCompanions,
+      tripPeriod,
+      tripExpenses,
     } = body;
 
     if (!id || !userName || !title) {
@@ -84,6 +93,13 @@ export async function POST(req: Request) {
       updateData.educationPlace = educationPlace;
     if (educationTime !== undefined) updateData.educationTime = educationTime;
     if (usefulness !== undefined) updateData.usefulness = usefulness;
+
+    if (tripDestination !== undefined)
+      updateData.tripDestination = tripDestination;
+    if (tripCompanions !== undefined)
+      updateData.tripCompanions = tripCompanions;
+    if (tripPeriod !== undefined) updateData.tripPeriod = tripPeriod;
+    if (tripExpenses !== undefined) updateData.tripExpenses = tripExpenses;
 
     await docRef.update({ ...updateData });
 

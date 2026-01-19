@@ -36,6 +36,13 @@ interface ReportData {
   educationPlace?: string | null;
   educationTime?: string | null;
   usefulness?: string | null;
+
+  // 🆕 출장 보고서용 필드
+  docNumber?: string | null; // 문서 번호
+  tripDestination?: string | null; // 출장지
+  tripCompanions?: string | null; // 동행출장자
+  tripPeriod?: string | null; // 출장 기간
+  tripExpenses?: { date: string; detail: string }[] | null; // 출장 경비 (배열)
 }
 
 export async function POST(req: Request) {
@@ -52,6 +59,11 @@ export async function POST(req: Request) {
       educationPlace,
       educationTime,
       usefulness,
+      docNumber,
+      tripDestination,
+      tripCompanions,
+      tripPeriod,
+      tripExpenses,
     } = body;
 
     if (!userName || !title) {
@@ -94,7 +106,14 @@ export async function POST(req: Request) {
     };
 
     //  교육 보고서일 때만 추가 (내부/외부)
-    if (reportType === "internal_edu" || reportType === "external_edu") {
+
+    if (reportType === "business_trip") {
+      docData.docNumber = docNumber || null;
+      docData.tripDestination = tripDestination || null;
+      docData.tripCompanions = tripCompanions || null;
+      docData.tripPeriod = tripPeriod || null;
+      docData.tripExpenses = tripExpenses || [];
+    } else if (reportType === "internal_edu" || reportType === "external_edu") {
       docData.educationName = educationName || null;
       docData.educationPeriod = educationPeriod || null;
       docData.educationPlace = educationPlace || null;

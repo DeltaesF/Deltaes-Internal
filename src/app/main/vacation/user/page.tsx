@@ -168,6 +168,7 @@ export default function UserV() {
             height="100%"
             locale={koLocale}
             events={events}
+            dayMaxEvents={2}
             headerToolbar={{
               left: "prev,next today",
               center: "title",
