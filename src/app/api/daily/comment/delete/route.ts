@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { initializeApp, cert, getApps } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
 if (!getApps().length) {
   initializeApp({
@@ -53,6 +53,17 @@ export async function POST(req: Request) {
     }
 
     await commentRef.delete();
+
+    // 게시글의 commentCount 1 감소
+    const dailyRef = db
+      .collection("dailys")
+      .doc(authorUserName)
+      .collection("userDailys")
+      .doc(dailyId);
+
+    await dailyRef.update({
+      commentCount: FieldValue.increment(-1),
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

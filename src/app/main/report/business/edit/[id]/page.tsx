@@ -233,6 +233,12 @@ export default function BusinessReportEditPage() {
   return (
     <div className="p-8 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6 mb-20">
       <div className="flex justify-between items-end border-b pb-4 mb-6">
+        <button
+          onClick={() => router.back()}
+          className="mb-4 px-4 py-2 border rounded hover:bg-gray-100 text-sm cursor-pointer"
+        >
+          취소
+        </button>
         <h2 className="text-3xl font-bold text-gray-800">
           외근 및 출장 보고서 수정
         </h2>

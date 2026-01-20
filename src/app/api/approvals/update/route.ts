@@ -22,6 +22,7 @@ interface UpdatePayload {
   contact?: string;
   isExternalWork?: boolean;
   isVehicleUse?: boolean;
+  isPersonalVehicle?: boolean;
   implementDate?: string;
   vehicleModel?: string;
   usagePeriod?: string;
@@ -39,6 +40,7 @@ export async function POST(req: Request) {
       contact,
       isExternalWork,
       isVehicleUse,
+      isPersonalVehicle,
       implementDate,
       vehicleModel,
       usagePeriod,
@@ -70,6 +72,8 @@ export async function POST(req: Request) {
     if (isExternalWork !== undefined)
       updateData.isExternalWork = isExternalWork;
     if (isVehicleUse !== undefined) updateData.isVehicleUse = isVehicleUse;
+    if (isPersonalVehicle !== undefined)
+      updateData.isPersonalVehicle = isPersonalVehicle;
     if (implementDate !== undefined) updateData.implementDate = implementDate;
     if (vehicleModel !== undefined) updateData.vehicleModel = vehicleModel;
     if (usagePeriod !== undefined) updateData.usagePeriod = usagePeriod;

@@ -104,6 +104,7 @@ function SharedBoxContent() {
 
   const typeLabels: Record<string, string> = {
     daily: "일일 업무",
+    daily_comment: "댓글",
     weekly: "주간 업무",
     report: "보고서",
     approval: "품의서",
@@ -117,6 +118,7 @@ function SharedBoxContent() {
 
   const colorClass: Record<string, string> = {
     daily: "bg-blue-100 text-blue-700",
+    daily_comment: "bg-blue-50 text-blue-600",
     weekly: "bg-indigo-100 text-indigo-700",
     report: "bg-purple-100 text-purple-700",
     approval: "bg-pink-100 text-pink-700",

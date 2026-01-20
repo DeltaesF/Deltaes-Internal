@@ -123,7 +123,16 @@ export default function ApprovalDetailPage() {
                       readOnly
                       className="accent-[#519d9e]"
                     />{" "}
-                    차량사용
+                    법인차량
+                  </label>
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="checkbox"
+                      checked={approval.isPersonalVehicle}
+                      readOnly
+                      className="accent-[#519d9e]"
+                    />{" "}
+                    개인차량
                   </label>
                 </div>
               </td>

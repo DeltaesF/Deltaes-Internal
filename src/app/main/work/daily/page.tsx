@@ -14,6 +14,7 @@ interface DailyReport {
   content?: string;
   fileUrl?: string | null;
   fileName?: string | null;
+  commentCount?: number;
 }
 
 interface DailyApiResponse {
@@ -104,6 +105,12 @@ function DailyContent() {
                       </span>
                       <p className="text-ms text-gray-800 truncate group-hover:text-[#51709e] transition-colors">
                         {item.title}
+                        {/* ✅ [추가] 코멘트 개수가 있으면 표시 */}
+                        {item.commentCount && item.commentCount > 0 ? (
+                          <span className="text-red-500 text-xs font-bold ml-1">
+                            (+{item.commentCount})
+                          </span>
+                        ) : null}
                       </p>
                     </div>
                     <div className="flex items-center gap-4 text-sm text-gray-500 flex-shrink-0">

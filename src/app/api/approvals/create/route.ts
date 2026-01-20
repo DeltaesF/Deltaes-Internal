@@ -33,6 +33,7 @@ interface ApprovalData {
   contact?: string | null;
   isExternalWork?: boolean;
   isVehicleUse?: boolean;
+  isPersonalVehicle?: boolean;
   implementDate?: string | null;
   vehicleModel?: string | null;
   usagePeriod?: string | null;
@@ -50,6 +51,7 @@ export async function POST(req: Request) {
       contact,
       isExternalWork,
       isVehicleUse,
+      isPersonalVehicle,
       implementDate,
       vehicleModel,
       usagePeriod,
@@ -94,6 +96,7 @@ export async function POST(req: Request) {
       docData.contact = contact || null;
       docData.isExternalWork = isExternalWork || false;
       docData.isVehicleUse = isVehicleUse || false;
+      docData.isPersonalVehicle = isPersonalVehicle || false;
       docData.implementDate = implementDate || null;
       docData.vehicleModel = vehicleModel || null;
       docData.usagePeriod = usagePeriod || null;

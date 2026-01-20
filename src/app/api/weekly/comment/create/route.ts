@@ -16,56 +16,53 @@ const db = getFirestore();
 
 export async function POST(req: Request) {
   try {
-    const { dailyId, authorUserName, commenterName, content } =
+    const { weeklyId, authorUserName, commenterName, content } =
       await req.json();
 
-    if (!dailyId || !authorUserName || !commenterName || !content) {
-      return NextResponse.json(
-        { error: "필수 항목이 누락되었습니다." },
-        { status: 400 }
-      );
+    if (!weeklyId || !authorUserName || !commenterName || !content) {
+      return NextResponse.json({ error: "필수 정보 누락" }, { status: 400 });
     }
 
-    // 작성자의 daily 문서 하위에 comments 컬렉션 생성/추가
+    // 1. 댓글 저장
     const commentRef = db
-      .collection("dailys")
+      .collection("weekly")
       .doc(authorUserName)
-      .collection("userDailys")
-      .doc(dailyId)
+      .collection("userWeeklys")
+      .doc(weeklyId)
       .collection("comments")
       .doc();
 
     await commentRef.set({
-      userName: commenterName, // 댓글 작성자
+      userName: commenterName,
       content,
       createdAt: FieldValue.serverTimestamp(),
     });
 
-    // 게시글의 commentCount 1 증가
-    const dailyRef = db
-      .collection("dailys")
+    // 2. 게시글 commentCount 증가
+    const weeklyRef = db
+      .collection("weekly")
       .doc(authorUserName)
-      .collection("userDailys")
-      .doc(dailyId);
+      .collection("userWeeklys")
+      .doc(weeklyId);
 
-    await dailyRef.update({
+    await weeklyRef.update({
       commentCount: FieldValue.increment(1),
     });
 
-    // 작성자에게 알림 발송 (본인이 쓴 댓글이 아닐 경우)
+    // 3. 알림 발송 (작성자가 본인이 아닐 때만)
     if (authorUserName !== commenterName) {
       const notiRef = db
         .collection("notifications")
-        .doc(authorUserName) // 게시글 작성자의 알림함
+        .doc(authorUserName)
         .collection("userNotifications")
         .doc();
 
       await notiRef.set({
         targetUserName: authorUserName,
         fromUserName: commenterName,
-        type: "daily_comment", // 댓글 알림 타입
-        message: `${commenterName}님이 일일 업무 보고에 코멘트를 남겼습니다.`,
-        link: `/main/work/daily/${dailyId}`,
+        type: "weekly_comment", // 주간 업무 댓글 알림 타입
+        message: `${commenterName}님이 주간 업무 보고에 코멘트를 남겼습니다.`,
+        link: `/main/work/weekly/${weeklyId}`,
         isRead: false,
         createdAt: Date.now(),
       });

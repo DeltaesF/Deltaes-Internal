@@ -23,6 +23,7 @@ export default function VehicleReportWritePage() {
     contact: "", // 연락처
     isExternalWork: false, // 외근 체크
     isVehicleUse: false, // 차량사용 체크
+    isPersonalVehicle: false, // 개인차량 사용 체크
     implementDate: "", // 시행일자
     vehicleModel:
       "스타리아 377주 7412(법인차량) / 개인차량 or 대중교통 이용 시에도 기재필수", // 기본값
@@ -60,9 +61,13 @@ export default function VehicleReportWritePage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = e.target;
-    setForm((prev) => ({ ...prev, [name]: checked }));
+  const handleTypeChange = (type: "external" | "company" | "personal") => {
+    setForm((prev) => ({
+      ...prev,
+      isExternalWork: type === "external",
+      isVehicleUse: type === "company",
+      isPersonalVehicle: type === "personal",
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,6 +98,7 @@ export default function VehicleReportWritePage() {
           contact: form.contact,
           isExternalWork: form.isExternalWork,
           isVehicleUse: form.isVehicleUse,
+          isPersonalVehicle: form.isPersonalVehicle,
           implementDate: form.implementDate,
           vehicleModel: form.vehicleModel,
           usagePeriod: usagePeriod,
@@ -154,25 +160,38 @@ export default function VehicleReportWritePage() {
         {/* 2. 구분 (체크박스) */}
         <div className="flex gap-6 items-center bg-gray-50 p-4 rounded-lg border">
           <span className="text-sm font-bold text-gray-700">구분:</span>
+
           <label className="flex items-center gap-2 cursor-pointer">
             <input
-              type="checkbox"
-              name="isExternalWork"
+              type="radio"
+              name="workType" // 같은 name을 주어 그룹화
               checked={form.isExternalWork}
-              onChange={handleCheckboxChange}
+              onChange={() => handleTypeChange("external")}
               className="w-5 h-5 accent-[#519d9e]"
             />
-            <span>외근</span>
+            <span>외근 (차량미사용)</span>
           </label>
+
           <label className="flex items-center gap-2 cursor-pointer">
             <input
-              type="checkbox"
-              name="isVehicleUse"
+              type="radio"
+              name="workType"
               checked={form.isVehicleUse}
-              onChange={handleCheckboxChange}
+              onChange={() => handleTypeChange("company")}
               className="w-5 h-5 accent-[#519d9e]"
             />
-            <span>차량사용</span>
+            <span>법인차량</span>
+          </label>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="workType"
+              checked={form.isPersonalVehicle}
+              onChange={() => handleTypeChange("personal")}
+              className="w-5 h-5 accent-[#519d9e]"
+            />
+            <span>개인차량</span>
           </label>
         </div>
 
