@@ -30,13 +30,16 @@ interface ReportData {
   };
   status: string;
   createdAt: FieldValue;
+  // 파일 관련 필드
+  fileUrl?: string | null; // 하위 호환성 (대표 파일 1개)
+  fileName?: string | null; // 하위 호환성
+  attachments?: { name: string; url: string }[]; // ✅ 다중 파일용
   // 🔹 교육용 선택 필드
   educationName?: string | null;
   educationPeriod?: string | null;
   educationPlace?: string | null;
   educationTime?: string | null;
   usefulness?: string | null;
-
   // 🆕 출장 보고서용 필드
   docNumber?: string | null; // 문서 번호
   tripDestination?: string | null; // 출장지
@@ -52,6 +55,9 @@ export async function POST(req: Request) {
       userName,
       title,
       content,
+      fileUrl,
+      fileName,
+      attachments,
       reportType = "general", // 기본값
       // 교육 보고서 관련 필드
       educationName,
@@ -113,6 +119,10 @@ export async function POST(req: Request) {
       docData.tripCompanions = tripCompanions || null;
       docData.tripPeriod = tripPeriod || null;
       docData.tripExpenses = tripExpenses || [];
+      // 📂 파일 저장은 '출장 보고서'일 때만 수행
+      docData.attachments = attachments || [];
+      docData.fileUrl = fileUrl || null; // 하위 호환
+      docData.fileName = fileName || null; // 하위 호환
     } else if (reportType === "internal_edu" || reportType === "external_edu") {
       docData.educationName = educationName || null;
       docData.educationPeriod = educationPeriod || null;

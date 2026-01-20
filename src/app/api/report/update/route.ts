@@ -30,6 +30,10 @@ interface UpdatePayload {
   tripCompanions?: string;
   tripPeriod?: string;
   tripExpenses?: { date: string; detail: string }[];
+
+  attachments?: { name: string; url: string }[];
+  fileUrl?: string;
+  fileName?: string;
 }
 
 export async function POST(req: Request) {
@@ -49,6 +53,9 @@ export async function POST(req: Request) {
       tripCompanions,
       tripPeriod,
       tripExpenses,
+      fileUrl,
+      fileName,
+      attachments,
     } = body;
 
     if (!id || !userName || !title) {
@@ -78,6 +85,11 @@ export async function POST(req: Request) {
       );
     }
 
+    const currentData = doc.data();
+    if (currentData?.userName !== userName) {
+      return NextResponse.json({ error: "권한 없음" }, { status: 403 });
+    }
+
     // ✅ [수정] any 대신 UpdatePayload 타입 사용
     const updateData: UpdatePayload = {
       title,
@@ -86,6 +98,7 @@ export async function POST(req: Request) {
     };
 
     // ✅ 값이 있는 경우에만 필드 추가 (undefined 체크)
+    // 교육 보고서 필드 업데이트
     if (educationName !== undefined) updateData.educationName = educationName;
     if (educationPeriod !== undefined)
       updateData.educationPeriod = educationPeriod;
@@ -93,13 +106,25 @@ export async function POST(req: Request) {
       updateData.educationPlace = educationPlace;
     if (educationTime !== undefined) updateData.educationTime = educationTime;
     if (usefulness !== undefined) updateData.usefulness = usefulness;
-
+    // 출장 보고서 필드 업데이트
     if (tripDestination !== undefined)
       updateData.tripDestination = tripDestination;
     if (tripCompanions !== undefined)
       updateData.tripCompanions = tripCompanions;
     if (tripPeriod !== undefined) updateData.tripPeriod = tripPeriod;
     if (tripExpenses !== undefined) updateData.tripExpenses = tripExpenses;
+    // 파일 업데이트
+    if (currentData?.reportType === "business_trip") {
+      // 다중 파일
+      if (attachments !== undefined) {
+        updateData.attachments = attachments;
+      }
+      // 단일 파일 (하위 호환)
+      if (fileUrl) {
+        updateData.fileUrl = fileUrl;
+        updateData.fileName = fileName;
+      }
+    }
 
     await docRef.update({ ...updateData });
 

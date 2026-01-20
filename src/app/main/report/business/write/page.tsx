@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Editor from "@/components/editor";
+import { useQuery } from "@tanstack/react-query";
 
 // 오늘 날짜 (YYYY-MM-DD)
 const getTodayDate = () => {
@@ -24,9 +25,25 @@ const getDocDate = () => {
   return `${year}${month}${day}`;
 };
 
+// 사용자 정보 조회 API 호출 함수
+const fetchUserInfo = async (userDocId: string) => {
+  const res = await fetch(`/api/vacation/user?userDocId=${userDocId}`);
+  if (!res.ok) return null;
+  return res.json();
+};
+
 export default function BusinessReportWritePage() {
   const router = useRouter();
-  const { userName, role } = useSelector((state: RootState) => state.auth);
+  const { userName, userDocId } = useSelector((state: RootState) => state.auth);
+
+  // 부서 정보 가져오기 (React Query)
+  const { data: userInfo } = useQuery({
+    queryKey: ["userInfo", userDocId],
+    queryFn: () => fetchUserInfo(userDocId!),
+    enabled: !!userDocId,
+  });
+
+  const department = userInfo?.department || "소속 미정"; // 실제 부서 바인딩
 
   // 문서 번호 생성 (제 DES 20260120-1 호)
   const docNumberInitial = `제 DES ${getDocDate()}-1 호`;
@@ -45,12 +62,19 @@ export default function BusinessReportWritePage() {
   ]);
 
   const [content, setContent] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  // ✅ [수정] 다중 파일을 위해 File[] 배열로 변경
+  const [files, setFiles] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // 작성자 소속 (Redux에 부서 정보가 없다면 API로 가져오거나 하드코딩 필요)
-  // 여기서는 편의상 UI에 표시만 함
-  const department = ""; // 예시 (실제로는 API에서 가져오거나 AuthSlice에 추가 필요)
+  // 새로고침 방지 (useEffect 사용됨 -> ESLint 오류 해결)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
 
   // 경비 행 추가
   const addExpenseRow = () => {
@@ -79,6 +103,13 @@ export default function BusinessReportWritePage() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  // ✅ 파일 선택 핸들러 (다중 선택 지원)
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFiles(Array.from(e.target.files)); // FileList -> Array 변환
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -94,38 +125,48 @@ export default function BusinessReportWritePage() {
     setIsLoading(true);
 
     try {
-      let fileUrl = "";
-      let fileName = "";
+      // ✅ [수정] 다중 파일 업로드 로직
+      const uploadedAttachments: { name: string; url: string }[] = [];
 
-      if (file) {
+      // 파일을 하나씩 순회하며 업로드
+      for (const file of files) {
         const formData = new FormData();
         formData.append("file", file);
         const uploadRes = await fetch("/api/report/upload", {
           method: "POST",
           body: formData,
         });
-        if (!uploadRes.ok) throw new Error("파일 업로드 실패");
+
+        if (!uploadRes.ok) {
+          console.error(`파일 업로드 실패: ${file.name}`);
+          continue; // 실패해도 나머지 파일 계속 진행 (혹은 중단 선택 가능)
+        }
+
         const uploadData = await uploadRes.json();
-        fileUrl = uploadData.fileUrl;
-        fileName = file.name;
+        uploadedAttachments.push({
+          name: file.name,
+          url: uploadData.fileUrl,
+        });
       }
 
       const tripPeriod = `${form.tripPeriodStart} ~ ${form.tripPeriodEnd}`;
-
-      // 빈 경비 행 제거
       const validExpenses = expenses.filter((e) => e.date && e.detail);
 
       const res = await fetch("/api/report/create", {
         method: "POST",
         body: JSON.stringify({
           userName,
-          reportType: "business_trip", // ✅ 출장 보고서 타입
-          title: form.title, // 출장 목적을 title로 사용
+          reportType: "business_trip",
+          title: form.title,
           content,
-          fileUrl,
-          fileName,
+          // ✅ 다중 첨부파일 배열 전송
+          attachments: uploadedAttachments,
+          // 하위 호환성을 위해 첫 번째 파일 정보도 보냄 (필요 시)
+          fileUrl:
+            uploadedAttachments.length > 0 ? uploadedAttachments[0].url : null,
+          fileName:
+            uploadedAttachments.length > 0 ? uploadedAttachments[0].name : null,
 
-          // 출장 전용 필드
           docNumber: form.docNumber,
           tripDestination: form.tripDestination,
           tripCompanions: form.tripCompanions,
@@ -146,9 +187,24 @@ export default function BusinessReportWritePage() {
     }
   };
 
+  const handleCancel = () => {
+    const confirmExit = window.confirm(
+      "작성 중인 내용이 저장되지 않을 수 있습니다. 정말 나가시겠습니까?"
+    );
+    if (confirmExit) {
+      router.back();
+    }
+  };
+
   return (
     <div className="p-8 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6">
       <div className="flex justify-between items-end border-b pb-4 mb-6">
+        <button
+          onClick={handleCancel}
+          className="mb-4 px-4 py-2 border rounded hover:bg-gray-100 cursor-pointer text-sm text-gray-600 transition-colors"
+        >
+          ◀ 취소하고 돌아가기
+        </button>
         <h2 className="text-3xl font-bold text-gray-800">
           외근 및 출장 보고서
         </h2>
@@ -241,7 +297,7 @@ export default function BusinessReportWritePage() {
             <button
               type="button"
               onClick={addExpenseRow}
-              className="px-2 py-1 bg-gray-100 border rounded text-xs hover:bg-gray-200"
+              className="px-2 py-1 bg-gray-100 border rounded text-xs hover:bg-gray-200 cursor-pointer"
             >
               + 행 추가
             </button>
@@ -283,7 +339,7 @@ export default function BusinessReportWritePage() {
                       <button
                         type="button"
                         onClick={() => removeExpenseRow(idx)}
-                        className="text-red-500 hover:text-red-700"
+                        className="text-red-500 hover:text-red-700 cursor-pointer"
                       >
                         ✕
                       </button>
@@ -296,15 +352,24 @@ export default function BusinessReportWritePage() {
         </div>
 
         {/* 파일 첨부 */}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 p-4 bg-gray-50 rounded-lg">
           <label className="text-sm font-semibold text-gray-600">
             파일 첨부 (증빙자료)
           </label>
           <input
             type="file"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="border p-2 rounded"
+            multiple // ✅ 여러 장 선택 가능
+            onChange={handleFileChange}
+            className="border p-2 rounded bg-white"
           />
+          {/* 선택된 파일 목록 표시 */}
+          {files.length > 0 && (
+            <ul className="list-disc list-inside text-xs text-blue-600 mt-1">
+              {files.map((f, i) => (
+                <li key={i}>{f.name}</li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* 하단 서명란 */}
@@ -327,14 +392,14 @@ export default function BusinessReportWritePage() {
           <button
             type="button"
             onClick={() => router.back()}
-            className="px-4 py-2 bg-gray-200 rounded text-gray-700 font-bold hover:bg-gray-300"
+            className="px-4 py-2 bg-gray-200 rounded text-gray-700 font-bold hover:bg-gray-300 cursor-pointer"
           >
             취소
           </button>
           <button
             type="submit"
             disabled={isLoading}
-            className="px-6 py-2 bg-[#519d9e] text-white rounded font-bold hover:bg-[#407f80] shadow-md"
+            className="px-6 py-2 bg-[#519d9e] text-white rounded font-bold hover:bg-[#407f80] shadow-md cursor-pointer"
           >
             {isLoading ? "제출 중..." : "결재 요청"}
           </button>
