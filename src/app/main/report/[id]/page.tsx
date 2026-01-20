@@ -1,12 +1,49 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
+import { useState } from "react";
 
-const fetchDetail = async (id: string) => {
+// ✅ [1] 타입 정의 (Strict Typing)
+interface ReportDetail {
+  id: string;
+  reportType: string;
+  title: string;
+  content: string;
+  userName: string;
+  department: string;
+  position: string;
+  status: string; // 결재 상태 확인용
+  approvers?: {
+    // 결재선 정보
+    first?: string[];
+    second?: string[];
+    third?: string[];
+    shared?: string[];
+  };
+  // 교육 보고서용 필드
+  educationName?: string;
+  educationPeriod?: string;
+  educationTime?: string;
+  educationPlace?: string;
+  usefulness?: string;
+  // 출장 보고서용 필드
+  tripDestination?: string;
+  tripCompanions?: string;
+  tripPeriod?: string;
+  tripExpenses?: { date: string; detail: string }[];
+  docNumber?: string;
+  // 파일
+  fileUrl?: string;
+  fileName?: string;
+  attachments?: { name: string; url: string }[];
+  createdAt: number;
+}
+
+const fetchDetail = async (id: string): Promise<ReportDetail> => {
   const res = await fetch("/api/report/detail", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -16,27 +53,72 @@ const fetchDetail = async (id: string) => {
   return res.json();
 };
 
-export default function ReportDetailPage() {
+export default function InternalReportDetailPage() {
   const { id } = useParams() as { id: string };
   const { userName } = useSelector((state: RootState) => state.auth);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const { data: report, isLoading } = useQuery({
+  const [comment, setComment] = useState("");
+
+  const { data: report, isLoading } = useQuery<ReportDetail>({
     queryKey: ["reportDetail", id],
     queryFn: () => fetchDetail(id),
     enabled: !!id,
+  });
+
+  // ✅ 결재 승인/반려 Mutation
+  const approveMutation = useMutation({
+    mutationFn: async ({ status }: { status: "approve" | "reject" }) => {
+      if (!report) throw new Error("Report not found");
+
+      const res = await fetch("/api/report/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportId: id,
+          approverName: userName,
+          applicantUserName: report.userName,
+          status,
+          comment,
+        }),
+      });
+      if (!res.ok) throw new Error("처리 실패");
+      return res.json();
+    },
+    onSuccess: (_, { status }) => {
+      alert(status === "approve" ? "승인되었습니다." : "반려되었습니다.");
+      queryClient.invalidateQueries({ queryKey: ["reportDetail", id] });
+      router.push("/main/my-approval/pending");
+    },
+    onError: () => alert("오류가 발생했습니다."),
   });
 
   if (isLoading) return <div className="p-10 text-center">로딩 중...</div>;
   if (!report)
     return <div className="p-10 text-center">데이터를 찾을 수 없습니다.</div>;
 
-  // 보고서 타입 확인
+  // ✅ [수정] 결재 권한 확인 로직 (내 차례인지 확인)
+  const myName = userName || "";
+  const isFirstApprover = report.approvers?.first?.includes(myName);
+  const isSecondApprover = report.approvers?.second?.includes(myName);
+  const isThirdApprover = report.approvers?.third?.includes(myName);
+
+  const isPendingFirst = report.status === "1차 결재 대기";
+  const isPendingSecond = report.status === "2차 결재 대기";
+  const isPendingThird = report.status === "3차 결재 대기";
+
+  // 내가 결재자 명단에 있고, 현재 상태가 내 순서일 때만 true
+  const canApprove =
+    (isFirstApprover && isPendingFirst) ||
+    (isSecondApprover && isPendingSecond) ||
+    (isThirdApprover && isPendingThird);
+
+  // 보고서 타입 확인 및 경로 설정
   const isExternal = report.reportType === "external_edu";
   const isInternal = report.reportType === "internal_edu";
   const isBusiness = report.reportType === "business_trip";
 
-  // 제목 및 경로 결정
   let pageTitle = "사내 교육 보고서";
   let listPath = "/main/report/internal";
   let editPath = `/main/report/internal/edit/${id}`;
@@ -56,19 +138,16 @@ export default function ReportDetailPage() {
   }
 
   return (
-    <div className="p-8 border rounded-xl bg-white shadow-sm w-4xl mx-auto mt-2 h-auto">
+    <div className="p-8 border rounded-xl bg-white shadow-sm w-4xl mx-auto mt-6 mb-20 h-auto">
       <div className="flex justify-between items-center mb-6 border-b pb-4">
-        {/* 동적 제목 표시 */}
         <h2 className="text-2xl font-bold text-gray-800">{pageTitle}</h2>
         <div className="flex gap-2">
-          {/* 동적 목록 경로 이동 */}
           <Link
             href={listPath}
             className="px-3 py-1.5 border rounded hover:bg-gray-100 text-sm flex items-center"
           >
             목록으로
           </Link>
-
           {userName === report.userName && (
             <Link
               href={editPath}
@@ -80,9 +159,14 @@ export default function ReportDetailPage() {
         </div>
       </div>
 
-      {/* ✅ 1. 테이블 분기 (출장 vs 교육) */}
+      <div className="mb-6">
+        <h3 className="text-xl font-semibold text-gray-700 mb-2">
+          {report.title}
+        </h3>
+      </div>
+
+      {/* 테이블 렌더링 (이전과 동일) */}
       {isBusiness ? (
-        // 🛫 [출장 보고서 양식]
         <table className="w-full border-collapse border border-gray-300 mb-8 text-sm">
           <tbody>
             <tr>
@@ -120,7 +204,6 @@ export default function ReportDetailPage() {
           </tbody>
         </table>
       ) : (
-        // 📚 [교육 보고서 양식 (내부/외부)]
         <table className="w-full border-collapse border border-gray-300 mb-8 text-sm">
           <tbody>
             <tr>
@@ -159,7 +242,6 @@ export default function ReportDetailPage() {
         </table>
       )}
 
-      {/* 2. 상세 내용 (공통) */}
       <div className="mb-4">
         <h3 className="text-lg font-bold mb-2 border-l-4 border-[#519d9e] pl-2">
           {isBusiness ? "보고 내용 (출장 성과)" : "상세 내용 요약"}
@@ -170,10 +252,8 @@ export default function ReportDetailPage() {
         />
       </div>
 
-      {/* ✅ 3. 출장 보고서일 때만 표시되는 섹션 */}
       {isBusiness && (
         <>
-          {/* (1) 출장 경비 */}
           {report.tripExpenses && report.tripExpenses.length > 0 && (
             <div className="mb-8 mt-6">
               <h3 className="text-lg font-bold mb-2 border-l-4 border-[#519d9e] pl-2">
@@ -187,20 +267,16 @@ export default function ReportDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {report.tripExpenses.map(
-                    (ex: { date: string; detail: string }, idx: number) => (
-                      <tr key={idx}>
-                        <td className="border p-2 text-center">{ex.date}</td>
-                        <td className="border p-2">{ex.detail}</td>
-                      </tr>
-                    )
-                  )}
+                  {report.tripExpenses.map((ex, idx) => (
+                    <tr key={idx}>
+                      <td className="border p-2 text-center">{ex.date}</td>
+                      <td className="border p-2">{ex.detail}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           )}
-
-          {/* (2) 첨부파일 (단일/다중 모두 지원) */}
           {(report.fileUrl ||
             (report.attachments && report.attachments.length > 0)) && (
             <div className="mt-6 pt-4 border-t">
@@ -208,7 +284,6 @@ export default function ReportDetailPage() {
                 파일 첨부 (증빙자료)
               </p>
               <div className="flex flex-col gap-2">
-                {/* 기존 단일 파일 호환 */}
                 {report.fileUrl && !report.attachments && (
                   <a
                     href={report.fileUrl}
@@ -218,24 +293,19 @@ export default function ReportDetailPage() {
                     📎 {report.fileName || "다운로드"}
                   </a>
                 )}
-                {/* 다중 파일 표시 */}
-                {report.attachments?.map(
-                  (file: { name: string; url: string }, idx: number) => (
-                    <a
-                      key={idx}
-                      href={file.url}
-                      target="_blank"
-                      className="text-blue-600 hover:underline flex items-center gap-1 text-sm"
-                    >
-                      📎 {file.name}
-                    </a>
-                  )
-                )}
+                {report.attachments?.map((file, idx) => (
+                  <a
+                    key={idx}
+                    href={file.url}
+                    target="_blank"
+                    className="text-blue-600 hover:underline flex items-center gap-1 text-sm"
+                  >
+                    📎 {file.name}
+                  </a>
+                ))}
               </div>
             </div>
           )}
-
-          {/* (3) 하단 서명 */}
           <div className="mt-10 text-center space-y-4 border-t pt-8">
             <p className="text-lg">
               위와 같이 사내(외) 출장보고서를 제출합니다.
@@ -253,6 +323,47 @@ export default function ReportDetailPage() {
             </h2>
           </div>
         </>
+      )}
+
+      {/* ✅ [수정] 결재 권한이 있을 때만 표시 (canApprove) */}
+      {canApprove && (
+        <div className="mt-12 pt-8 border-t border-gray-200">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">✅ 결재 처리</h3>
+          <div className="bg-gray-50 p-6 rounded-xl border">
+            <label className="block text-gray-700 font-bold mb-2 text-sm">
+              결재 의견 (선택)
+            </label>
+            <textarea
+              className="w-full border p-3 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#519d9e] resize-none bg-white"
+              placeholder="반려 사유 또는 코멘트를 입력하세요."
+              rows={3}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => {
+                  if (confirm("반려하시겠습니까?"))
+                    approveMutation.mutate({ status: "reject" });
+                }}
+                disabled={approveMutation.isPending}
+                className="px-6 py-2.5 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 transition-colors shadow-sm disabled:bg-gray-400 cursor-pointer"
+              >
+                반려
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm("승인하시겠습니까?"))
+                    approveMutation.mutate({ status: "approve" });
+                }}
+                disabled={approveMutation.isPending}
+                className="px-8 py-2.5 bg-[#519d9e] text-white rounded-lg font-bold hover:bg-[#407f80] transition-colors shadow-sm disabled:bg-gray-400 cursor-pointer"
+              >
+                승인
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

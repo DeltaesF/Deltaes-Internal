@@ -26,18 +26,18 @@ type NotificationType = {
   createdAt: number;
 };
 
-// 결재 대기 아이템 통합 타입
+// 결재 대기 아이템 통합 타입 (approval 추가됨)
 interface PendingItem {
   id: string;
   userName: string;
   status: string;
   createdAt: number;
-  docType: "vacation" | "report";
+  docType: "vacation" | "report" | "approval";
   // 휴가 전용
   startDate?: string;
   endDate?: string;
   daysUsed?: number;
-  // 보고서 전용
+  // 보고서/품의서 전용
   title?: string;
 }
 
@@ -115,7 +115,7 @@ function isToday(timestamp: number) {
 
 // 카드 내용 렌더링 헬퍼
 const getCardContent = (item: PendingItem) => {
-  if (item.docType === "report") {
+  if (item.docType === "report" || item.docType === "approval") {
     return (
       <p className="text-sm text-gray-800 font-medium truncate">
         📄 {item.title || "제목 없음"}
@@ -143,39 +143,62 @@ const fetchNotifications = async (userName: string) => {
   return (data.list as NotificationType[]) || [];
 };
 
-// 통합 결재 대기 목록
+// ✅ 통합 결재 대기 목록 (휴가 + 보고서 + 품의서)
 const fetchCombinedPending = async (
   userName: string
 ): Promise<PendingItem[]> => {
   // 1. 휴가 대기 목록
-  const vacationRes = await fetch("/api/vacation/pending", {
+  const fetchVacations = fetch("/api/vacation/pending", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ approverName: userName }),
+  }).then(async (res) => {
+    const data = await res.json();
+    // ✅ [수정] any 제거 -> Omit<PendingItem, "docType"> 사용
+    return (data.pending || []).map((v: Omit<PendingItem, "docType">) => ({
+      ...v,
+      docType: "vacation",
+    }));
   });
-  const vacationData = await vacationRes.json();
-
-  // 타입 단언 및 매핑
-  const vacations: PendingItem[] = (vacationData.pending || []).map(
-    (v: Omit<PendingItem, "docType">) => ({ ...v, docType: "vacation" })
-  );
 
   // 2. 보고서 대기 목록
-  const reportRes = await fetch("/api/report/pending", {
+  const fetchReports = fetch("/api/report/pending", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ approverName: userName }),
+  }).then(async (res) => {
+    const data = await res.json();
+    // ✅ [수정] any 제거
+    return (data.pending || []).map((r: Omit<PendingItem, "docType">) => ({
+      ...r,
+      docType: "report",
+    }));
   });
-  const reportData = await reportRes.json();
 
-  // 타입 단언 및 매핑
-  const reports: PendingItem[] = (reportData.pending || []).map(
-    (r: Omit<PendingItem, "docType">) => ({ ...r, docType: "report" })
-  );
+  // 3. 품의서 대기 목록 추가
+  const fetchApprovals = fetch("/api/approvals/pending", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ approverName: userName }),
+  }).then(async (res) => {
+    const data = await res.json();
+    // ✅ [수정] any 제거
+    return (data.pending || []).map((a: Omit<PendingItem, "docType">) => ({
+      ...a,
+      docType: "approval",
+    }));
+  });
 
-  // 3. 합치기 & 정렬
-  const combined = [...vacations, ...reports];
-  combined.sort((a, b) => b.createdAt - a.createdAt);
+  // 병렬 실행 후 합치기
+  const [vacations, reports, approvals] = await Promise.all([
+    fetchVacations,
+    fetchReports,
+    fetchApprovals,
+  ]);
+
+  // any 타입으로 추론되는 것을 방지하기 위해 명시적 캐스팅 (필요 시)
+  const combined: PendingItem[] = [...vacations, ...reports, ...approvals];
+  combined.sort((a, b) => b.createdAt - a.createdAt); // 최신순 정렬
 
   return combined;
 };
@@ -420,10 +443,16 @@ export default function Individual() {
                       <span className="font-semibold text-gray-800">
                         {v.userName}
                       </span>
-                      <span className="text-xs text-gray-400 border px-1 rounded bg-gray-50">
-                        {v.docType === "report" ? "보고서" : "휴가"}
+                      {/* 문서 종류 뱃지 */}
+                      <span className="text-xs text-gray-500 border px-1.5 py-0.5 rounded bg-gray-100 font-medium">
+                        {v.docType === "report"
+                          ? "보고서"
+                          : v.docType === "approval"
+                          ? "품의서"
+                          : "휴가"}
                       </span>
                     </div>
+                    {/* 내용 표시 (헬퍼 함수 사용) */}
                     {getCardContent(v)}
                   </div>
                   {canApprove && (

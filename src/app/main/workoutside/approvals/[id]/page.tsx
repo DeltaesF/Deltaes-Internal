@@ -1,13 +1,44 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
+import { useState } from "react";
 
-// API 호출 (Approvals Detail)
-const fetchDetail = async (id: string) => {
+// ✅ [1] 타입 정의
+interface ApprovalDetail {
+  id: string;
+  approvalType?: string;
+  title: string;
+  content: string;
+  userName: string;
+  department?: string;
+  contact?: string;
+  status: string; // 결재 상태
+  approvers?: {
+    // 결재선
+    first?: string[];
+    second?: string[];
+    third?: string[];
+    shared?: string[];
+  };
+  // 차량 신청서 필드
+  isExternalWork?: boolean;
+  isVehicleUse?: boolean;
+  isPersonalVehicle?: boolean;
+  vehicleModel?: string;
+  implementDate?: string;
+  usagePeriod?: string;
+  purpose?: string;
+  // 파일
+  fileUrl?: string;
+  fileName?: string;
+  createdAt: number;
+}
+
+const fetchDetail = async (id: string): Promise<ApprovalDetail> => {
   const res = await fetch("/api/approvals/detail", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -21,20 +52,64 @@ export default function ApprovalDetailPage() {
   const { id } = useParams() as { id: string };
   const { userName } = useSelector((state: RootState) => state.auth);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const { data: approval, isLoading } = useQuery({
+  const [comment, setComment] = useState("");
+
+  const { data: approval, isLoading } = useQuery<ApprovalDetail>({
     queryKey: ["approvalDetail", id],
     queryFn: () => fetchDetail(id),
     enabled: !!id,
+  });
+
+  // ✅ 결재 승인/반려 Mutation
+  const approveMutation = useMutation({
+    mutationFn: async ({ status }: { status: "approve" | "reject" }) => {
+      if (!approval) throw new Error("Document not found");
+
+      const res = await fetch("/api/approvals/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          approvalId: id,
+          approverName: userName,
+          applicantUserName: approval.userName,
+          status,
+          comment,
+        }),
+      });
+      if (!res.ok) throw new Error("처리 실패");
+      return res.json();
+    },
+    onSuccess: (_, { status }) => {
+      alert(status === "approve" ? "승인되었습니다." : "반려되었습니다.");
+      queryClient.invalidateQueries({ queryKey: ["approvalDetail", id] });
+      router.push("/main/my-approval/pending");
+    },
+    onError: () => alert("오류가 발생했습니다."),
   });
 
   if (isLoading) return <div className="p-10 text-center">로딩 중...</div>;
   if (!approval)
     return <div className="p-10 text-center">문서를 찾을 수 없습니다.</div>;
 
-  // ✅ [핵심] 품의서 타입에 따른 설정 (제목, 경로)
-  const approvalType = approval.approvalType || "purchase"; // 기본값 구매
+  // ✅ [수정] 결재 권한 확인 (내 차례인지 확인)
+  const myName = userName || "";
+  const isFirstApprover = approval.approvers?.first?.includes(myName);
+  const isSecondApprover = approval.approvers?.second?.includes(myName);
+  const isThirdApprover = approval.approvers?.third?.includes(myName);
 
+  const isPendingFirst = approval.status === "1차 결재 대기";
+  const isPendingSecond = approval.status === "2차 결재 대기";
+  const isPendingThird = approval.status === "3차 결재 대기";
+
+  const canApprove =
+    (isFirstApprover && isPendingFirst) ||
+    (isSecondApprover && isPendingSecond) ||
+    (isThirdApprover && isPendingThird);
+
+  // 품의서 타입 및 경로 설정
+  const approvalType = approval.approvalType || "purchase";
   let pageTitle = "";
   let listPath = "";
   let editPath = "";
@@ -58,12 +133,11 @@ export default function ApprovalDetailPage() {
       break;
   }
 
-  // 차량 신청서 여부 확인
   const isVehicle = approvalType === "vehicle";
 
   return (
     <div className="p-8 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6 mb-20">
-      {/* 1. 헤더 (동적 제목 및 경로) */}
+      {/* 1. 헤더 */}
       <div className="flex justify-between items-center mb-6 border-b pb-4">
         <h2 className="text-2xl font-bold text-gray-800">{pageTitle}</h2>
         <div className="flex gap-2">
@@ -90,9 +164,8 @@ export default function ApprovalDetailPage() {
         </h3>
       </div>
 
-      {/* 2. 상세 정보 테이블 (타입별 분기) */}
+      {/* 2. 상세 정보 */}
       {isVehicle ? (
-        // 🚗 [차량 신청서 양식]
         <table className="w-full border-collapse border border-gray-300 mb-8 text-sm">
           <tbody>
             <tr>
@@ -158,7 +231,6 @@ export default function ApprovalDetailPage() {
           </tbody>
         </table>
       ) : (
-        // 💰/📦 [구매/판매 품의서 양식 (공통)]
         <table className="w-full border-collapse border border-gray-300 mb-8 text-sm">
           <tbody>
             <tr>
@@ -177,7 +249,7 @@ export default function ApprovalDetailPage() {
         </table>
       )}
 
-      {/* 3. 상세 내용 (에디터 뷰어) */}
+      {/* 3. 상세 내용 */}
       <div className="mb-4">
         <h3 className="text-lg font-bold mb-2 border-l-4 border-[#519d9e] pl-2">
           상세 내용
@@ -188,7 +260,6 @@ export default function ApprovalDetailPage() {
         />
       </div>
 
-      {/* 5. 하단 안내 문구 (차량일 때만) */}
       {isVehicle && (
         <div className="border rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
           <h4 className="font-bold mb-2">📌 법인차량 이용수칙</h4>
@@ -224,6 +295,47 @@ export default function ApprovalDetailPage() {
           <p className="text-right mt-2 text-[14px] text-gray-700">
             신청인: {approval.userName}
           </p>
+        </div>
+      )}
+
+      {/* ✅ [수정] 결재 권한이 있을 때만 표시 (canApprove) */}
+      {canApprove && (
+        <div className="mt-12 pt-8 border-t border-gray-200">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">✅ 결재 처리</h3>
+          <div className="bg-gray-50 p-6 rounded-xl border">
+            <label className="block text-gray-700 font-bold mb-2 text-sm">
+              결재 의견 (선택)
+            </label>
+            <textarea
+              className="w-full border p-3 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#519d9e] resize-none bg-white"
+              placeholder="반려 사유 또는 코멘트를 입력하세요."
+              rows={3}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => {
+                  if (confirm("반려하시겠습니까?"))
+                    approveMutation.mutate({ status: "reject" });
+                }}
+                disabled={approveMutation.isPending}
+                className="px-6 py-2.5 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 transition-colors shadow-sm disabled:bg-gray-400 cursor-pointer"
+              >
+                반려
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm("승인하시겠습니까?"))
+                    approveMutation.mutate({ status: "approve" });
+                }}
+                disabled={approveMutation.isPending}
+                className="px-8 py-2.5 bg-[#519d9e] text-white rounded-lg font-bold hover:bg-[#407f80] transition-colors shadow-sm disabled:bg-gray-400 cursor-pointer"
+              >
+                승인
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

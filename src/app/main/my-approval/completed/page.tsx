@@ -7,7 +7,14 @@ import { useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import VacationModal from "@/components/vacationModal";
 
-// ✅ 타입 정의 확장
+// ✅ [1] 타입 정의 (Strict Typing)
+interface ApprovalHistory {
+  approver: string;
+  status: string;
+  comment?: string;
+  approvedAt: number; // 숫자(밀리초)로 변환됨
+}
+
 interface CompletedItem {
   id: string;
   userName: string;
@@ -15,14 +22,14 @@ interface CompletedItem {
   category: "vacation" | "report" | "approval";
   createdAt: number;
 
-  // 휴가용 필드
+  // 휴가용
   startDate?: string;
   endDate?: string;
   daysUsed?: number;
   reason?: string;
   types?: string | string[];
 
-  // 보고서/품의서용 필드
+  // 보고서/품의서용
   title?: string;
 
   approvers?: {
@@ -31,12 +38,7 @@ interface CompletedItem {
     third?: string[];
     shared?: string[];
   };
-  approvalHistory?: {
-    approver: string;
-    status: string;
-    comment?: string;
-    approvedAt: number;
-  }[];
+  approvalHistory?: ApprovalHistory[];
 }
 
 interface CompletedApiResponse {
@@ -44,6 +46,7 @@ interface CompletedApiResponse {
   totalCount: number;
 }
 
+// ✅ API Fetcher
 const fetchCompleted = async (
   userName: string,
   page: number,
@@ -55,14 +58,13 @@ const fetchCompleted = async (
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userName, page, limit, filterType }),
   });
-  const data = await res.json();
-  return data; // API에서 이미 매핑된 데이터를 반환함
+  if (!res.ok) throw new Error("Failed to fetch");
+  return res.json();
 };
 
 const formatHistoryDate = (timestamp: number | undefined) => {
   if (!timestamp) return "";
-  const date = new Date(timestamp);
-  return date.toLocaleString("ko-KR", {
+  return new Date(timestamp).toLocaleString("ko-KR", {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -70,16 +72,17 @@ const formatHistoryDate = (timestamp: number | undefined) => {
   });
 };
 
+// ------------------------------------------------------------------
+// ✅ [2] 메인 콘텐츠 컴포넌트
+// ------------------------------------------------------------------
 function CompletedApprovalContent() {
   const { userName } = useSelector((state: RootState) => state.auth);
   const router = useRouter();
 
-  // 상태 관리
   const [currentPage, setCurrentPage] = useState(1);
   const [filterType, setFilterType] = useState("all");
   const ITEMS_PER_PAGE = 12;
 
-  // 모달 상태
   const [selectedVacation, setSelectedVacation] =
     useState<CompletedItem | null>(null);
 
@@ -95,21 +98,7 @@ function CompletedApprovalContent() {
   const totalCount = data?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE) || 1;
 
-  // 핸들러
-  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFilterType(e.target.value);
-    setCurrentPage(1);
-  };
-
-  const handlePrevPage = () => {
-    if (currentPage > 1) setCurrentPage((prev) => prev - 1);
-  };
-
-  const handleNextPage = () => {
-    if (currentPage < totalPages) setCurrentPage((prev) => prev + 1);
-  };
-
-  // ✅ 클릭 핸들러: 카테고리별 이동 또는 모달
+  // 아이템 클릭 핸들러
   const handleItemClick = (item: CompletedItem) => {
     if (item.category === "vacation") {
       setSelectedVacation(item);
@@ -120,7 +109,7 @@ function CompletedApprovalContent() {
     }
   };
 
-  // 헬퍼: 카테고리 라벨 & 색상
+  // 헬퍼: 뱃지 렌더링
   const getCategoryBadge = (category: string) => {
     switch (category) {
       case "vacation":
@@ -150,9 +139,9 @@ function CompletedApprovalContent() {
     }
   };
 
-  // ✅ 결재자 렌더링 헬퍼
+  // 헬퍼: 상세 모달 내 결재자 리스트
   const renderApproverRow = (roleName: string, approvers: string[] = []) => {
-    if (approvers.length === 0) return null;
+    if (!approvers || approvers.length === 0) return null;
 
     return approvers.map((name) => {
       const history = selectedVacation?.approvalHistory?.find(
@@ -191,12 +180,15 @@ function CompletedApprovalContent() {
   return (
     <div className="p-6 w-full">
       <div className="bg-white border rounded-2xl shadow-sm px-6 py-4">
-        <div className="flex justify-between items-center mb-2">
+        <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-green-600">✅ 결재 완료함</h2>
 
           <select
             value={filterType}
-            onChange={handleFilterChange}
+            onChange={(e) => {
+              setFilterType(e.target.value);
+              setCurrentPage(1);
+            }}
             className="border p-2 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-green-200 outline-none cursor-pointer"
           >
             <option value="all">전체 보기</option>
@@ -217,10 +209,10 @@ function CompletedApprovalContent() {
                 <li
                   key={item.id}
                   onClick={() => handleItemClick(item)}
-                  className="py-3 px-2 hover:bg-green-50 rounded cursor-pointer transition-colors group"
+                  className="py-4 px-3 hover:bg-green-50 rounded-lg cursor-pointer transition-colors group"
                 >
                   <div className="flex justify-between items-center">
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         {getCategoryBadge(item.category)}
                         <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">
@@ -231,26 +223,25 @@ function CompletedApprovalContent() {
                         </span>
                       </div>
 
-                      <div className="text-sm text-gray-500 ml-1">
-                        {/* ✅ 카테고리별 표시 내용 분기 */}
+                      <div className="ml-1">
                         {item.category === "vacation" ? (
-                          <>
+                          <div className="text-sm text-gray-600 flex items-center gap-2">
                             <span>
-                              ({item.startDate} ~ {item.endDate})
+                              {item.startDate} ~ {item.endDate}
                             </span>
-                            <span className="text-gray-400 text-xs ml-2 truncate max-w-[300px] inline-block align-bottom">
+                            <span className="text-gray-400 text-xs truncate max-w-[400px]">
                               📝 {item.reason}
                             </span>
-                          </>
+                          </div>
                         ) : (
-                          <span className="font-medium text-gray-700">
+                          <span className="text-sm text-gray-700 font-medium truncate block max-w-[500px]">
                             {item.title || "제목 없음"}
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <span className="text-xs text-green-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-xs text-green-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                       상세보기 →
                     </span>
                   </div>
@@ -261,31 +252,23 @@ function CompletedApprovalContent() {
             {/* 페이지네이션 */}
             <div className="flex justify-center items-center gap-4 mt-6 py-2">
               <button
-                onClick={handlePrevPage}
+                onClick={() => currentPage > 1 && setCurrentPage((p) => p - 1)}
                 disabled={currentPage === 1}
-                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${
-                  currentPage === 1
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                    : "bg-white text-gray-700 hover:bg-gray-50 hover:text-green-600 border-gray-300"
-                }`}
+                className="px-4 py-2 bg-white border rounded hover:bg-gray-50 text-sm disabled:opacity-50"
               >
                 ◀ 이전
               </button>
-
-              <span className="text-sm font-medium text-gray-600">
+              <span className="text-sm text-gray-600">
                 Page{" "}
-                <span className="text-green-600 font-bold">{currentPage}</span>{" "}
+                <span className="font-bold text-green-600">{currentPage}</span>{" "}
                 / {totalPages}
               </span>
-
               <button
-                onClick={handleNextPage}
+                onClick={() =>
+                  currentPage < totalPages && setCurrentPage((p) => p + 1)
+                }
                 disabled={currentPage === totalPages}
-                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${
-                  currentPage === totalPages
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                    : "bg-white text-gray-700 hover:bg-gray-50 hover:text-green-600 border-gray-300"
-                }`}
+                className="px-4 py-2 bg-white border rounded hover:bg-gray-50 text-sm disabled:opacity-50"
               >
                 다음 ▶
               </button>
@@ -309,10 +292,9 @@ function CompletedApprovalContent() {
                 <p className="text-gray-800">{selectedVacation.userName}</p>
               </div>
 
-              {/* ✅ 결재 진행 현황 통합 */}
               <div className="row-span-2">
                 <span className="block text-gray-500 font-bold mb-1">상태</span>
-                <div className="bg-gray-50 p-2 rounded border border-gray-200">
+                <div className="bg-gray-50 p-3 rounded border border-gray-200">
                   <span
                     className={`inline-block mb-2 px-2 py-0.5 rounded text-xs font-bold ${
                       selectedVacation.status.includes("승인")
@@ -348,73 +330,37 @@ function CompletedApprovalContent() {
                   {selectedVacation.startDate} ~ {selectedVacation.endDate}
                 </p>
               </div>
-              <div>
-                <span className="block text-gray-500 font-bold mb-1">
-                  사용일수
-                </span>
-                <p className="text-gray-800">{selectedVacation.daysUsed}일</p>
-              </div>
               <div className="col-span-2">
-                <span className="block text-gray-500 font-bold mb-1">종류</span>
-                <p className="text-gray-800">
-                  {Array.isArray(selectedVacation.types)
-                    ? selectedVacation.types.join(", ")
-                    : selectedVacation.types}
-                </p>
+                <span className="block text-gray-500 font-bold mb-1">사유</span>
+                <div className="bg-gray-50 p-3 rounded text-gray-700">
+                  {selectedVacation.reason}
+                </div>
               </div>
             </div>
 
-            <div>
-              <span className="block text-gray-500 font-bold mb-2">사유</span>
-              <div className="bg-gray-50 p-4 rounded-lg text-gray-700 text-sm min-h-[100px] border">
-                {selectedVacation.reason}
-              </div>
-            </div>
-
+            {/* 코멘트 표시 */}
             {selectedVacation.approvalHistory &&
               selectedVacation.approvalHistory.some((h) => h.comment) && (
-                <div>
-                  <span className="block text-gray-500 font-bold mb-2">
-                    결재 의견
-                  </span>
-                  <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 flex flex-col gap-2">
-                    {selectedVacation.approvalHistory.map((history, idx) =>
-                      history.comment ? (
+                <div className="bg-yellow-50 p-3 rounded border border-yellow-100 mt-2">
+                  {selectedVacation.approvalHistory.map(
+                    (h, i) =>
+                      h.comment && (
                         <div
-                          key={idx}
-                          className="text-sm border-b border-yellow-200 last:border-0 pb-2 last:pb-0"
+                          key={i}
+                          className="text-sm border-b border-yellow-200 last:border-0 pb-2 mb-2 last:mb-0 last:pb-0"
                         >
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="font-bold text-gray-800">
-                              {history.approver}
-                              <span
-                                className={`ml-1 text-xs ${
-                                  history.status === "반려"
-                                    ? "text-red-600"
-                                    : "text-green-600"
-                                }`}
-                              >
-                                ({history.status})
-                              </span>
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {formatHistoryDate(history.approvedAt)}
-                            </span>
-                          </div>
-                          <p className="text-gray-700 whitespace-pre-wrap">
-                            {history.comment}
-                          </p>
+                          <span className="font-bold">{h.approver}</span>:{" "}
+                          {h.comment}
                         </div>
-                      ) : null
-                    )}
-                  </div>
+                      )
+                  )}
                 </div>
               )}
 
-            <div className="flex justify-end mt-4 pt-4 border-t">
+            <div className="flex justify-end pt-4 border-t">
               <button
                 onClick={() => setSelectedVacation(null)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm cursor-pointer"
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm"
               >
                 닫기
               </button>
