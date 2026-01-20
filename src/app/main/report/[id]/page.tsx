@@ -46,7 +46,7 @@ export default function ReportDetailPage() {
     listPath = "/main/report/external";
     editPath = `/main/report/external/edit/${id}`;
   } else if (isInternal) {
-    pageTitle = "내부 교육 보고서";
+    pageTitle = "사내 교육 보고서";
     listPath = "/main/report/internal";
     editPath = `/main/report/internal/edit/${id}`;
   } else if (isBusiness) {
