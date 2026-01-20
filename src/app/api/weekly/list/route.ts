@@ -52,6 +52,7 @@ export async function POST(req: Request) {
         userName: data.userName,
         fileUrl: data.fileUrl || null,
         fileName: data.fileName || null,
+        commentCount: data.commentCount || 0,
         createdAt:
           data.createdAt && typeof data.createdAt.toMillis === "function"
             ? data.createdAt.toMillis()

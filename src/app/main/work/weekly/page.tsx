@@ -11,6 +11,7 @@ interface WeeklyReport {
   title: string;
   userName: string;
   createdAt: number;
+  commentCount?: number;
 }
 
 interface WeeklyApiResponse {
@@ -99,6 +100,12 @@ function WeeklyMeetingContent() {
                       </span>
                       <p className="text-ms text-gray-800 truncate group-hover:text-[#519d9e] transition-colors">
                         {item.title}
+                        {/* 코멘트 개수 표시 */}
+                        {item.commentCount && item.commentCount > 0 ? (
+                          <span className="text-red-500 text-xs font-bold ml-1">
+                            (+{item.commentCount})
+                          </span>
+                        ) : null}
                       </p>
                     </div>
                     <div className="flex items-center gap-4 text-sm text-gray-500 flex-shrink-0">

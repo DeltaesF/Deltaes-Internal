@@ -222,7 +222,7 @@ export default function ApprovalDetailPage() {
             <p>※ 위 작성자는 법인차량 이용수칙을 확인하고 동의하였습니다.</p>
           </div>
           <p className="text-right mt-2 text-[14px] text-gray-700">
-            신청인: {userName}
+            신청인: {approval.userName}
           </p>
         </div>
       )}
