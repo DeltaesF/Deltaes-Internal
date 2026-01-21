@@ -23,7 +23,6 @@ type ApprovalDoc = {
 
 export async function POST(req: Request) {
   try {
-    // approvalId 로 받음
     const { approvalId, approverName, applicantUserName, status, comment } =
       await req.json();
 
@@ -33,7 +32,6 @@ export async function POST(req: Request) {
 
     const action = status === "reject" ? "reject" : "approve";
 
-    // ✅ 품의서 경로: approvals/{user}/userApprovals/{id}
     const docRef = db
       .collection("approvals")
       .doc(applicantUserName)
@@ -63,7 +61,8 @@ export async function POST(req: Request) {
       if (action === "reject") {
         newStatus = `반려됨 (${approverName})`;
         notificationTargets = [applicantUserName];
-        notiMessage = `[품의서 반려] ${approverName} 결재를 반려했습니다.`;
+        // ✅ [수정] 반려 메시지에도 제목 포함
+        notiMessage = `[품의서 반려] ${title}_${approverName}님이 결재를 반려했습니다.`;
         historyStatus = "반려";
       }
       // 2️⃣ [승인]
@@ -73,11 +72,13 @@ export async function POST(req: Request) {
           if (hasSecondApprover) {
             newStatus = "2차 결재 대기";
             notificationTargets = approvers.second || [];
-            notiMessage = `[품의서/1차승인] ${applicantUserName} 품의서 (2차 대기)`;
+            // ✅ [수정] 2차 결재자에게 보낼 메시지 (제목 포함)
+            notiMessage = `[품의서/2차결재] ${title}_${applicantUserName} 결재 요청이 도착했습니다.`;
           } else if (hasThirdApprover) {
             newStatus = "3차 결재 대기";
             notificationTargets = approvers.third || [];
-            notiMessage = `[품의서/1차승인] ${applicantUserName} 품의서 (3차 대기)`;
+            // ✅ [수정] 3차 결재자에게 보낼 메시지 (제목 포함)
+            notiMessage = `[품의서/3차결재] ${title}_${applicantUserName} 결재 요청이 도착했습니다.`;
           } else {
             newStatus = "최종 승인 완료";
             notificationTargets = [
@@ -92,7 +93,8 @@ export async function POST(req: Request) {
           if (hasThirdApprover) {
             newStatus = "3차 결재 대기";
             notificationTargets = approvers.third || [];
-            notiMessage = `[품의서/2차승인] ${applicantUserName} 품의서 (3차 대기)`;
+            // ✅ [수정] 3차 결재자에게 보낼 메시지 (제목 포함)
+            notiMessage = `[품의서/3차결재] ${title}_${applicantUserName} 결재 요청이 도착했습니다.`;
           } else {
             newStatus = "최종 승인 완료";
             notificationTargets = [
@@ -119,7 +121,6 @@ export async function POST(req: Request) {
       // 3️⃣ 업데이트
       transaction.update(docRef, {
         status: newStatus,
-        lastApprovedAt: new Date(),
         approvalHistory: FieldValue.arrayUnion({
           approver: approverName,
           status: historyStatus,
@@ -128,10 +129,11 @@ export async function POST(req: Request) {
         }),
       });
 
-      // 4️⃣ 알림
+      // 4️⃣ 알림 발송
       if (notificationTargets.length > 0) {
         notificationTargets.forEach((target) => {
           let link = "/main/my-approval/pending";
+          // 완료되거나 반려된 경우 상세/공유 페이지로 이동
           if (newStatus === "최종 승인 완료" || newStatus.includes("반려")) {
             link =
               target === applicantUserName

@@ -64,7 +64,8 @@ export async function POST(req: Request) {
       if (action === "reject") {
         newStatus = `반려됨 (${approverName})`;
         notificationTargets = [applicantUserName]; // 작성자에게 알림
-        notiMessage = `[보고서 반려] ${approverName} 결재를 반려했습니다.`;
+        // ✅ [수정] 반려 메시지에 제목 포함
+        notiMessage = `[보고서 반려] ${title}_${approverName}님이 결재를 반려했습니다.`;
         historyStatus = "반려";
       }
       // 2️⃣ [승인]
@@ -76,11 +77,13 @@ export async function POST(req: Request) {
           if (hasSecondApprover) {
             newStatus = "2차 결재 대기";
             notificationTargets = approvers.second || [];
-            notiMessage = `[보고서/1차승인] ${applicantUserName} 보고서 (2차 대기)`;
+            // ✅ [수정] 2차 결재자 알림 메시지 (제목 포함)
+            notiMessage = `[보고서/2차결재] ${title}_${applicantUserName} 결재 요청이 도착했습니다.`;
           } else if (hasThirdApprover) {
             newStatus = "3차 결재 대기";
             notificationTargets = approvers.third || [];
-            notiMessage = `[보고서/1차승인] ${applicantUserName} 보고서 (3차 대기)`;
+            // ✅ [수정] 3차 결재자 알림 메시지
+            notiMessage = `[보고서/3차결재] ${title}_${applicantUserName} 결재 요청이 도착했습니다.`;
           } else {
             newStatus = "최종 승인 완료";
             notificationTargets = [
@@ -97,7 +100,8 @@ export async function POST(req: Request) {
           if (hasThirdApprover) {
             newStatus = "3차 결재 대기";
             notificationTargets = approvers.third || [];
-            notiMessage = `[보고서/2차승인] ${applicantUserName} 보고서 (3차 대기)`;
+            // ✅ [수정] 3차 결재자 알림 메시지
+            notiMessage = `[보고서/3차결재] ${title}_${applicantUserName} 결재 요청이 도착했습니다.`;
           } else {
             newStatus = "최종 승인 완료";
             notificationTargets = [
@@ -160,7 +164,7 @@ export async function POST(req: Request) {
             targetUserName: target,
             fromUserName: approverName,
             type,
-            message: notiMessage,
+            message: notiMessage, // ✅ 수정된 메시지 사용
             link,
             isRead: false,
             createdAt: Date.now(),
