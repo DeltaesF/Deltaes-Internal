@@ -219,7 +219,7 @@ export default function ApprovalDetailPage() {
             <tr>
               <th className="bg-gray-100 border p-3">시행일자</th>
               <td className="border p-3">{approval.implementDate || "-"}</td>
-              <th className="bg-gray-100 border p-3">사용일시</th>
+              <th className="bg-gray-100 border p-3">외근/차량 사용일시</th>
               <td className="border p-3">{approval.usagePeriod || "-"}</td>
             </tr>
             <tr>

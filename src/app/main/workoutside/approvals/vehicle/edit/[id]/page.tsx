@@ -281,7 +281,7 @@ export default function VehicleReportEditPage() {
 
         <div>
           <label className="block text-sm font-bold text-gray-700 mb-1">
-            사용일시 <span className="text-red-500">*</span>
+            외근/차량 사용일시 <span className="text-red-500">*</span>
           </label>
           <div className="flex gap-2 items-center">
             <input
