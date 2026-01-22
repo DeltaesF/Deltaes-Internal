@@ -14,29 +14,96 @@ if (!getApps().length) {
 
 const db = getFirestore();
 
-// ✅ [추가] 품의서 데이터 타입 정의
+// ----------------------------------------------------------------
+// [1] 데이터 타입 정의
+// ----------------------------------------------------------------
+
+// 금액/비용 정보 (구매 품의서용)
+interface PriceDetails {
+  orig: string;
+  mod: string;
+}
+interface PriceData {
+  list: PriceDetails;
+  contract: PriceDetails;
+  dc: PriceDetails;
+  salesNet: PriceDetails;
+  profit: PriceDetails;
+  warranty: PriceDetails;
+  remarks: string;
+}
+
+interface CostDetails {
+  act: string;
+  nom: string;
+  desc: string;
+}
+interface CostData {
+  transport: CostDetails;
+  warranty: CostDetails;
+  travel: CostDetails;
+  overseas: CostDetails;
+  personnel: CostDetails;
+  material: CostDetails;
+  extraWarranty: CostDetails;
+  rental: CostDetails;
+  interest: CostDetails;
+  other: CostDetails;
+  subtotal: { act: string; nom: string };
+  docTypes: string[];
+  total: { val: string; desc: string };
+}
+
+// 통합 문서 데이터 인터페이스
 interface ApprovalData {
-  approvalType: string; // 'purchase'(기본), 'vehicle', 'business_trip_request' 등
+  approvalType: string;
   title: string;
   content: string;
   userName: string;
-  department: string; // 부서 정보 추가
+  department: string;
   approvers: {
-    first: string[];
-    second: string[];
-    third: string[];
-    shared: string[];
+    first?: string[];
+    second?: string[];
+    third?: string[];
+    shared?: string[];
   };
   status: string;
   createdAt: FieldValue;
-  // 🔹 차량/외근용 선택 필드
-  contact?: string | null;
+
+  // ✅ attachments는 선택적 필드로 정의 (조건부 저장)
+  attachments?: { name: string; url: string }[];
+
+  // 🚗 차량/외근용 선택 필드
+  contact?: string;
   isExternalWork?: boolean;
   isVehicleUse?: boolean;
   isPersonalVehicle?: boolean;
-  implementDate?: string | null;
-  vehicleModel?: string | null;
-  usagePeriod?: string | null;
+  implementDate?: string;
+  vehicleModel?: string;
+  usagePeriod?: string;
+
+  // 🛒 구매/판매 품의서용 선택 필드
+  serialNumber?: string;
+  customerName?: string;
+  product?: string;
+  endUser?: string;
+  customerInfo?: string;
+  contractDate?: string;
+  introductionType?: string;
+  introductionMemo?: string;
+  deliveryDate?: string;
+  paymentPending?: string;
+  paymentPendingAmount?: string;
+  billingDate?: string;
+  cashCollection?: string;
+  cashCollectionDays?: string;
+  collectionDate?: string;
+  noteCollection?: string;
+  noteCollectionDays?: string;
+  noteMaturityDate?: string;
+  specialNotes?: string;
+  priceData?: PriceData;
+  costData?: CostData;
 }
 
 export async function POST(req: Request) {
@@ -46,8 +113,10 @@ export async function POST(req: Request) {
       userName,
       title,
       content,
-      approvalType = "purchase", // 기본값은 구매 품의서
-      // 차량용 필드
+      approvalType = "purchase",
+      attachments, // ✅ 첨부파일 추출 (rest에 포함되지 않음)
+
+      // 🚗 차량용 필드
       contact,
       isExternalWork,
       isVehicleUse,
@@ -55,9 +124,32 @@ export async function POST(req: Request) {
       implementDate,
       vehicleModel,
       usagePeriod,
+
+      // 🛒 구매용 필드
+      serialNumber,
+      customerName,
+      product,
+      endUser,
+      customerInfo,
+      contractDate,
+      introductionType,
+      introductionMemo,
+      deliveryDate,
+      paymentPending,
+      paymentPendingAmount,
+      billingDate,
+      cashCollection,
+      cashCollectionDays,
+      collectionDate,
+      noteCollection,
+      noteCollectionDays,
+      noteMaturityDate,
+      specialNotes,
+      priceData,
+      costData,
     } = body;
 
-    if (!userName || !title || !content) {
+    if (!userName) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -74,16 +166,20 @@ export async function POST(req: Request) {
 
     if (!employeeQuery.empty) {
       const empData = employeeQuery.docs[0].data();
-      // 결재선 정보 가져오기 (approval 라인 사용)
       approvalLine = empData.recipients?.approval || approvalLine;
       department = empData.department || "";
     }
 
-    // 2. 저장할 데이터 구성
+    // 2. 기본 데이터 구성 (공통 필드)
+    // ⚠️ 여기서 attachments를 기본으로 넣지 않음
     const docData: ApprovalData = {
       approvalType,
-      title,
-      content,
+      title:
+        title ||
+        (approvalType === "vehicle"
+          ? `[차량신청] ${userName}`
+          : `[품의서] ${customerName}_${product}`),
+      content: content || "내용 없음",
       userName,
       department,
       approvers: approvalLine,
@@ -91,27 +187,61 @@ export async function POST(req: Request) {
       createdAt: FieldValue.serverTimestamp(),
     };
 
-    // 타입별 필드 추가
-    if (approvalType === "vehicle") {
-      docData.contact = contact || null;
-      docData.isExternalWork = isExternalWork || false;
-      docData.isVehicleUse = isVehicleUse || false;
-      docData.isPersonalVehicle = isPersonalVehicle || false;
-      docData.implementDate = implementDate || null;
-      docData.vehicleModel = vehicleModel || null;
-      docData.usagePeriod = usagePeriod || null;
+    // 3. ✅ 타입별 필드 분기 처리
+    if (approvalType === "purchase" || approvalType === "sales") {
+      // 🛒 구매/판매 품의서일 때만 첨부파일 및 관련 데이터 저장
+      Object.assign(docData, {
+        attachments: attachments || [], // ✅ 여기에만 추가
+        serialNumber,
+        customerName,
+        product,
+        endUser,
+        customerInfo,
+        contractDate,
+        introductionType,
+        introductionMemo,
+        deliveryDate,
+        paymentPending,
+        paymentPendingAmount,
+        billingDate,
+        cashCollection,
+        cashCollectionDays,
+        collectionDate,
+        noteCollection,
+        noteCollectionDays,
+        noteMaturityDate,
+        specialNotes,
+        priceData,
+        costData,
+      });
+      // 제목 자동 생성 로직 (필요시)
+      if (!title) {
+        docData.title = `[${
+          approvalType === "purchase" ? "구매" : "판매"
+        }품의] ${customerName}_${product}`;
+      }
+    } else if (approvalType === "vehicle") {
+      // 🚗 차량 신청서 (첨부파일 없음)
+      Object.assign(docData, {
+        contact: contact || null,
+        isExternalWork: isExternalWork || false,
+        isVehicleUse: isVehicleUse || false,
+        isPersonalVehicle: isPersonalVehicle || false,
+        implementDate: implementDate || null,
+        vehicleModel: vehicleModel || null,
+        usagePeriod: usagePeriod || null,
+      });
     }
 
-    // 3. DB 저장 (approvals 컬렉션)
+    // 4. DB 저장
     const docRef = db
       .collection("approvals")
       .doc(userName)
       .collection("userApprovals")
       .doc();
-
     await docRef.set(docData);
 
-    // 4. 알림 발송 (기존 로직 유지 + 링크 수정)
+    // 5. 알림 발송
     const batch = db.batch();
     const firstApprovers: string[] = approvalLine.first || [];
 
@@ -125,15 +255,16 @@ export async function POST(req: Request) {
         targetUserName: approver,
         fromUserName: userName,
         type: "approval",
-        message: `${title}_${userName} 결재 요청이 도착했습니다.`,
+        message: `[${approvalType === "vehicle" ? "차량" : "품의"}/1차결재] ${
+          docData.title
+        }_${userName} 결재 요청이 도착했습니다.`,
         link: `/main/my-approval/pending`,
         isRead: false,
         createdAt: Date.now(),
-        approvalId: docRef.id, // ID 필드명 통일
+        approvalId: docRef.id,
       });
     });
 
-    // 참조자 알림
     const referenceUsers = [
       ...(approvalLine.second || []),
       ...(approvalLine.third || []),
@@ -152,8 +283,7 @@ export async function POST(req: Request) {
         targetUserName: targetName,
         fromUserName: userName,
         type: "approval",
-        message: `[공유/예정] ${title}_${userName} 결재 요청이 도착했습니다.`,
-        // 상세 페이지 링크 (타입에 따라 다를 수 있음. 일단 통합 상세 페이지로 가정)
+        message: `[공유/예정] ${docData.title}_${userName} 결재 요청이 도착했습니다.`,
         link: `/main/workoutside/approvals/${docRef.id}`,
         isRead: false,
         createdAt: Date.now(),
@@ -166,6 +296,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, id: docRef.id });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    const msg = error instanceof Error ? error.message : "Server error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

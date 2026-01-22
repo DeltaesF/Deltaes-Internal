@@ -27,7 +27,7 @@ const fetchReports = async (page: number, limit: number) => {
     body: JSON.stringify({
       page,
       limit,
-      reportType: "vehicle",
+      approvalType: "vehicle",
     }),
   });
   if (!res.ok) throw new Error("Failed to fetch reports");
@@ -68,7 +68,7 @@ function VehicleReportContent() {
       <div className="bg-white border rounded-2xl shadow-sm p-6">
         <div className="flex justify-between items-center mb-2">
           <h2 className="text-2xl font-bold text-gray-800">
-            외근 / 법인 차량이용 보고서
+            외근 / 법인 차량이용 품의서
           </h2>
           <Link
             href="/main/workoutside/approvals/vehicle/write"
