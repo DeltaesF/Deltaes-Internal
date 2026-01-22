@@ -721,7 +721,7 @@ export default function PurchaseApprovalWrite() {
                   className="w-full text-center font-bold"
                 />
               </td>
-              <td className="border p-2 text-left bg-blue-50">
+              <td className="border p-2 text-left bg-blue-50" rowSpan={3}>
                 <p className="font-bold text-xs mb-2 text-blue-800">
                   [증빙서류 선택]
                 </p>
@@ -792,16 +792,6 @@ export default function PurchaseApprovalWrite() {
                   }
                   className="w-full text-center bg-transparent outline-none"
                   placeholder="실질+명목 합계"
-                />
-              </td>
-              <td className="border p-1">
-                <input
-                  value={formData.costData.total.desc}
-                  onChange={(e) =>
-                    handleCostChange("total", "desc", e.target.value)
-                  }
-                  className="w-full px-2 outline-none"
-                  placeholder="비고"
                 />
               </td>
             </tr>

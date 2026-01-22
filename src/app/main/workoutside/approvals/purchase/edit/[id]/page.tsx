@@ -892,13 +892,13 @@ export default function PurchaseApprovalEdit() {
       <div className="mt-8 flex justify-end gap-3">
         <button
           onClick={() => router.back()}
-          className="px-6 py-2 border rounded hover:bg-gray-100"
+          className="px-6 py-2 border rounded hover:bg-gray-100 cursor-pointer"
         >
           취소
         </button>
         <button
           onClick={() => updateMutation.mutate()}
-          className="px-6 py-2 bg-[#519d9e] text-white rounded hover:bg-[#407f80]"
+          className="px-6 py-2 bg-[#519d9e] text-white rounded hover:bg-[#407f80] cursor-pointer"
         >
           수정 완료
         </button>

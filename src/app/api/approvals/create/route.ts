@@ -17,8 +17,6 @@ const db = getFirestore();
 // ----------------------------------------------------------------
 // [1] 데이터 타입 정의
 // ----------------------------------------------------------------
-
-// 금액/비용 정보 (구매 품의서용)
 interface PriceDetails {
   orig: string;
   mod: string;
@@ -32,7 +30,6 @@ interface PriceData {
   warranty: PriceDetails;
   remarks: string;
 }
-
 interface CostDetails {
   act: string;
   nom: string;
@@ -54,7 +51,6 @@ interface CostData {
   total: { val: string; desc: string };
 }
 
-// 통합 문서 데이터 인터페이스
 interface ApprovalData {
   approvalType: string;
   title: string;
@@ -69,11 +65,9 @@ interface ApprovalData {
   };
   status: string;
   createdAt: FieldValue;
-
-  // ✅ attachments는 선택적 필드로 정의 (조건부 저장)
   attachments?: { name: string; url: string }[];
 
-  // 🚗 차량/외근용 선택 필드
+  // 차량/외근용
   contact?: string;
   isExternalWork?: boolean;
   isVehicleUse?: boolean;
@@ -81,8 +75,9 @@ interface ApprovalData {
   implementDate?: string;
   vehicleModel?: string;
   usagePeriod?: string;
+  purpose?: string;
 
-  // 🛒 구매/판매 품의서용 선택 필드
+  // 구매/판매용
   serialNumber?: string;
   customerName?: string;
   product?: string;
@@ -114,9 +109,9 @@ export async function POST(req: Request) {
       title,
       content,
       approvalType = "purchase",
-      attachments, // ✅ 첨부파일 추출 (rest에 포함되지 않음)
+      attachments,
 
-      // 🚗 차량용 필드
+      // 차량용 필드
       contact,
       isExternalWork,
       isVehicleUse,
@@ -124,8 +119,9 @@ export async function POST(req: Request) {
       implementDate,
       vehicleModel,
       usagePeriod,
+      purpose,
 
-      // 🛒 구매용 필드
+      // 구매용 필드
       serialNumber,
       customerName,
       product,
@@ -161,7 +157,20 @@ export async function POST(req: Request) {
       .collection("employee")
       .where("userName", "==", userName)
       .get();
-    let approvalLine = { first: [], second: [], third: [], shared: [] };
+
+    // ✅ [수정] 타입을 명시하여 never[] 추론 오류 방지
+    let approvalLine: {
+      first: string[];
+      second: string[];
+      third: string[];
+      shared: string[];
+    } = {
+      first: [],
+      second: [],
+      third: [],
+      shared: [],
+    };
+
     let department = "";
 
     if (!employeeQuery.empty) {
@@ -170,8 +179,7 @@ export async function POST(req: Request) {
       department = empData.department || "";
     }
 
-    // 2. 기본 데이터 구성 (공통 필드)
-    // ⚠️ 여기서 attachments를 기본으로 넣지 않음
+    // 2. 기본 데이터 구성
     const docData: ApprovalData = {
       approvalType,
       title:
@@ -187,11 +195,10 @@ export async function POST(req: Request) {
       createdAt: FieldValue.serverTimestamp(),
     };
 
-    // 3. ✅ 타입별 필드 분기 처리
+    // 3. 타입별 데이터 병합
     if (approvalType === "purchase" || approvalType === "sales") {
-      // 🛒 구매/판매 품의서일 때만 첨부파일 및 관련 데이터 저장
       Object.assign(docData, {
-        attachments: attachments || [], // ✅ 여기에만 추가
+        attachments: attachments || [],
         serialNumber,
         customerName,
         product,
@@ -214,14 +221,11 @@ export async function POST(req: Request) {
         priceData,
         costData,
       });
-      // 제목 자동 생성 로직 (필요시)
-      if (!title) {
+      if (!title)
         docData.title = `[${
           approvalType === "purchase" ? "구매" : "판매"
         }품의] ${customerName}_${product}`;
-      }
     } else if (approvalType === "vehicle") {
-      // 🚗 차량 신청서 (첨부파일 없음)
       Object.assign(docData, {
         contact: contact || null,
         isExternalWork: isExternalWork || false,
@@ -230,6 +234,7 @@ export async function POST(req: Request) {
         implementDate: implementDate || null,
         vehicleModel: vehicleModel || null,
         usagePeriod: usagePeriod || null,
+        purpose: purpose || null,
       });
     }
 
@@ -241,10 +246,13 @@ export async function POST(req: Request) {
       .doc();
     await docRef.set(docData);
 
-    // 5. 알림 발송
+    // ----------------------------------------------------------------
+    // 5. ✅ 알림 발송 (타입 오류 수정됨)
+    // ----------------------------------------------------------------
     const batch = db.batch();
-    const firstApprovers: string[] = approvalLine.first || [];
 
+    // (A) 1차 결재자 (지금 결재해야 할 사람)
+    const firstApprovers: string[] = approvalLine.first || [];
     firstApprovers.forEach((approver) => {
       const notiRef = db
         .collection("notifications")
@@ -265,25 +273,42 @@ export async function POST(req: Request) {
       });
     });
 
-    const referenceUsers = [
+    // (B) 참조자 목록 (2차, 3차, 공유자 전체)
+    // 이제 approvalLine이 명시적 타입을 가지므로 futureApprovers는 string[]으로 추론됨
+    const futureApprovers = [
       ...(approvalLine.second || []),
       ...(approvalLine.third || []),
-      ...(approvalLine.shared || []),
     ];
-    const uniqueRefs = [...new Set(referenceUsers)] as string[];
+    const sharedUsers = approvalLine.shared || [];
 
-    uniqueRefs.forEach((targetName: string) => {
+    const allReferenceUsers = [
+      ...new Set([...futureApprovers, ...sharedUsers]),
+    ];
+
+    allReferenceUsers.forEach((targetName: string) => {
       if (firstApprovers.includes(targetName)) return;
+
       const notiRef = db
         .collection("notifications")
         .doc(targetName)
         .collection("userNotifications")
         .doc();
+
+      let message = "";
+
+      if (futureApprovers.includes(targetName)) {
+        // 1. 미래의 결재자인 경우 -> "예정" 알림
+        message = `[공유/예정] ${docData.title}_${userName} 결재 요청이 도착했습니다.`;
+      } else {
+        // 2. 단순 공유자 -> "공유" 알림
+        message = `[공유] ${docData.title}_${userName}`;
+      }
+
       batch.set(notiRef, {
         targetUserName: targetName,
         fromUserName: userName,
         type: "approval",
-        message: `[공유/예정] ${docData.title}_${userName} 결재 요청이 도착했습니다.`,
+        message: message,
         link: `/main/workoutside/approvals/${docRef.id}`,
         isRead: false,
         createdAt: Date.now(),
