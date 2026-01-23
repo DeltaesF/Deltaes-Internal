@@ -7,7 +7,7 @@ import { RootState } from "@/store";
 import { useMutation } from "@tanstack/react-query";
 
 // --------------------------------------------------------
-// [1] 타입 정의
+// [1] 타입 정의 (구매와 동일)
 // --------------------------------------------------------
 interface PriceDetails {
   orig: string;
@@ -22,7 +22,6 @@ interface PriceData {
   warranty: PriceDetails;
   remarks: string;
 }
-
 interface CostDetails {
   act: string;
   nom: string;
@@ -40,11 +39,10 @@ interface CostData {
   interest: CostDetails;
   other: CostDetails;
   subtotal: { act: string; nom: string };
-  docTypes: string[]; // ✅ [변경] 다중 선택을 위해 문자열 배열로 변경
+  docTypes: string[];
   total: { val: string; desc: string };
 }
-
-interface PurchaseFormData {
+interface SalesFormData {
   serialNumber: string;
   writeDate: string;
   customerName: string;
@@ -67,28 +65,26 @@ interface PurchaseFormData {
   specialNotes: string;
   priceData: PriceData;
   costData: CostData;
-  attachments: { name: string; url: string }[]; // ✅ [추가] 업로드된 파일 정보
+  attachments: { name: string; url: string }[];
 }
 
-export default function PurchaseApprovalWrite() {
+export default function SalesApprovalWrite() {
   const router = useRouter();
   const { userName } = useSelector((state: RootState) => state.auth);
-
-  // 파일 선택 상태 (UI 표시용 Raw Files)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   // --------------------------------------------------------
-  // [2] 초기 상태
+  // [2] 초기 상태 (판매 품의서 기본값)
   // --------------------------------------------------------
-  const [formData, setFormData] = useState<PurchaseFormData>({
-    serialNumber: "DES-260000_구매대상_구매처_R1",
+  const [formData, setFormData] = useState<SalesFormData>({
+    serialNumber: "DES-250000_판매대상_판매처_R1", // 예시 일련번호 포맷 변경 가능
     writeDate: new Date().toISOString().split("T")[0],
     customerName: "",
     product: "",
     endUser: "",
     customerInfo: "",
     contractDate: "",
-    introductionType: "Purchase",
+    introductionType: "Lease",
     introductionMemo: "",
     deliveryDate: "",
     paymentPending: "무",
@@ -122,7 +118,7 @@ export default function PurchaseApprovalWrite() {
       interest: { act: "", nom: "", desc: "" },
       other: { act: "", nom: "", desc: "" },
       subtotal: { act: "", nom: "" },
-      docTypes: [], // ✅ 체크박스 선택값 저장 (예: ["견적서", "운송협조전"])
+      docTypes: [],
       total: { val: "", desc: "" },
     },
     attachments: [],
@@ -131,7 +127,6 @@ export default function PurchaseApprovalWrite() {
   // --------------------------------------------------------
   // [3] 핸들러
   // --------------------------------------------------------
-
   const handleCancel = () => {
     const confirmExit = window.confirm(
       "작성 중인 내용이 저장되지 않을 수 있습니다. 정말 나가시겠습니까?"
@@ -166,14 +161,13 @@ export default function PurchaseApprovalWrite() {
     });
   };
 
-  // ✅ [수정] 비용 정보 & 체크박스 핸들러
   const handleCostChange = (
     key: keyof CostData,
     field: string,
     value: string
   ) => {
     setFormData((prev) => {
-      // 1. 체크박스 처리 (docTypes) - field가 아니라 별도 로직으로 처리
+      if (key === "docTypes") return prev;
       const currentItem = prev.costData[key];
       if (
         typeof currentItem === "object" &&
@@ -192,68 +186,53 @@ export default function PurchaseApprovalWrite() {
     });
   };
 
-  // ✅ [추가] 문서 종류 체크박스 핸들러
   const handleDocTypeToggle = (type: string) => {
     setFormData((prev) => {
       const currentTypes = prev.costData.docTypes;
       const exists = currentTypes.includes(type);
       const newTypes = exists
-        ? currentTypes.filter((t) => t !== type) // 이미 있으면 제거
-        : [...currentTypes, type]; // 없으면 추가
-
-      return {
-        ...prev,
-        costData: { ...prev.costData, docTypes: newTypes },
-      };
+        ? currentTypes.filter((t) => t !== type)
+        : [...currentTypes, type];
+      return { ...prev, costData: { ...prev.costData, docTypes: newTypes } };
     });
   };
 
-  // ✅ [추가] 파일 선택 핸들러
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      setSelectedFiles((prev) => [...prev, ...files]);
-    }
+    if (e.target.files)
+      setSelectedFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
   };
 
-  // ✅ [추가] 선택된 파일 삭제
   const removeFile = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   // --------------------------------------------------------
-  // [4] 전송 로직 (파일 업로드 -> 데이터 저장)
+  // [4] 전송 로직 (approvalType: "sales")
   // --------------------------------------------------------
   const createMutation = useMutation({
     mutationFn: async () => {
-      // 1. 파일 업로드 (있을 경우)
       let uploadedAttachments: { name: string; url: string }[] = [];
-
       if (selectedFiles.length > 0) {
         const formData = new FormData();
         selectedFiles.forEach((file) => formData.append("files", file));
-
-        // upload API 호출 (기존에 구현된 업로드 API 사용 가정)
         const uploadRes = await fetch("/api/approvals/upload", {
           method: "POST",
           body: formData,
         });
-
         if (!uploadRes.ok) throw new Error("파일 업로드 실패");
         const uploadData = await uploadRes.json();
-        uploadedAttachments = uploadData.files; // [{name, url}, ...]
+        uploadedAttachments = uploadData.files;
       }
 
-      // 2. 데이터 저장
       const res = await fetch("/api/approvals/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          attachments: uploadedAttachments, // 업로드된 URL 연결
+          attachments: uploadedAttachments,
           userName,
-          approvalType: "purchase",
-          title: `[구매품의] ${formData.customerName || "미지정"}_${
+          approvalType: "sales", // ✅ [중요] 판매 타입 지정
+          title: `[판매품의] ${formData.customerName || "미지정"}_${
             formData.product || "미지정"
           }`,
         }),
@@ -263,8 +242,8 @@ export default function PurchaseApprovalWrite() {
       return res.json();
     },
     onSuccess: () => {
-      alert("상신되었습니다.");
-      router.push("/main/workoutside/approvals/purchase");
+      alert("판매 품의서가 상신되었습니다.");
+      router.push("/main/workoutside/approvals/sales");
     },
     onError: (err) => alert(err.message),
   });
@@ -278,7 +257,7 @@ export default function PurchaseApprovalWrite() {
         ◀ 취소하고 돌아가기
       </button>
       <h1 className="text-2xl font-bold mb-6 text-gray-800">
-        📝 구매 품의서 작성
+        📝 판매 품의서 작성
       </h1>
 
       {/* 헤더 */}
