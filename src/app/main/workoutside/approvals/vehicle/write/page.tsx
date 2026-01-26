@@ -18,6 +18,10 @@ export default function VehicleReportWritePage() {
   const router = useRouter();
   const { userName } = useSelector((state: RootState) => state.auth);
 
+  const [docType, setDocType] = useState<"vehicle" | "business_trip">(
+    "vehicle"
+  );
+
   const [form, setForm] = useState({
     title: "", // 외근 목적 (제목)
     contact: "", // 연락처
@@ -83,6 +87,9 @@ export default function VehicleReportWritePage() {
       " "
     )} ~ ${form.usageEnd.replace("T", " ")}`;
 
+    // 제목 말머리 자동 추가 로직
+    const prefix = docType === "vehicle" ? "[외근/차량]" : "[출장]";
+    const finalTitle = `${prefix} ${form.title}`;
     setIsLoading(true);
 
     try {
@@ -90,8 +97,8 @@ export default function VehicleReportWritePage() {
         method: "POST",
         body: JSON.stringify({
           userName,
-          approvalType: "vehicle", // ✅ 타입 지정
-          title: form.title,
+          approvalType: docType, // ✅ 선택된 문서 타입 전송 ("vehicle" | "business_trip")
+          title: finalTitle, // ✅ 말머리가 포함된 제목
           content,
 
           // 추가 필드들
@@ -126,9 +133,24 @@ export default function VehicleReportWritePage() {
         ◀ 취소하고 돌아가기
       </button>
 
-      <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-4">
-        외근 및 법인차량 이용 신청서
-      </h2>
+      <div className="flex justify-between items-center mb-6 border-b pb-4">
+        <h2 className="text-2xl font-bold text-gray-800">
+          {docType === "vehicle"
+            ? "외근 및 법인차량 이용 신청서"
+            : "출장 보고서 작성"}
+        </h2>
+        {/* ✅ 문서 종류 선택 드롭다운 */}
+        <select
+          value={docType}
+          onChange={(e) =>
+            setDocType(e.target.value as "vehicle" | "business_trip")
+          }
+          className="border p-2 rounded-lg bg-gray-50 font-bold text-gray-700 cursor-pointer focus:ring-2 focus:ring-[#519d9e] outline-none"
+        >
+          <option value="vehicle">외근/차량신청서</option>
+          <option value="business_trip">출장보고서</option>
+        </select>
+      </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         {/* 1. 기본 정보 */}
@@ -160,18 +182,16 @@ export default function VehicleReportWritePage() {
         {/* 2. 구분 (체크박스) */}
         <div className="flex gap-6 items-center bg-gray-50 p-4 rounded-lg border">
           <span className="text-sm font-bold text-gray-700">구분:</span>
-
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="radio"
-              name="workType" // 같은 name을 주어 그룹화
+              name="workType"
               checked={form.isExternalWork}
               onChange={() => handleTypeChange("external")}
               className="w-5 h-5 accent-[#519d9e]"
             />
             <span>외근 (차량미사용)</span>
           </label>
-
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="radio"
@@ -182,7 +202,6 @@ export default function VehicleReportWritePage() {
             />
             <span>법인차량</span>
           </label>
-
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="radio"
@@ -237,7 +256,8 @@ export default function VehicleReportWritePage() {
 
         <div>
           <label className="block text-sm font-bold text-gray-700 mb-1">
-            외근/차량 사용일시 <span className="text-red-500">*</span>
+            {docType === "vehicle" ? "외근/차량 사용일시" : "출장 기간"}{" "}
+            <span className="text-red-500">*</span>
           </label>
           <div className="flex gap-2 items-center">
             <input
@@ -260,7 +280,8 @@ export default function VehicleReportWritePage() {
 
         <div>
           <label className="block text-sm font-bold text-gray-700 mb-1">
-            제목 (외근 및 차량이용 목적) <span className="text-red-500">*</span>
+            제목 ({docType === "vehicle" ? "외근 목적" : "출장 목적"}){" "}
+            <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -280,7 +301,7 @@ export default function VehicleReportWritePage() {
           <Editor content={content} onChange={setContent} />
         </div>
 
-        {/* 6. 이용 수칙 (약관) */}
+        {/* 5. 이용 수칙 (법인차량 선택 시 또는 항상 노출) */}
         <div className="border rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
           <h4 className="font-bold mb-2">📌 법인차량 이용수칙</h4>
           <ul className="list-decimal list-inside space-y-1 text-[14px]">
@@ -310,22 +331,13 @@ export default function VehicleReportWritePage() {
             <li>위의 사항은 결재 후 임의로 변경할 수 없음</li>
           </ul>
           <div className="mt-4 flex items-center gap-2 border-t pt-2">
-            <input
-              type="checkbox"
-              required
-              className="w-4 h-4 cursor-pointer accent-[#519d9e]"
-              id="agree"
-            />
-            <label htmlFor="agree" className="font-bold cursor-pointer">
-              이용수칙을 모두 확인했으며 위와 같이 사용을 신청합니다.
-            </label>
+            <p>※ 위 작성자는 법인차량 이용수칙을 확인하고 동의하였습니다.</p>
           </div>
           <p className="text-right mt-2 text-[14px] text-gray-700">
             신청인: {userName}
           </p>
         </div>
 
-        {/* 버튼 */}
         <div className="flex justify-end gap-3 mt-4">
           <button
             type="button"

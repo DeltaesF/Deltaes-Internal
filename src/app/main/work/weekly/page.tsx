@@ -39,7 +39,7 @@ function WeeklyMeetingContent() {
 
   // ✅ 상태 기반 페이지네이션
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 18;
+  const ITEMS_PER_PAGE = 15;
 
   const { data, isLoading } = useQuery<WeeklyApiResponse>({
     queryKey: ["weeklys", userName, currentPage], // 페이지 변경 시 자동 재요청
@@ -79,7 +79,7 @@ function WeeklyMeetingContent() {
         </div>
 
         {weeklyList.length === 0 ? (
-          <div className="py-10 text-center text-gray-400">
+          <div className="py-20 text-center text-gray-400">
             등록된 주간 업무 보고서가 없습니다.
           </div>
         ) : (
@@ -92,7 +92,7 @@ function WeeklyMeetingContent() {
                 >
                   <Link
                     href={`/main/work/weekly/${item.id}`}
-                    className="flex justify-between items-center w-full py-1"
+                    className="flex justify-between items-center w-full py-1.5"
                   >
                     <div className="flex items-center gap-4 overflow-hidden">
                       <span className="text-[#519d9e] font-bold whitespace-nowrap">

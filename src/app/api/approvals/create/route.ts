@@ -225,7 +225,8 @@ export async function POST(req: Request) {
         docData.title = `[${
           approvalType === "purchase" ? "구매" : "판매"
         }품의] ${customerName}_${product}`;
-    } else if (approvalType === "vehicle") {
+    } // ✅ [통합] 차량신청서(vehicle) 또는 출장보고서(business_trip)
+    else if (approvalType === "vehicle" || approvalType === "business_trip") {
       Object.assign(docData, {
         contact: contact || null,
         isExternalWork: isExternalWork || false,
@@ -236,6 +237,11 @@ export async function POST(req: Request) {
         usagePeriod: usagePeriod || null,
         purpose: purpose || null,
       });
+      // 제목은 프론트엔드에서 이미 말머리를 붙여서 보냄 (fallback만 처리)
+      if (!title)
+        docData.title = `[${
+          approvalType === "vehicle" ? "차량" : "출장"
+        }] ${userName}`;
     }
 
     // 4. DB 저장
@@ -263,9 +269,8 @@ export async function POST(req: Request) {
         targetUserName: approver,
         fromUserName: userName,
         type: "approval",
-        message: `[${approvalType === "vehicle" ? "차량" : "품의"}/1차결재] ${
-          docData.title
-        }_${userName} 결재 요청이 도착했습니다.`,
+        // ✅ 제목에 이미 말머리가 있으므로 그대로 사용
+        message: `${docData.title} 결재 요청이 도착했습니다.`,
         link: `/main/my-approval/pending`,
         isRead: false,
         createdAt: Date.now(),
