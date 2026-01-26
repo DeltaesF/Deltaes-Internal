@@ -210,7 +210,7 @@ export default function Sidebar() {
                       "/main/workoutside/approvals/vehicle"
                     )}
                   >
-                    - 외근/법인차량 품의서
+                    - 외근/출장 신청서
                   </Link>
                 </div>
               )}
