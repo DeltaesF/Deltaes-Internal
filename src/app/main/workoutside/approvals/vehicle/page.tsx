@@ -13,6 +13,9 @@ interface ReportItem {
   department: string;
   status: string;
   createdAt: number;
+  approvalType: string;
+  workType?: string;
+  docCategory?: string; // 추가됨
 }
 
 interface ApiResponse {
@@ -27,7 +30,8 @@ const fetchReports = async (page: number, limit: number) => {
     body: JSON.stringify({
       page,
       limit,
-      approvalType: "vehicle",
+      // ✅ [핵심 수정] 통합 타입('integrated_outside')을 포함하여 조회
+      approvalType: ["integrated_outside", "vehicle", "business_trip"],
     }),
   });
   if (!res.ok) throw new Error("Failed to fetch reports");
@@ -39,12 +43,12 @@ function VehicleReportContent() {
   const searchParams = useSearchParams();
 
   const currentPage = Number(searchParams.get("page")) || 1;
-  const ITEMS_PER_PAGE = 12; // ✅ 읽기 비용 최적화
+  const ITEMS_PER_PAGE = 12;
 
   const { data, isLoading } = useQuery<ApiResponse>({
-    queryKey: ["approvals", "vehicle", currentPage],
+    queryKey: ["approvals", "vehicle_integrated", currentPage], // 쿼리 키 변경
     queryFn: () => fetchReports(currentPage, ITEMS_PER_PAGE),
-    placeholderData: (prev) => prev, // ✅ 로딩 중 이전 데이터 유지
+    placeholderData: (prev) => prev,
   });
 
   const list = data?.list || [];
@@ -60,6 +64,27 @@ function VehicleReportContent() {
     if (currentPage < totalPages) router.push(`?page=${currentPage + 1}`);
   };
 
+  // ✅ [핵심] workType에 따른 배지 표시 로직
+  const getBadge = (item: ReportItem) => {
+    // 1. 구버전 데이터 호환
+    if (item.approvalType === "vehicle")
+      return <span className="text-[#519d9e] font-bold">[외근/차량]</span>;
+    if (item.approvalType === "business_trip")
+      return <span className="text-purple-600 font-bold">[출장보고서]</span>;
+
+    // 2. 신규 통합 데이터 (workType 4가지 경우)
+    switch (item.workType) {
+      case "outside":
+        return <span className="text-[#519d9e] font-bold">[외근]</span>;
+      case "trip":
+        return <span className="text-[#519d9e] font-bold">[출장]</span>;
+      case "outside_report":
+        return <span className="text-purple-600 font-bold">[외근보고]</span>;
+      case "trip_report":
+        return <span className="text-purple-600 font-bold">[출장보고]</span>;
+    }
+  };
+
   if (isLoading && !data)
     return <div className="p-10 text-center">로딩 중...</div>;
 
@@ -68,14 +93,24 @@ function VehicleReportContent() {
       <div className="bg-white border rounded-2xl shadow-sm p-6">
         <div className="flex justify-between items-center mb-2">
           <h2 className="text-2xl font-bold text-gray-800">
-            외근 / 법인 차량이용 품의서
+            외근 / 출장 통합 관리
           </h2>
-          <Link
-            href="/main/workoutside/approvals/vehicle/write"
-            className="px-4 py-2 bg-[#519d9e] text-white rounded-lg hover:bg-[#407f80] transition-colors font-bold text-sm"
-          >
-            품의서 작성 ✎
-          </Link>
+          <div className="flex gap-2">
+            {/* 신청서 작성 버튼 */}
+            <Link
+              href="/main/workoutside/approvals/vehicle/write"
+              className="px-4 py-2 bg-[#519d9e] text-white rounded-lg hover:bg-[#407f80] font-bold text-sm shadow-sm"
+            >
+              신청서 작성 ✎
+            </Link>
+            {/* 보고서 작성 버튼 */}
+            <Link
+              href="/main/workoutside/approvals/vehicle/write-report"
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold text-sm shadow-sm"
+            >
+              결과보고 작성 🚩
+            </Link>
+          </div>
         </div>
 
         {/* 리스트 테이블 */}
@@ -92,7 +127,7 @@ function VehicleReportContent() {
               {list.length === 0 ? (
                 <tr>
                   <td colSpan={3} className="py-10 text-center text-gray-400">
-                    등록된 품의서가 없습니다.
+                    등록된 문서가 없습니다.
                   </td>
                 </tr>
               ) : (
@@ -107,6 +142,7 @@ function VehicleReportContent() {
                         href={`/main/workoutside/approvals/${item.id}`}
                         className="block w-full"
                       >
+                        {getBadge(item)}
                         <span className="text-gray-800 hover:text-[#519d9e] font-medium transition-colors">
                           {item.title}
                         </span>
@@ -125,7 +161,7 @@ function VehicleReportContent() {
           </table>
         </div>
 
-        {/* ✅ 페이지네이션 버튼 */}
+        {/* 페이지네이션 버튼 */}
         <div className="flex justify-center items-center gap-4 mt-6 py-2 border-t border-gray-100">
           <button
             onClick={handlePrevPage}

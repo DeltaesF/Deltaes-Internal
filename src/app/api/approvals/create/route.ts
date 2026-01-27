@@ -15,8 +15,21 @@ if (!getApps().length) {
 const db = getFirestore();
 
 // ----------------------------------------------------------------
-// [1] 데이터 타입 정의
+// [Type Definitions]
 // ----------------------------------------------------------------
+
+interface TransportCosts {
+  bus: number;
+  subway: number;
+  taxi: number;
+  other: number;
+}
+interface ExpenseItem {
+  date: string;
+  detail: string;
+}
+
+// 기존 구매/판매용 (유지)
 interface PriceDetails {
   orig: string;
   mod: string;
@@ -51,35 +64,40 @@ interface CostData {
   total: { val: string; desc: string };
 }
 
-interface ApprovalData {
-  approvalType: string;
+interface CreateRequestBody {
+  userName: string;
   title: string;
   content: string;
-  userName: string;
-  department: string;
-  approvers: {
-    first?: string[];
-    second?: string[];
-    third?: string[];
-    shared?: string[];
-  };
-  status: string;
-  createdAt: FieldValue;
+  approvalType?: string;
   attachments?: { name: string; url: string }[];
 
-  // 차량/외근용
-  contact?: string;
-  isExternalWork?: boolean;
-  isVehicleUse?: boolean;
-  isPersonalVehicle?: boolean;
+  // 외근/출장 통합 필드
+  workType?: "outside" | "trip";
+  transportType?: "company_car" | "personal_car" | "public" | "other";
   implementDate?: string;
-  vehicleModel?: string;
-  usagePeriod?: string;
-  purpose?: string;
 
-  // 구매/판매용
-  serialNumber?: string;
+  // 방문고객 상세정보 (New Fields)
   customerName?: string;
+  customerDept?: string;
+  customerEmail?: string;
+  customerContact?: string; // 이름(담당자)
+
+  // 기간 (New: usageDate for outside)
+  usageDate?: string | null;
+  tripPeriod?: string | null;
+
+  // 조건부 (null 허용)
+  vehicleModel?: string | null;
+  usagePeriod?: string | null; // deprecated
+  transportCosts?: TransportCosts | null;
+
+  // 출장용 (null 허용)
+  tripDestination?: string | null;
+  tripCompanions?: string | null;
+  tripExpenses?: ExpenseItem[];
+
+  // 구매/판매용 (호환성 유지)
+  serialNumber?: string;
   product?: string;
   endUser?: string;
   customerInfo?: string;
@@ -101,48 +119,29 @@ interface ApprovalData {
   costData?: CostData;
 }
 
+// Partial을 사용하여 선택적 필드로 구성하되, null 타입도 허용하도록 정의
+interface ApprovalDocData extends Partial<CreateRequestBody> {
+  department: string;
+  approvers: {
+    first: string[];
+    second: string[];
+    third: string[];
+    shared: string[];
+  };
+  status: string;
+  createdAt: FieldValue;
+  resultReport?: string;
+}
+
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const body: CreateRequestBody = await req.json();
     const {
       userName,
       title,
       content,
       approvalType = "purchase",
       attachments,
-
-      // 차량용 필드
-      contact,
-      isExternalWork,
-      isVehicleUse,
-      isPersonalVehicle,
-      implementDate,
-      vehicleModel,
-      usagePeriod,
-      purpose,
-
-      // 구매용 필드
-      serialNumber,
-      customerName,
-      product,
-      endUser,
-      customerInfo,
-      contractDate,
-      introductionType,
-      introductionMemo,
-      deliveryDate,
-      paymentPending,
-      paymentPendingAmount,
-      billingDate,
-      cashCollection,
-      cashCollectionDays,
-      collectionDate,
-      noteCollection,
-      noteCollectionDays,
-      noteMaturityDate,
-      specialNotes,
-      priceData,
-      costData,
     } = body;
 
     if (!userName) {
@@ -158,19 +157,12 @@ export async function POST(req: Request) {
       .where("userName", "==", userName)
       .get();
 
-    // ✅ [수정] 타입을 명시하여 never[] 추론 오류 방지
-    let approvalLine: {
-      first: string[];
-      second: string[];
-      third: string[];
-      shared: string[];
-    } = {
-      first: [],
-      second: [],
-      third: [],
-      shared: [],
+    let approvalLine = {
+      first: [] as string[],
+      second: [] as string[],
+      third: [] as string[],
+      shared: [] as string[],
     };
-
     let department = "";
 
     if (!employeeQuery.empty) {
@@ -180,68 +172,72 @@ export async function POST(req: Request) {
     }
 
     // 2. 기본 데이터 구성
-    const docData: ApprovalData = {
+    const docData: ApprovalDocData = {
       approvalType,
-      title:
-        title ||
-        (approvalType === "vehicle"
-          ? `[차량신청] ${userName}`
-          : `[품의서] ${customerName}_${product}`),
-      content: content || "내용 없음",
+      title: title || `[결재] ${userName}`,
+      content: content || "",
       userName,
       department,
       approvers: approvalLine,
       status: "1차 결재 대기",
       createdAt: FieldValue.serverTimestamp(),
+      attachments: attachments || [],
+      resultReport: "",
     };
 
     // 3. 타입별 데이터 병합
-    if (approvalType === "purchase" || approvalType === "sales") {
+    if (approvalType === "integrated_outside") {
+      // 통합 외근/출장 데이터 저장
+      docData.workType = body.workType;
+      docData.transportType = body.transportType;
+      docData.implementDate = body.implementDate;
+
+      // 상세정보
+      docData.customerName = body.customerName;
+      docData.customerDept = body.customerDept;
+      docData.customerEmail = body.customerEmail;
+      docData.customerContact = body.customerContact;
+
+      // 기간 저장
+      docData.usageDate = body.usageDate ?? null;
+      docData.tripPeriod = body.tripPeriod ?? null;
+
+      // ✅ [핵심 수정] undefined가 되지 않도록 ?? null 사용
+      docData.vehicleModel = body.vehicleModel ?? null;
+      docData.transportCosts = body.transportCosts ?? null;
+
+      docData.tripDestination = body.tripDestination ?? null;
+      docData.tripCompanions = body.tripCompanions ?? null;
+      docData.tripExpenses = body.tripExpenses || [];
+    } else if (approvalType === "purchase" || approvalType === "sales") {
+      // 구매/판매 데이터 저장
       Object.assign(docData, {
-        attachments: attachments || [],
-        serialNumber,
-        customerName,
-        product,
-        endUser,
-        customerInfo,
-        contractDate,
-        introductionType,
-        introductionMemo,
-        deliveryDate,
-        paymentPending,
-        paymentPendingAmount,
-        billingDate,
-        cashCollection,
-        cashCollectionDays,
-        collectionDate,
-        noteCollection,
-        noteCollectionDays,
-        noteMaturityDate,
-        specialNotes,
-        priceData,
-        costData,
+        serialNumber: body.serialNumber,
+        customerName: body.customerName,
+        product: body.product,
+        endUser: body.endUser,
+        customerInfo: body.customerInfo,
+        contractDate: body.contractDate,
+        introductionType: body.introductionType,
+        introductionMemo: body.introductionMemo,
+        deliveryDate: body.deliveryDate,
+        paymentPending: body.paymentPending,
+        paymentPendingAmount: body.paymentPendingAmount,
+        billingDate: body.billingDate,
+        cashCollection: body.cashCollection,
+        cashCollectionDays: body.cashCollectionDays,
+        collectionDate: body.collectionDate,
+        noteCollection: body.noteCollection,
+        noteCollectionDays: body.noteCollectionDays,
+        noteMaturityDate: body.noteMaturityDate,
+        specialNotes: body.specialNotes,
+        priceData: body.priceData,
+        costData: body.costData,
       });
       if (!title)
         docData.title = `[${
           approvalType === "purchase" ? "구매" : "판매"
-        }품의] ${customerName}_${product}`;
-    } // ✅ [통합] 차량신청서(vehicle) 또는 출장보고서(business_trip)
-    else if (approvalType === "vehicle" || approvalType === "business_trip") {
-      Object.assign(docData, {
-        contact: contact || null,
-        isExternalWork: isExternalWork || false,
-        isVehicleUse: isVehicleUse || false,
-        isPersonalVehicle: isPersonalVehicle || false,
-        implementDate: implementDate || null,
-        vehicleModel: vehicleModel || null,
-        usagePeriod: usagePeriod || null,
-        purpose: purpose || null,
-      });
-      // 제목은 프론트엔드에서 이미 말머리를 붙여서 보냄 (fallback만 처리)
-      if (!title)
-        docData.title = `[${
-          approvalType === "vehicle" ? "차량" : "출장"
-        }] ${userName}`;
+        }품의] ${body.customerName}_${body.product}`;
     }
 
     // 4. DB 저장
@@ -250,15 +246,15 @@ export async function POST(req: Request) {
       .doc(userName)
       .collection("userApprovals")
       .doc();
-    await docRef.set(docData);
 
-    // ----------------------------------------------------------------
-    // 5. ✅ 알림 발송 (타입 오류 수정됨)
-    // ----------------------------------------------------------------
+    // JSON.parse(JSON.stringify()) 트릭을 사용하여 혹시 모를 undefined 제거 (안전장치)
+    const cleanDocData = JSON.parse(JSON.stringify(docData));
+    await docRef.set(cleanDocData);
+
+    // 5. 알림 발송
     const batch = db.batch();
+    const firstApprovers = approvalLine.first || [];
 
-    // (A) 1차 결재자 (지금 결재해야 할 사람)
-    const firstApprovers: string[] = approvalLine.first || [];
     firstApprovers.forEach((approver) => {
       const notiRef = db
         .collection("notifications")
@@ -269,7 +265,6 @@ export async function POST(req: Request) {
         targetUserName: approver,
         fromUserName: userName,
         type: "approval",
-        // ✅ 제목에 이미 말머리가 있으므로 그대로 사용
         message: `${docData.title} 결재 요청이 도착했습니다.`,
         link: `/main/my-approval/pending`,
         isRead: false,
@@ -278,21 +273,17 @@ export async function POST(req: Request) {
       });
     });
 
-    // (B) 참조자 목록 (2차, 3차, 공유자 전체)
-    // 이제 approvalLine이 명시적 타입을 가지므로 futureApprovers는 string[]으로 추론됨
     const futureApprovers = [
       ...(approvalLine.second || []),
       ...(approvalLine.third || []),
     ];
     const sharedUsers = approvalLine.shared || [];
-
     const allReferenceUsers = [
       ...new Set([...futureApprovers, ...sharedUsers]),
     ];
 
-    allReferenceUsers.forEach((targetName: string) => {
+    allReferenceUsers.forEach((targetName) => {
       if (firstApprovers.includes(targetName)) return;
-
       const notiRef = db
         .collection("notifications")
         .doc(targetName)
@@ -300,20 +291,17 @@ export async function POST(req: Request) {
         .doc();
 
       let message = "";
-
       if (futureApprovers.includes(targetName)) {
-        // 1. 미래의 결재자인 경우 -> "예정" 알림
-        message = `[공유/예정] ${docData.title}_${userName} 결재 요청이 도착했습니다.`;
+        message = `[공유/예정] ${docData.title} 결재 요청이 도착했습니다.`;
       } else {
-        // 2. 단순 공유자 -> "공유" 알림
-        message = `[공유] ${docData.title}_${userName}`;
+        message = `[공유] ${docData.title}`;
       }
 
       batch.set(notiRef, {
         targetUserName: targetName,
         fromUserName: userName,
         type: "approval",
-        message: message,
+        message,
         link: `/main/workoutside/approvals/${docRef.id}`,
         isRead: false,
         createdAt: Date.now(),
@@ -322,10 +310,9 @@ export async function POST(req: Request) {
     });
 
     await batch.commit();
-
     return NextResponse.json({ success: true, id: docRef.id });
   } catch (error) {
-    console.error(error);
+    console.error("API Error:", error);
     const msg = error instanceof Error ? error.message : "Server error";
     return NextResponse.json({ error: msg }, { status: 500 });
   }

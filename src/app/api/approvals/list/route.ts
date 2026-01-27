@@ -1,5 +1,3 @@
-// src/app/api/approvals/list/route.ts
-
 import { NextResponse } from "next/server";
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore, Query } from "firebase-admin/firestore";
@@ -25,9 +23,16 @@ export async function POST(req: Request) {
 
     let query: Query = db.collectionGroup("userApprovals");
 
-    // ✅ 필터링 조건도 approvalType 하나만 사용
+    // ✅ approvalType이 배열인지 문자열인지 확인하여 쿼리 분기
     if (approvalType) {
-      query = query.where("approvalType", "==", approvalType);
+      if (Array.isArray(approvalType) && approvalType.length > 0) {
+        // 배열인 경우 'in' 연산자 사용 (예: ["integrated_outside", "vehicle"])
+        // 주의: Firestore 'in' 쿼리는 최대 10개 요소까지만 가능
+        query = query.where("approvalType", "in", approvalType);
+      } else if (typeof approvalType === "string") {
+        // 문자열인 경우 기존대로 '==' 연산자 사용
+        query = query.where("approvalType", "==", approvalType);
+      }
     }
 
     // (이하 로직 동일)
@@ -48,6 +53,8 @@ export async function POST(req: Request) {
         department: d.department,
         status: d.status,
         approvalType: d.approvalType,
+        workType: d.workType || null,
+        docCategory: d.docCategory || null,
         createdAt:
           d.createdAt && typeof d.createdAt.toMillis === "function"
             ? d.createdAt.toMillis()

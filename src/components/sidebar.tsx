@@ -345,12 +345,6 @@ export default function Sidebar() {
                   >
                     - 외부교육보고서
                   </Link>
-                  <Link
-                    href="/main/report/business"
-                    className={getLinkClass("/main/report/business")}
-                  >
-                    - 출장보고서
-                  </Link>
                 </div>
               )}
             </div>
