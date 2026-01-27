@@ -15,7 +15,8 @@ interface ReportItem {
   createdAt: number;
   approvalType: string;
   workType?: string;
-  docCategory?: string; // 추가됨
+  docCategory?: string;
+  implementDate?: string;
 }
 
 interface ApiResponse {
@@ -143,7 +144,7 @@ function VehicleReportContent() {
                         className="block w-full"
                       >
                         {getBadge(item)}
-                        <span className="text-gray-800 hover:text-[#519d9e] font-medium transition-colors">
+                        <span className="text-gray-800 hover:text-[#519d9e] font-medium transition-colors ml-1">
                           {item.title}
                         </span>
                       </Link>
@@ -151,8 +152,14 @@ function VehicleReportContent() {
                     <td className="py-3 px-4 text-center text-sm text-gray-600">
                       {item.userName}
                     </td>
-                    <td className="py-3 px-4 text-center text-sm text-gray-500">
-                      {new Date(item.createdAt).toLocaleDateString()}
+                    {/* ✅ [수정된 부분] 날짜 표시 로직 */}
+                    <td className="py-3 px-4 text-center text-gray-500">
+                      {
+                        item.approvalType === "integrated_outside" &&
+                        item.implementDate
+                          ? new Date(item.implementDate).toLocaleDateString() // 외근/출장 건은 implementDate 표시
+                          : new Date(item.createdAt).toLocaleDateString() // 그 외는 작성일 표시
+                      }
                     </td>
                   </tr>
                 ))

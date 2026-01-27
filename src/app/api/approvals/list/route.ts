@@ -55,6 +55,8 @@ export async function POST(req: Request) {
         approvalType: d.approvalType,
         workType: d.workType || null,
         docCategory: d.docCategory || null,
+        // ✅ [추가] 리스트에 날짜 표시를 위해 implementDate 추가
+        implementDate: d.implementDate || null,
         createdAt:
           d.createdAt && typeof d.createdAt.toMillis === "function"
             ? d.createdAt.toMillis()

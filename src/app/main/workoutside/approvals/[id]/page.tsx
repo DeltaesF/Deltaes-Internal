@@ -10,6 +10,17 @@ import { useState } from "react";
 // ----------------------------------------------------------------
 // [1] 타입 정의 (Strict Typing)
 // ----------------------------------------------------------------
+interface ExpenseItem {
+  date: string;
+  detail: string;
+}
+
+interface TransportCosts {
+  bus: number;
+  subway: number;
+  taxi: number;
+  other: number;
+}
 
 // 구매 품의서용 상세 데이터 타입
 interface PriceDetails {
@@ -62,6 +73,31 @@ interface ApprovalDetail {
     third?: string[];
     shared?: string[];
   };
+
+  // ✅ [추가 2] 통합 외근/출장용 필드 추가
+  workType?: "outside" | "trip" | "outside_report" | "trip_report";
+  docCategory?: "application" | "report"; // 신청서인지 보고서인지 구분
+  transportType?: "company_car" | "personal_car" | "public" | "other";
+
+  // 상세 정보
+  customerDept?: string;
+  customerEmail?: string;
+  customerContact?: string; // 고객 담당자 이름
+
+  // 기간
+  usageDate?: string; // 외근 일시
+  tripPeriod?: string; // 출장 기간
+
+  // 출장 전용
+  tripDestination?: string;
+  tripCompanions?: string;
+  tripExpenses?: ExpenseItem[];
+
+  // 비용/차량
+  transportCosts?: TransportCosts;
+
+  // 결과보고서 (신청서에 나중에 추가된 결과 내용)
+  resultReport?: string;
 
   // 🚗 차량/외근용 필드
   contact?: string;
@@ -174,23 +210,47 @@ export default function ApprovalDetailPage() {
   let listPath = "";
   let editPath = "";
 
-  switch (approvalType) {
-    case "vehicle":
-      pageTitle = "외근 및 법인차량 이용 신청서";
-      listPath = "/main/workoutside/approvals/vehicle";
-      editPath = `/main/workoutside/approvals/vehicle/edit/${id}`;
-      break;
-    case "sales":
-      pageTitle = "판매 품의서";
-      listPath = "/main/workoutside/approvals/sales";
-      editPath = `/main/workoutside/approvals/sales/edit/${id}`;
-      break;
-    case "purchase":
-    default:
-      pageTitle = "구매 품의서";
-      listPath = "/main/workoutside/approvals/purchase";
-      editPath = `/main/workoutside/approvals/purchase/edit/${id}`;
-      break;
+  if (approvalType === "integrated_outside") {
+    // 🆕 신규 통합 문서 (외근/출장/보고서)
+    listPath = "/main/workoutside/approvals/vehicle";
+    editPath = `/main/workoutside/approvals/vehicle/edit/${id}`;
+
+    switch (approval.workType) {
+      case "outside":
+        pageTitle = "외근 신청서";
+        break;
+      case "trip":
+        pageTitle = "출장 신청서";
+        break;
+      case "outside_report":
+        pageTitle = "외근 결과 보고서";
+        break;
+      case "trip_report":
+        pageTitle = "출장 결과 보고서";
+        break;
+      default:
+        pageTitle = "외근/출장 문서";
+    }
+  } else {
+    // 📦 기존 문서 (차량, 판매, 구매)
+    switch (approvalType) {
+      case "vehicle":
+        pageTitle = "외근 및 법인차량 이용 신청서";
+        listPath = "/main/workoutside/approvals/vehicle";
+        editPath = `/main/workoutside/approvals/vehicle/edit/${id}`;
+        break;
+      case "sales":
+        pageTitle = "판매 품의서";
+        listPath = "/main/workoutside/approvals/sales";
+        editPath = `/main/workoutside/approvals/sales/edit/${id}`;
+        break;
+      case "purchase":
+      default:
+        pageTitle = "구매 품의서";
+        listPath = "/main/workoutside/approvals/purchase";
+        editPath = `/main/workoutside/approvals/purchase/edit/${id}`;
+        break;
+    }
   }
 
   // ----------------------------------------------------------------
@@ -459,6 +519,163 @@ export default function ApprovalDetailPage() {
     </div>
   );
 
+  // ----------------------------------------------------------------
+  // ✅ [추가 3] 통합 외근/출장 렌더링 헬퍼 함수
+  // ----------------------------------------------------------------
+  const renderIntegratedView = () => {
+    // 보고서 여부 및 출장 여부 확인
+    const isReport = approval.workType?.includes("report");
+    const isTrip = approval.workType?.includes("trip");
+
+    return (
+      <>
+        <table className="w-full border-collapse border border-gray-300 mb-8 text-sm">
+          <tbody>
+            {/* 1. 구분 및 이동방법 */}
+            <tr>
+              <th className="bg-gray-100 border p-3 w-32">구분</th>
+              <td className="border p-3 font-bold text-[#519d9e]">
+                {approval.workType === "outside" && "[외근]"}
+                {approval.workType === "trip" && "[출장]"}
+                {approval.workType === "outside_report" && (
+                  <span className="text-purple-600">[외근보고]</span>
+                )}
+                {approval.workType === "trip_report" && (
+                  <span className="text-purple-600">[출장보고]</span>
+                )}
+              </td>
+              <th className="bg-gray-100 border p-3 w-32">이동방법</th>
+              <td className="border p-3">
+                {approval.transportType === "company_car" && "법인차량"}
+                {approval.transportType === "personal_car" && "자차"}
+                {approval.transportType === "public" && "대중교통"}
+                {approval.transportType === "other" && "기타"}
+              </td>
+            </tr>
+
+            {/* 2. 일시/기간 */}
+            <tr>
+              <th className="bg-gray-100 border p-3">
+                {isTrip ? "출장 기간" : "방문 일시"}
+              </th>
+              <td className="border p-3" colSpan={3}>
+                {isTrip ? approval.tripPeriod : approval.usageDate}
+              </td>
+            </tr>
+
+            {/* 3. 고객 정보 (통합) */}
+            <tr>
+              <th className="bg-gray-100 border p-3" rowSpan={2}>
+                고객 정보
+              </th>
+              <td className="border p-3" colSpan={3}>
+                <span className="mr-4">
+                  <b>고객사:</b> {approval.customerName}
+                </span>
+                <span>
+                  <b>부서:</b> {approval.customerDept || "-"}
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td className="border p-3" colSpan={3}>
+                <span className="mr-4">
+                  <b>담당자:</b> {approval.customerContact}
+                </span>
+                <span>
+                  <b>이메일:</b> {approval.customerEmail || "-"}
+                </span>
+              </td>
+            </tr>
+
+            {/* 4. 출장 상세 (출장일 경우만) */}
+            {isTrip && (
+              <tr>
+                <th className="bg-gray-100 border p-3">출장 상세</th>
+                <td className="border p-3" colSpan={3}>
+                  <span className="mr-4">
+                    <b>출장지:</b> {approval.tripDestination}
+                  </span>
+                  <span>
+                    <b>동행자:</b> {approval.tripCompanions || "-"}
+                  </span>
+                </td>
+              </tr>
+            )}
+
+            {/* 5. 차량 또는 교통비 정보 */}
+            {(approval.transportType === "company_car" ||
+              approval.transportType === "personal_car") && (
+              <tr>
+                <th className="bg-gray-100 border p-3">차량 정보</th>
+                <td className="border p-3" colSpan={3}>
+                  {approval.vehicleModel || "-"}
+                </td>
+              </tr>
+            )}
+            {approval.transportType === "public" && approval.transportCosts && (
+              <tr>
+                <th className="bg-gray-100 border p-3">교통비(예상/실비)</th>
+                <td className="border p-3" colSpan={3}>
+                  버스: {approval.transportCosts.bus.toLocaleString()}원 /
+                  지하철: {approval.transportCosts.subway.toLocaleString()}원 /
+                  택시: {approval.transportCosts.taxi.toLocaleString()}원 /
+                  기타: {approval.transportCosts.other.toLocaleString()}원
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        {/* 6. 출장 경비 목록 (출장일 경우만) */}
+        {isTrip &&
+          approval.tripExpenses &&
+          approval.tripExpenses.length > 0 && (
+            <div className="mb-8">
+              <h4 className="font-bold text-gray-700 mb-2 text-sm">
+                💰 경비 내역
+              </h4>
+              <table className="w-full border-collapse border border-gray-300 text-sm text-center">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="border p-2 w-32">일자</th>
+                    <th className="border p-2">내역 및 금액</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {approval.tripExpenses.map((exp, idx) => (
+                    <tr key={idx}>
+                      <td className="border p-2">{exp.date}</td>
+                      <td className="border p-2 text-left px-4">
+                        {exp.detail}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+        {/* 7. 내용 (신청 내용 or 결과 내용) */}
+        <div className="mb-8">
+          <h3
+            className={`text-lg font-bold mb-2 border-l-4 pl-2 ${
+              isReport
+                ? "border-purple-600 text-purple-800"
+                : "border-[#519d9e] text-[#519d9e]"
+            }`}
+          >
+            {isReport ? "업무 협의 내용" : "업무 협의 내용"}
+          </h3>
+          <div
+            className="prose-editor min-h-[100px] p-4 bg-gray-50 rounded-lg border"
+            dangerouslySetInnerHTML={{ __html: approval.content }}
+          />
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className="p-8 border rounded-xl bg-white shadow-sm w-5xl mx-auto mt-6 mb-20">
       {/* 1. 헤더 */}
@@ -484,12 +701,41 @@ export default function ApprovalDetailPage() {
 
       <div className="mb-6">
         <h3 className="text-xl font-semibold text-gray-700 mb-2">
+          {/* 통합 외근/출장 문서일 경우에만 배지 표시 */}
+          {approval.approvalType === "integrated_outside" && (
+            <span
+              className={`mr-2 font-bold ${
+                // 보고서 타입(_report)이면 보라색, 아니면 청록색
+                approval.workType === "outside_report" ||
+                approval.workType === "trip_report"
+                  ? "text-purple-600"
+                  : "text-[#519d9e]"
+              }`}
+            >
+              {/* 4가지 workType에 따라 정확한 말머리 표시 */}
+              {approval.workType === "outside" && "[외근]"}
+              {approval.workType === "trip" && "[출장]"}
+              {approval.workType === "outside_report" && "[외근보고]"}
+              {approval.workType === "trip_report" && "[출장보고]"}
+            </span>
+          )}
           {approval.title}
         </h3>
+        <p className="text-sm text-gray-500">
+          {/* ✅ [수정] 날짜 표시 로직 (통합 문서는 implementDate, 그 외는 작성일) */}
+          {approval.approvalType === "integrated_outside" &&
+          approval.implementDate
+            ? `날짜: ${new Date(approval.implementDate).toLocaleDateString()}`
+            : `작성일: ${new Date(approval.createdAt).toLocaleDateString()}`}
+          {" | 작성자: "}
+          {approval.userName}
+        </p>
       </div>
 
       {/* 2. 상세 정보 렌더링 (타입 분기) */}
-      {approvalType === "vehicle" ? (
+      {approval.approvalType === "integrated_outside" ? (
+        renderIntegratedView()
+      ) : approvalType === "vehicle" ? (
         // 🚗 차량 신청서 뷰
         <>
           <table className="w-full border-collapse border border-gray-300 mb-8 text-sm">

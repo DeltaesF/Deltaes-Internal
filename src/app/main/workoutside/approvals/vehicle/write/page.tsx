@@ -661,7 +661,7 @@ export default function IntegratedWritePage() {
         {/* 6. 상세 에디터 */}
         <div className="mt-4">
           <label className="block font-bold mb-2 text-gray-700">
-            외근 사유 (계획 등)
+            외근/출장 사유 (계획 등)
           </label>
           <Editor content={content} onChange={setContent} />
         </div>
