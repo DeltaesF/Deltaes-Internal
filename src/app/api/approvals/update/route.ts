@@ -19,6 +19,18 @@ const db = getFirestore();
 // [1] 데이터 타입 정의 (Create와 구조 통일)
 // ----------------------------------------------------------------
 
+// 신규 타입 정의
+interface TransportCosts {
+  bus: number;
+  subway: number;
+  taxi: number;
+  other: number;
+}
+interface ExpenseItem {
+  date: string;
+  detail: string;
+}
+
 // 금액/비용 정보 (구매 품의서용)
 interface PriceDetails {
   orig: string;
@@ -60,6 +72,22 @@ interface UpdatePayload {
   title?: string;
   content?: string;
   updatedAt: FieldValue;
+
+  // ✅ [추가] 통합 외근/출장용 필드
+  workType?: string;
+  transportType?: string;
+
+  customerDept?: string;
+  customerEmail?: string;
+  customerContact?: string; // 담당자 이름
+
+  usageDate?: string | null;
+  tripPeriod?: string | null;
+
+  tripDestination?: string | null;
+  tripCompanions?: string | null;
+  tripExpenses?: ExpenseItem[];
+  transportCosts?: TransportCosts | null;
 
   // 🚗 차량/외근용
   contact?: string | null;
@@ -119,6 +147,19 @@ export async function POST(req: Request) {
       title,
       content,
       attachments,
+
+      // ✅ [추가] 통합 외근/출장 필드
+      workType,
+      transportType,
+      customerDept,
+      customerEmail,
+      customerContact,
+      usageDate,
+      tripPeriod,
+      tripDestination,
+      tripCompanions,
+      tripExpenses,
+      transportCosts,
 
       // 🚗 차량용 필드
       contact,
@@ -183,10 +224,35 @@ export async function POST(req: Request) {
     // 공통 필드 업데이트
     if (title) updateData.title = title;
     if (content) updateData.content = content;
+    if (attachments) updateData.attachments = attachments;
 
     // ✅ 타입별 분기 처리
-    if (approvalType === "purchase" || approvalType === "sales") {
-      // 🛒 구매/판매 품의서 필드 업데이트
+    if (approvalType === "integrated_outside") {
+      // [신규] 통합 외근/출장 업데이트
+      Object.assign(updateData, {
+        workType,
+        transportType,
+        implementDate,
+
+        // 고객 정보
+        customerName,
+        customerDept,
+        customerEmail,
+        customerContact,
+
+        // 기간 (null 처리 주의)
+        usageDate: usageDate ?? null,
+        tripPeriod: tripPeriod ?? null,
+
+        // 상세 정보
+        vehicleModel: vehicleModel ?? null,
+        transportCosts: transportCosts ?? null,
+        tripDestination: tripDestination ?? null,
+        tripCompanions: tripCompanions ?? null,
+        tripExpenses: tripExpenses ?? [],
+      });
+    } else if (approvalType === "purchase" || approvalType === "sales") {
+      // [기존] 구매/판매 품의서 업데이트
       Object.assign(updateData, {
         serialNumber,
         customerName,
@@ -209,7 +275,6 @@ export async function POST(req: Request) {
         specialNotes,
         priceData,
         costData,
-        attachments, // 첨부파일 업데이트
       });
 
       // 제목 자동 업데이트 (옵션)
