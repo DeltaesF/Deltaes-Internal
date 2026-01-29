@@ -176,6 +176,7 @@ export default function ResultReportWritePage() {
       approvalType: "integrated_outside",
       title: `${form.title}`,
       content,
+      createdAt: Date.now(),
 
       workType: finalWorkType, // 전에 uiWorkType으로 되어 있어 인식이 안되는 상황
       transportType,

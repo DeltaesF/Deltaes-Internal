@@ -70,6 +70,7 @@ interface CreateRequestBody {
   content: string;
   approvalType?: string;
   attachments?: { name: string; url: string }[];
+  createdAt?: number | FieldValue;
 
   // 외근/출장 통합 필드
   workType?: "outside" | "trip";
@@ -129,7 +130,7 @@ interface ApprovalDocData extends Partial<CreateRequestBody> {
     shared: string[];
   };
   status: string;
-  createdAt: FieldValue;
+  createdAt: number | FieldValue;
   resultReport?: string;
 }
 
@@ -142,6 +143,7 @@ export async function POST(req: Request) {
       content,
       approvalType = "purchase",
       attachments,
+      createdAt,
     } = body;
 
     if (!userName) {
@@ -180,7 +182,7 @@ export async function POST(req: Request) {
       department,
       approvers: approvalLine,
       status: "1차 결재 대기",
-      createdAt: FieldValue.serverTimestamp(),
+      createdAt: createdAt || FieldValue.serverTimestamp(),
       attachments: attachments || [],
       resultReport: "",
     };

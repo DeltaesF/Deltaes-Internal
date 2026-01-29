@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { initializeApp, cert, getApps } from "firebase-admin/app";
-import { getFirestore, Query } from "firebase-admin/firestore";
+import {
+  getFirestore,
+  Timestamp,
+  Query,
+  DocumentData,
+} from "firebase-admin/firestore";
 
 if (!getApps().length) {
   initializeApp({
@@ -14,53 +19,125 @@ if (!getApps().length) {
 
 const db = getFirestore();
 
+// ✅ Timestamp 변환 헬퍼 (any 방지)
+const toMillis = (val: unknown): number => {
+  if (val instanceof Timestamp) return val.toMillis();
+  if (typeof val === "number") return val;
+  if (val && typeof val === "object" && "toMillis" in val) {
+    return (val as Timestamp).toMillis();
+  }
+  return Date.now();
+};
+
 export async function POST(req: Request) {
   try {
     const { page = 1, limit = 12, approvalType } = await req.json();
 
-    let query: Query = db.collectionGroup("userApprovals");
+    // ----------------------------------------------------------------
+    // [1] userApprovals 쿼리 (품의서/신청서)
+    // ----------------------------------------------------------------
+    let approvalsQuery: Query<DocumentData> =
+      db.collectionGroup("userApprovals");
 
-    // 1. 카테고리 필터링
     if (approvalType) {
       if (Array.isArray(approvalType)) {
-        // 배열인 경우 (통합 리스트 등)
-        query = query.where("approvalType", "in", approvalType);
+        approvalsQuery = approvalsQuery.where(
+          "approvalType",
+          "in",
+          approvalType
+        );
       } else {
-        // 단일 문자열인 경우
-        query = query.where("approvalType", "==", approvalType);
+        approvalsQuery = approvalsQuery.where(
+          "approvalType",
+          "==",
+          approvalType
+        );
       }
     }
 
-    // 2. ✅ [핵심] 최신순 정렬 추가
-    // 주의: Firestore에서 where('in')과 orderBy를 같이 쓰려면 복합 색인(Index)이 필요할 수 있습니다.
-    // 에러 발생 시 콘솔에 뜨는 링크를 클릭하여 색인을 생성해주세요.
-    query = query.orderBy("createdAt", "desc");
+    // ----------------------------------------------------------------
+    // [2] userReports 쿼리 (출장 보고서 등)
+    // ----------------------------------------------------------------
+    let fetchReports = false;
 
-    // 3. 전체 개수 조회
-    const countSnapshot = await query.count().get();
-    const totalCount = countSnapshot.data().count;
+    // approvalType 필터가 없거나(전체), 'business_trip'이 포함된 경우 보고서도 조회
+    if (!approvalType) {
+      fetchReports = true;
+    } else if (
+      Array.isArray(approvalType) &&
+      approvalType.includes("business_trip")
+    ) {
+      fetchReports = true;
+    } else if (approvalType === "business_trip") {
+      fetchReports = true;
+    }
 
-    // 4. 페이지네이션
+    // ----------------------------------------------------------------
+    // [3] 데이터 병렬 조회 (메모리 병합)
+    // ----------------------------------------------------------------
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const promises: Promise<any[]>[] = [];
+
+    // (A) 품의서 가져오기
+    promises.push(
+      approvalsQuery.get().then((snap) =>
+        snap.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: toMillis(data.createdAt),
+            // implementDate가 있으면 가져오고 없으면 null
+            implementDate: data.implementDate || null,
+          };
+        })
+      )
+    );
+
+    // (B) 보고서 가져오기 (출장 보고서)
+    if (fetchReports) {
+      const reportsQuery = db
+        .collectionGroup("userReports")
+        .where("reportType", "==", "business_trip");
+
+      promises.push(
+        reportsQuery.get().then((snap) =>
+          snap.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data,
+              // 프론트엔드 구분을 위해 approvalType 매핑
+              approvalType: "business_trip",
+              createdAt: toMillis(data.createdAt),
+              // 보고서는 tripPeriod 등을 implementDate 처럼 쓸 수도 있음 (필요 시 로직 추가)
+              implementDate: data.implementDate || null,
+            };
+          })
+        )
+      );
+    }
+
+    const results = await Promise.all(promises);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const allDocs: any[] = results.flat();
+
+    // ----------------------------------------------------------------
+    // [4] 정렬 (작성일 최신순) & 페이지네이션
+    // ----------------------------------------------------------------
+
+    // 내림차순 정렬 (최신이 위로)
+    allDocs.sort((a, b) => b.createdAt - a.createdAt);
+
+    const totalCount = allDocs.length;
     const offset = (page - 1) * limit;
-    const snapshot = await query.limit(limit).offset(offset).get();
 
-    const list = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        // Timestamp -> Number 변환 안전 처리
-        createdAt:
-          data.createdAt && typeof data.createdAt.toMillis === "function"
-            ? data.createdAt.toMillis()
-            : data.createdAt || Date.now(),
-      };
-    });
+    // 메모리 페이지네이션
+    const list = allDocs.slice(offset, offset + limit);
 
     return NextResponse.json({ list, totalCount });
   } catch (error) {
     console.error("Error fetching approvals list:", error);
-    // any 타입 에러 방지
     const msg = error instanceof Error ? error.message : "Server Error";
     return NextResponse.json({ list: [], totalCount: 0, error: msg });
   }

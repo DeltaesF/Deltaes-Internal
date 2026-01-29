@@ -39,28 +39,6 @@ const fetchReports = async (page: number, limit: number) => {
   return res.json();
 };
 
-// ✅ [추가] 날짜 포맷팅 헬퍼 함수
-const formatDate = (dateString: string | number | undefined) => {
-  if (!dateString) return "-";
-  try {
-    const date = new Date(dateString);
-    // 유효하지 않은 날짜인 경우 처리
-    if (isNaN(date.getTime())) return String(dateString); // 원본 문자열 반환 (YYYY-MM-DD 문자열일 수 있음)
-
-    // YYYY-MM-DD 형식으로 변환
-    return date
-      .toLocaleDateString("ko-KR", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      })
-      .replace(/\. /g, "-")
-      .replace(/\./g, ""); // 2024. 01. 29. -> 2024-01-29
-  } catch (e) {
-    return "-";
-  }
-};
-
 function VehicleReportContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -174,14 +152,18 @@ function VehicleReportContent() {
                     <td className="py-3 px-4 text-center text-sm text-gray-600">
                       {item.userName}
                     </td>
-                    {/* ✅ [수정] 날짜 포맷팅 적용 */}
+                    {/* ✅ [수정된 부분] 날짜 표시 로직 */}
                     <td className="py-3 px-4 text-center text-gray-500">
-                      {formatDate(
-                        item.approvalType === "integrated_outside" &&
-                          item.implementDate
-                          ? item.implementDate
-                          : item.createdAt
-                      )}
+                      {item.createdAt
+                        ? new Date(item.createdAt)
+                            .toLocaleDateString("ko-KR", {
+                              year: "numeric",
+                              month: "2-digit",
+                              day: "2-digit",
+                            })
+                            .replace(/\. /g, "-")
+                            .replace(/\./g, "")
+                        : "-"}
                     </td>
                   </tr>
                 ))

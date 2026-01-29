@@ -199,6 +199,7 @@ export default function IntegratedWritePage() {
       approvalType: "integrated_outside",
       title: `${form.title}`,
       content,
+      createdAt: Date.now(),
 
       workType,
       transportType,
