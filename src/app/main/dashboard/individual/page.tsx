@@ -92,6 +92,8 @@ interface CompletedItem {
   userName: string;
   startDate: string;
   endDate: string;
+  title?: string; // 문서 제목
+  category?: string;
 }
 
 // -----------------------------------------------------------------------
@@ -519,9 +521,15 @@ export default function Individual() {
                         {v.userName}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600">
-                      {v.startDate} ~ {v.endDate}
-                    </p>
+                    {v.title ? (
+                      <p className="text-sm text-gray-800 font-medium truncate">
+                        📄 {v.title}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-600">
+                        🏖️ {v.startDate} ~ {v.endDate}
+                      </p>
+                    )}
                   </div>
                   <span className="text-xs text-green-400 font-medium group-hover:text-green-600 opacity-0 group-hover:opacity-100">
                     상세보기 →

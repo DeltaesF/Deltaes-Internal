@@ -29,8 +29,11 @@ interface CompletedItem {
   reason?: string;
   types?: string | string[];
 
-  // 보고서/품의서용
+  // 보고서/품의서/통합용
   title?: string;
+  approvalType?: string; // 추가: 문서 타입 확인용
+  workType?: string; // 추가: 외근/출장 구분용
+  docCategory?: string; // 추가: 보고서 구분용
 
   approvers?: {
     first?: string[];
@@ -98,20 +101,65 @@ function CompletedApprovalContent() {
   const totalCount = data?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE) || 1;
 
-  // 아이템 클릭 핸들러
+  // ✅ [핵심] 아이템 클릭 핸들러 (이동 로직 개선)
   const handleItemClick = (item: CompletedItem) => {
-    if (item.category === "vacation") {
+    // 1. 통합 외근/출장/보고서인 경우 -> 통합 상세 페이지로 이동
+    if (item.approvalType === "integrated_outside") {
+      router.push(`/main/workoutside/approvals/${item.id}`);
+      return;
+    }
+
+    // 2. 휴가인 경우 -> 모달 열기 (제목이 없고 날짜가 있는 경우)
+    if (item.category === "vacation" && !item.title) {
       setSelectedVacation(item);
-    } else if (item.category === "report") {
+      return;
+    }
+
+    // 3. 그 외 (기존 보고서/품의서)
+    if (item.category === "report") {
       router.push(`/main/report/${item.id}`);
-    } else if (item.category === "approval") {
+    } else {
       router.push(`/main/workoutside/approvals/${item.id}`);
     }
   };
 
-  // 헬퍼: 뱃지 렌더링
-  const getCategoryBadge = (category: string) => {
-    switch (category) {
+  // ✅ [핵심] 뱃지 렌더링 (통합 문서 지원)
+  const getCategoryBadge = (item: CompletedItem) => {
+    // 1. 통합 외근/출장 문서
+    if (item.approvalType === "integrated_outside") {
+      if (item.workType === "outside")
+        return (
+          <span className="bg-[#519d9e] text-white px-2 py-0.5 rounded text-xs font-bold">
+            [외근]
+          </span>
+        );
+      if (item.workType === "trip")
+        return (
+          <span className="bg-[#519d9e] text-white px-2 py-0.5 rounded text-xs font-bold">
+            [출장]
+          </span>
+        );
+      if (item.workType === "outside_report")
+        return (
+          <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-bold">
+            [외근보고]
+          </span>
+        );
+      if (item.workType === "trip_report")
+        return (
+          <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-bold">
+            [출장보고]
+          </span>
+        );
+      return (
+        <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs font-bold">
+          통합
+        </span>
+      );
+    }
+
+    // 2. 기존 카테고리
+    switch (item.category) {
       case "vacation":
         return (
           <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-bold">
@@ -214,7 +262,7 @@ function CompletedApprovalContent() {
                   <div className="flex justify-between items-center">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        {getCategoryBadge(item.category)}
+                        {getCategoryBadge(item)}
                         <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">
                           {item.status}
                         </span>

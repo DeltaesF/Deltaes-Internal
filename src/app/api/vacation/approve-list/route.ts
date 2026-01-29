@@ -29,7 +29,10 @@ type ApprovalDoc = {
 
   // 보고서/품의서 전용 필드
   title?: string;
-  reportType?: string; // 보고서 구분용
+  reportType?: string;
+  approvalType?: string; // 추가: 통합 타입 확인용
+  docCategory?: string; // 추가: 보고서 여부 확인용 (application | report)
+  workType?: string;
 
   // 카테고리 (API 내부 처리용)
   category?: string;
@@ -105,11 +108,30 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. 품의서 (Approval)
-    if (filterType === "all" || filterType === "approval") {
+    // 3. 품의서 & 통합 외근/출장 (Approval & Integrated) - userApprovals 컬렉션
+    // ✅ [수정] 보고서 필터일 때도 userApprovals를 조회해야 함 (여기에 통합 보고서가 있으므로)
+    if (
+      filterType === "all" ||
+      filterType === "approval" ||
+      filterType === "report"
+    ) {
       promises.push(
         fetchDocs("userApprovals").then((docs) =>
-          docs.map((d) => ({ ...d, category: "approval" }))
+          docs.map((d) => {
+            // 🔍 문서 내용을 보고 카테고리 결정
+            let cat = "approval"; // 기본값: 품의서
+
+            // 통합 문서이면서 docCategory가 'report'이거나 workType이 보고서 계열이면 'report'로 분류
+            if (
+              d.docCategory === "report" ||
+              (d.workType && d.workType.includes("report")) ||
+              d.approvalType === "business_trip" // 구버전 출장보고서
+            ) {
+              cat = "report";
+            }
+
+            return { ...d, category: cat };
+          })
         )
       );
     }
@@ -123,8 +145,13 @@ export async function POST(req: Request) {
     // ----------------------------------------------------------------
     const filteredList = rawList
       .filter((item) => {
-        // [조건 A] 내가 승인했는지 확인 (History 체크)
-        // item이 ApprovalDoc 타입이므로 entry의 타입이 자동으로 추론됨 (any 제거)
+        // [추가 필터링] 위에서 데이터를 다 가져온 후, 요청한 filterType과 일치하는지 한 번 더 확인
+        // (userApprovals에서 report와 approval을 모두 가져왔기 때문에 필요함)
+        if (filterType !== "all" && item.category !== filterType) {
+          return false;
+        }
+
+        // [조건 A] 내가 승인했는지 확인
         const myApproval = item.approvalHistory?.find(
           (entry) => entry.approver === userName
         );
