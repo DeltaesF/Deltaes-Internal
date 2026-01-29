@@ -34,6 +34,7 @@ interface CompletedItem {
   approvalType?: string; // 추가: 문서 타입 확인용
   workType?: string; // 추가: 외근/출장 구분용
   docCategory?: string; // 추가: 보고서 구분용
+  implementDate?: string;
 
   approvers?: {
     first?: string[];
@@ -277,14 +278,22 @@ function CompletedApprovalContent() {
                             <span>
                               {item.startDate} ~ {item.endDate}
                             </span>
-                            <span className="text-gray-400 text-xs truncate max-w-[400px]">
+                            <span className="text-black text-xs truncate max-w-[400px]">
                               📝 {item.reason}
                             </span>
                           </div>
                         ) : (
-                          <span className="text-sm text-gray-700 font-medium truncate block max-w-[500px]">
-                            {item.title || "제목 없음"}
-                          </span>
+                          <>
+                            {/* ✅ implementDate가 있으면 표시 */}
+                            {item.implementDate && (
+                              <div className="text-sm text-gray-600 flex items-center gap-2">
+                                <span>{item.implementDate}</span>
+                                <span className="text-black  text-xs truncate max-w-[400px]">
+                                  {item.title || "제목 없음"}
+                                </span>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>

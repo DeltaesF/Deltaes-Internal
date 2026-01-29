@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/firebaseAdmin";
 import { Timestamp } from "firebase-admin/firestore";
 
-// ✅ 통합 데이터 타입 정의
+// ✅ [수정] any 제거 및 구체적인 타입 정의
 type ApprovalDoc = {
   id: string;
   userName: string;
@@ -18,7 +18,13 @@ type ApprovalDoc = {
     status: string;
     approvedAt: Timestamp;
   }[];
-  createdAt?: number; // 정렬용
+
+  // 🔹 여기가 수정된 부분입니다.
+  createdAt?:
+    | Timestamp
+    | { _seconds: number; _nanoseconds?: number }
+    | number
+    | string;
 
   // 휴가 전용 필드
   startDate?: string;
@@ -30,9 +36,11 @@ type ApprovalDoc = {
   // 보고서/품의서 전용 필드
   title?: string;
   reportType?: string;
-  approvalType?: string; // 추가: 통합 타입 확인용
-  docCategory?: string; // 추가: 보고서 여부 확인용 (application | report)
+  approvalType?: string;
+  docCategory?: string;
   workType?: string;
+
+  implementDate?: string;
 
   // 카테고리 (API 내부 처리용)
   category?: string;
@@ -59,7 +67,6 @@ export async function POST(req: Request) {
     ): Promise<ApprovalDoc[]> => {
       const colRef = db.collectionGroup(collectionName);
 
-      // '내가 관여된 문서'를 찾기 위해 여러 조건으로 병렬 쿼리 실행
       const [first, second, third, my] = await Promise.all([
         colRef.where("approvers.first", "array-contains", userName).get(),
         colRef.where("approvers.second", "array-contains", userName).get(),
@@ -85,12 +92,9 @@ export async function POST(req: Request) {
     // ----------------------------------------------------------------
     // [2] 필터에 따른 데이터 수집
     // ----------------------------------------------------------------
-    // ❌ [삭제됨] 사용하지 않는 allItems 변수 제거
-
-    // 병렬 처리를 위한 프로미스 배열 (타입 명시)
     const promises: Promise<ApprovalDoc[]>[] = [];
 
-    // 1. 휴가 (Vacation)
+    // 1. 휴가
     if (filterType === "all" || filterType === "vacation") {
       promises.push(
         fetchDocs("requests").then((docs) =>
@@ -99,7 +103,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. 보고서 (Report)
+    // 2. 보고서
     if (filterType === "all" || filterType === "report") {
       promises.push(
         fetchDocs("userReports").then((docs) =>
@@ -108,8 +112,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. 품의서 & 통합 외근/출장 (Approval & Integrated) - userApprovals 컬렉션
-    // ✅ [수정] 보고서 필터일 때도 userApprovals를 조회해야 함 (여기에 통합 보고서가 있으므로)
+    // 3. 품의서 & 통합
     if (
       filterType === "all" ||
       filterType === "approval" ||
@@ -118,46 +121,66 @@ export async function POST(req: Request) {
       promises.push(
         fetchDocs("userApprovals").then((docs) =>
           docs.map((d) => {
-            // 🔍 문서 내용을 보고 카테고리 결정
-            let cat = "approval"; // 기본값: 품의서
-
-            // 통합 문서이면서 docCategory가 'report'이거나 workType이 보고서 계열이면 'report'로 분류
+            let cat = "approval";
             if (
               d.docCategory === "report" ||
               (d.workType && d.workType.includes("report")) ||
-              d.approvalType === "business_trip" // 구버전 출장보고서
+              d.approvalType === "business_trip"
             ) {
               cat = "report";
             }
-
             return { ...d, category: cat };
           })
         )
       );
     }
 
-    // 모든 데이터 가져오기
     const results = await Promise.all(promises);
     const rawList = results.flat();
 
     // ----------------------------------------------------------------
-    // [3] "완료된 건" 필터링 & 정렬 (메모리 연산)
+    // [3] 필터링 & 정렬
     // ----------------------------------------------------------------
+
+    // 헬퍼: createdAt 타입을 확인하여 밀리초 숫자로 변환
+    const getCreatedAtMillis = (c: ApprovalDoc["createdAt"]): number => {
+      if (!c) return 0;
+      if (typeof c === "number") return c;
+      if (typeof c === "string") return new Date(c).getTime();
+
+      // Timestamp 객체 체크 ('toMillis' 메서드가 있는지)
+      if ("toMillis" in c && typeof c.toMillis === "function") {
+        return c.toMillis();
+      }
+
+      // Map 형태 체크 ('_seconds' 속성이 있는지)
+      if ("_seconds" in c) {
+        return c._seconds * 1000;
+      }
+
+      return 0;
+    };
+
+    const getSortTime = (item: ApprovalDoc): number => {
+      // 1순위: implementDate
+      if (item.implementDate) {
+        return new Date(item.implementDate).getTime();
+      }
+      // 2순위: createdAt
+      return getCreatedAtMillis(item.createdAt);
+    };
+
     const filteredList = rawList
       .filter((item) => {
-        // [추가 필터링] 위에서 데이터를 다 가져온 후, 요청한 filterType과 일치하는지 한 번 더 확인
-        // (userApprovals에서 report와 approval을 모두 가져왔기 때문에 필요함)
         if (filterType !== "all" && item.category !== filterType) {
           return false;
         }
 
-        // [조건 A] 내가 승인했는지 확인
         const myApproval = item.approvalHistory?.find(
           (entry) => entry.approver === userName
         );
         if (myApproval) return true;
 
-        // [조건 B] 내가 신청자이고 최종 완료되었는지 확인
         if (item.userName === userName && item.status === "최종 승인 완료") {
           return true;
         }
@@ -165,25 +188,27 @@ export async function POST(req: Request) {
         return false;
       })
       .sort((a, b) => {
-        const timeA = a.createdAt || 0;
-        const timeB = b.createdAt || 0;
-        return timeB - timeA; // 최신순
+        const timeA = getSortTime(a);
+        const timeB = getSortTime(b);
+        return timeB - timeA; // 내림차순 (최신순)
       });
 
     // ----------------------------------------------------------------
-    // [4] 페이지네이션 (Slice)
+    // [4] 페이지네이션
     // ----------------------------------------------------------------
     const totalCount = filteredList.length;
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
     const paginatedList = filteredList.slice(startIndex, endIndex);
 
-    // ✅ [추가] Timestamp -> Number(밀리초) 변환하여 클라이언트로 전송
     const responseList = paginatedList.map((item) => ({
       ...item,
+      // 클라이언트에 내려줄 때 안전하게 숫자로 변환
+      createdAt: getCreatedAtMillis(item.createdAt),
+
       approvalHistory: item.approvalHistory?.map((history) => ({
         ...history,
-        approvedAt: history.approvedAt.toMillis(), // Timestamp를 숫자로 변환
+        approvedAt: history.approvedAt.toMillis(),
       })),
     }));
 

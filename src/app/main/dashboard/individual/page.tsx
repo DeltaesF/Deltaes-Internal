@@ -94,6 +94,8 @@ interface CompletedItem {
   endDate: string;
   title?: string; // 문서 제목
   category?: string;
+  reason?: string; // 휴가 사유
+  implementDate?: string; // 시행일
 }
 
 // -----------------------------------------------------------------------
@@ -521,14 +523,25 @@ export default function Individual() {
                         {v.userName}
                       </span>
                     </div>
-                    {v.title ? (
-                      <p className="text-sm text-gray-800 font-medium truncate">
-                        📄 {v.title}
-                      </p>
+                    {/* ✅ [수정] 요청하신 스타일대로 변경 */}
+                    {v.category === "vacation" ? (
+                      <div className="text-sm text-gray-600 flex items-center gap-2">
+                        <span>
+                          {v.startDate} ~ {v.endDate}
+                        </span>
+                        {v.reason && (
+                          <span className="text-black text-xs truncate max-w-[250px]">
+                            📝 {v.reason}
+                          </span>
+                        )}
+                      </div>
                     ) : (
-                      <p className="text-sm text-gray-600">
-                        🏖️ {v.startDate} ~ {v.endDate}
-                      </p>
+                      <div className="text-sm text-gray-600 flex items-center gap-2">
+                        {v.implementDate && <span>{v.implementDate}</span>}
+                        <span className="text-black text-xs truncate max-w-[250px] font-medium">
+                          {v.title || "제목 없음"}
+                        </span>
+                      </div>
                     )}
                   </div>
                   <span className="text-xs text-green-400 font-medium group-hover:text-green-600 opacity-0 group-hover:opacity-100">
