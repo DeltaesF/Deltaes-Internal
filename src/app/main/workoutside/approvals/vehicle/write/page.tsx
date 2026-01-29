@@ -89,7 +89,7 @@ export default function IntegratedWritePage() {
     periodStart: "",
     periodEnd: "",
 
-    vehicleModel: "스타리아 377주 7412",
+    vehicleModel: "",
 
     costBus: 0,
     costSubway: 0,
@@ -112,6 +112,19 @@ export default function IntegratedWritePage() {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
+
+  // ✅ [수정] 이동수단에 따라 텍스트 자동 입력
+  useEffect(() => {
+    if (transportType === "company_car") {
+      setForm((prev) => ({ ...prev, vehicleModel: "스타리아 377주 7412" }));
+    } else if (transportType === "personal_car") {
+      setForm((prev) => ({ ...prev, vehicleModel: "자차이용" })); // 자차 선택 시
+    } else if (transportType === "other") {
+      setForm((prev) => ({ ...prev, vehicleModel: "도보" })); // 기타 선택 시
+    } else {
+      setForm((prev) => ({ ...prev, vehicleModel: "" }));
+    }
+  }, [transportType]);
 
   const handleCancel = () => {
     if (

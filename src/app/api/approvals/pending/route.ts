@@ -14,6 +14,12 @@ interface ApprovalDoc {
     shared?: string[];
   };
   createdAt: number;
+  // ✅ [추가 1] 날짜 표시를 위한 필드 추가
+  implementDate?: string;
+  // ✅ [추가 2] 프론트엔드 배지 표시 등을 위한 필드 추가
+  approvalType?: string;
+  workType?: string;
+  docCategory?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -60,20 +66,37 @@ export async function POST(req: NextRequest) {
     snapshots.forEach((snap) => {
       snap.docs.forEach((doc) => {
         const data = doc.data();
+
+        // createdAt 처리 (Map 형태 호환)
+        let createdAtMillis = Date.now();
+        if (data.createdAt) {
+          if (typeof data.createdAt.toMillis === "function") {
+            createdAtMillis = data.createdAt.toMillis();
+          } else if (data.createdAt._seconds) {
+            createdAtMillis = data.createdAt._seconds * 1000;
+          } else if (typeof data.createdAt === "number") {
+            createdAtMillis = data.createdAt;
+          }
+        }
+
         docsMap.set(doc.id, {
           id: doc.id,
           userName: data.userName,
           title: data.title,
           status: data.status,
           approvers: data.approvers,
-          createdAt:
-            data.createdAt instanceof Timestamp
-              ? data.createdAt.toMillis()
-              : data.createdAt || Date.now(),
+          createdAt: createdAtMillis,
+
+          // ✅ [핵심] implementDate 및 기타 필드 추가 (이게 없어서 날짜가 안 나왔던 것)
+          implementDate: data.implementDate || null,
+          approvalType: data.approvalType,
+          workType: data.workType || null,
+          docCategory: data.docCategory || "approval",
         });
       });
     });
 
+    // 정렬 (최신순)
     const pending = Array.from(docsMap.values()).sort(
       (a, b) => b.createdAt - a.createdAt
     );

@@ -79,7 +79,7 @@ export default function ResultReportWritePage() {
     periodStart: "",
     periodEnd: "",
 
-    vehicleModel: "스타리아 377주 7412",
+    vehicleModel: "",
     costBus: 0,
     costSubway: 0,
     costTaxi: 0,
@@ -101,6 +101,19 @@ export default function ResultReportWritePage() {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
+
+  // ✅ [수정] 이동수단에 따라 텍스트 자동 입력
+  useEffect(() => {
+    if (transportType === "company_car") {
+      setForm((prev) => ({ ...prev, vehicleModel: "스타리아 377주 7412" }));
+    } else if (transportType === "personal_car") {
+      setForm((prev) => ({ ...prev, vehicleModel: "자차이용" })); // 자차 선택 시
+    } else if (transportType === "other") {
+      setForm((prev) => ({ ...prev, vehicleModel: "도보" })); // 기타 선택 시
+    } else {
+      setForm((prev) => ({ ...prev, vehicleModel: "" }));
+    }
+  }, [transportType]);
 
   const handleCancel = () => {
     if (confirm("작성 중인 내용이 저장되지 않습니다. 나가시겠습니까?"))
@@ -164,7 +177,7 @@ export default function ResultReportWritePage() {
       title: `${form.title}`,
       content,
 
-      uiWorkType: finalWorkType, // 여기 값이 핵심입니다!
+      workType: finalWorkType, // 전에 uiWorkType으로 되어 있어 인식이 안되는 상황
       transportType,
       implementDate: form.implementDate,
 
