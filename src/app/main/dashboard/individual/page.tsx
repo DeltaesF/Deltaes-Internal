@@ -158,7 +158,6 @@ const fetchCombinedPending = async (
     body: JSON.stringify({ approverName: userName }),
   }).then(async (res) => {
     const data = await res.json();
-    // ✅ [수정] any 제거 -> Omit<PendingItem, "docType"> 사용
     return (data.pending || []).map((v: Omit<PendingItem, "docType">) => ({
       ...v,
       docType: "vacation",
@@ -172,7 +171,6 @@ const fetchCombinedPending = async (
     body: JSON.stringify({ approverName: userName }),
   }).then(async (res) => {
     const data = await res.json();
-    // ✅ [수정] any 제거
     return (data.pending || []).map((r: Omit<PendingItem, "docType">) => ({
       ...r,
       docType: "report",
@@ -186,7 +184,6 @@ const fetchCombinedPending = async (
     body: JSON.stringify({ approverName: userName }),
   }).then(async (res) => {
     const data = await res.json();
-    // ✅ [수정] any 제거
     return (data.pending || []).map((a: Omit<PendingItem, "docType">) => ({
       ...a,
       docType: "approval",
@@ -200,7 +197,6 @@ const fetchCombinedPending = async (
     fetchApprovals,
   ]);
 
-  // any 타입으로 추론되는 것을 방지하기 위해 명시적 캐스팅 (필요 시)
   const combined: PendingItem[] = [...vacations, ...reports, ...approvals];
   combined.sort((a, b) => b.createdAt - a.createdAt); // 최신순 정렬
 
@@ -351,10 +347,11 @@ export default function Individual() {
   // =====================================================================
 
   return (
-    <div className="flex flex-col gap-10 mt-6 items-center w-full">
+    <div className="flex flex-col gap-6 md:gap-10 mt-2 md:mt-6 items-center w-full">
       {/* 로그인 시간 표시 UI */}
-      <div className="w-full max-w-[1200px] flex justify-end">
-        <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full shadow-sm">
+      {/* [반응형 수정] max-w-[1200px] -> max-w-7xl, justify-end -> justify-center md:justify-end */}
+      <div className="w-full max-w-7xl flex justify-center md:justify-end">
+        <div className="text-xs md:text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full shadow-sm">
           🕒 접속 시간:{" "}
           <span className="font-semibold text-gray-700">
             {loginTime || "-"}
@@ -363,7 +360,8 @@ export default function Individual() {
       </div>
 
       {/* 4개의 카드 그리드 */}
-      <div className="grid grid-cols-4 gap-6 w-full max-w-[1200px]">
+      {/* [반응형 수정] grid-cols-4 -> grid-cols-2 lg:grid-cols-4 */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 w-full max-w-7xl">
         <DashboardCard
           title="결재 요청"
           count={approvalRequests.length}
@@ -395,9 +393,13 @@ export default function Individual() {
       </div>
 
       {/* 캘린더 영역 */}
-      <div className="bg-white shadow-md border rounded-2xl p-6 w-full max-w-[1200px]">
-        <h2 className="text-lg font-semibold mb-4">📅 {userName}님의 일정</h2>
-        <div className="h-[600px]">
+      {/* [반응형 수정] w-[1200px] -> w-full max-w-7xl */}
+      <div className="bg-white shadow-md border rounded-2xl p-4 md:p-6 w-full max-w-7xl">
+        <h2 className="text-base md:text-lg font-semibold mb-4">
+          📅 {userName}님의 일정
+        </h2>
+        {/* [반응형 수정] 높이 조정 (모바일은 조금 더 작게) */}
+        <div className="h-[500px] md:h-[600px]">
           <FullCalendar
             plugins={[dayGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
@@ -523,7 +525,6 @@ export default function Individual() {
                         {v.userName}
                       </span>
                     </div>
-                    {/* ✅ [수정] 요청하신 스타일대로 변경 */}
                     {v.category === "vacation" ? (
                       <div className="text-sm text-gray-600 flex items-center gap-2">
                         <span>
@@ -627,21 +628,23 @@ function DashboardCard({
   return (
     <div
       onClick={onClick}
-      className={`shadow-sm border rounded-2xl p-6 text-center cursor-pointer transition-all group ${
+      className={`shadow-sm border rounded-2xl p-4 md:p-6 text-center cursor-pointer transition-all group ${
         isActive
           ? `${style.bg} ${style.border} ring-2`
           : "bg-white hover:bg-gray-50"
       }`}
     >
       <span
-        className={`font-semibold block mb-2 ${
+        className={`font-semibold block mb-2 text-sm md:text-base ${
           isActive ? style.text : "text-gray-600"
         }`}
       >
         {title}
       </span>
-      <span className={`text-4xl font-bold ${style.num}`}>{count}</span>
-      <span className="text-gray-400 text-sm ml-1">건</span>
+      <span className={`text-3xl md:text-4xl font-bold ${style.num}`}>
+        {count}
+      </span>
+      <span className="text-gray-400 text-xs md:text-sm ml-1">건</span>
     </div>
   );
 }
@@ -653,10 +656,13 @@ function ListModalLayout({
   moreLink,
 }: ListModalLayoutProps) {
   return (
-    <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50">
-      <div className="bg-white rounded-xl p-6 w-[600px] max-h-[80vh] flex flex-col shadow-2xl">
+    <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4">
+      {/* [반응형 수정] w-[600px] -> w-full max-w-[600px] */}
+      <div className="bg-white rounded-xl p-6 w-full max-w-[600px] max-h-[80vh] flex flex-col shadow-2xl">
         <div className="flex justify-between items-center mb-4 border-b pb-3">
-          <h3 className="text-xl font-bold text-gray-800">{title}</h3>
+          <h3 className="text-lg md:text-xl font-bold text-gray-800">
+            {title}
+          </h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-black text-2xl font-light cursor-pointer"
@@ -688,7 +694,7 @@ function ListModalLayout({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center h-40 text-gray-400 bg-gray-50 rounded-lg border border-dashed">
+    <div className="flex flex-col items-center justify-center h-40 text-gray-400 bg-gray-50 rounded-lg border border-dashed text-sm">
       <p>{message}</p>
     </div>
   );
@@ -732,7 +738,7 @@ function NotificationItem({ noti, onClose }: NotificationItemProps) {
     <Link href={noti.link} onClick={onClose} className="block group">
       <div className="bg-white p-4 border rounded-lg group-hover:border-blue-300 group-hover:shadow-md transition-all">
         <div className="flex justify-between items-start mb-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span
               className={`text-xs font-bold px-2 py-0.5 rounded ${
                 colorClass[noti.type] || "bg-gray-100"

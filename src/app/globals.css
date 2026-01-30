@@ -18,6 +18,39 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* 👇👇 [여기부터 추가] 캘린더 반응형 스타일 강제 적용 👇👇 */
+
+/* 1. 모바일 (기본) 스타일 */
+.fc .fc-toolbar-title {
+  font-size: 1rem !important; /* 제목 크기 줄임 (약 16px) */
+  font-weight: 700 !important;
+}
+
+.fc .fc-button {
+  font-size: 0.75rem !important; /* 버튼 글씨 작게 (약 12px) */
+  padding: 0.25rem 0.5rem !important; /* 버튼 여백 줄임 */
+  line-height: 1.2 !important;
+  height: auto !important; /* 높이 자동 조절 */
+}
+
+/* 툴바 레이아웃: 좁은 화면에서 줄바꿈 허용 */
+.fc .fc-toolbar {
+  flex-wrap: wrap !important;
+  margin-bottom: 1rem !important;
+}
+
+/* 2. 태블릿/PC (768px 이상) 스타일 */
+@media (min-width: 768px) {
+  .fc .fc-toolbar-title {
+    font-size: 1.5rem !important; /* PC에서는 원래대로 크게 */
+  }
+
+  .fc .fc-button {
+    font-size: 1rem !important; /* PC에서는 버튼 크기 복구 */
+    padding: 0.4em 0.65em !important;
+  }
+}
+
 .prose-editor {
   @apply text-gray-800 leading-relaxed;
 }
