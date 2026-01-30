@@ -12,24 +12,36 @@ export async function POST(req: Request) {
 
     const ref = db.collectionGroup("userApprovals");
 
-    // [1] 병렬 쿼리: 내가 결재해야 할 문서 + 내가 신청한 대기 문서
+    // [기존 쿼리 부분 수정]
     const queries = [
-      // 1차 결재자 & 1차 대기
+      // 1. 내가 1차 결재자이면서, 아직 최종 승인되지 않은 모든 문서
       ref
-        .where("status", "==", "1차 결재 대기")
-        .where("approvers.first", "array-contains", approverName),
+        .where("approvers.first", "array-contains", approverName)
+        .where("status", "in", [
+          "1차 결재 대기",
+          "2차 결재 대기",
+          "3차 결재 대기",
+        ]),
 
-      // 2차 결재자 & 2차 대기
+      // 2. 내가 2차 결재자이면서, 아직 최종 승인되지 않은 모든 문서
       ref
-        .where("status", "==", "2차 결재 대기")
-        .where("approvers.second", "array-contains", approverName),
+        .where("approvers.second", "array-contains", approverName)
+        .where("status", "in", [
+          "1차 결재 대기",
+          "2차 결재 대기",
+          "3차 결재 대기",
+        ]),
 
-      // 3차 결재자 & 3차 대기
+      // 3. 내가 3차 결재자이면서, 아직 최종 승인되지 않은 모든 문서
       ref
-        .where("status", "==", "3차 결재 대기")
-        .where("approvers.third", "array-contains", approverName),
+        .where("approvers.third", "array-contains", approverName)
+        .where("status", "in", [
+          "1차 결재 대기",
+          "2차 결재 대기",
+          "3차 결재 대기",
+        ]),
 
-      // 내가 신청한 문서 (상태 모니터링용)
+      // 4. 내가 신청한 문서 (기존 유지)
       ref
         .where("userName", "==", approverName)
         .where("status", "in", [

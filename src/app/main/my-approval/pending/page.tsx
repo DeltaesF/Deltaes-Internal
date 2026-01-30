@@ -322,6 +322,21 @@ function PendingApprovalContent() {
                   ? "보고서"
                   : "품의서";
 
+              // ✅ [추가] 내 결재 상태 판별 로직
+              // 1. 현재 문서 상태와 내 이름이 있는 결재 단계가 일치하는지 (내 차례인지) 확인
+              const isMyTurn =
+                (item.status === "1차 결재 대기" &&
+                  item.approvers?.first?.includes(userName || "")) ||
+                (item.status === "2차 결재 대기" &&
+                  item.approvers?.second?.includes(userName || "")) ||
+                (item.status === "3차 결재 대기" &&
+                  item.approvers?.third?.includes(userName || ""));
+
+              // 2. 이미 결재 히스토리에 내 이름이 있는지 확인 (이미 승인했는지)
+              const alreadyProcessed = item.approvalHistory?.some(
+                (h) => h.approver === userName
+              );
+
               return (
                 <li
                   key={item.id}
@@ -337,10 +352,27 @@ function PendingApprovalContent() {
                         >
                           {typeName}
                         </span>
-                        <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded">
-                          {item.status}
-                        </span>
-                        <span className="font-bold text-gray-800">
+
+                        {/* ✅ [추가 및 수정] 내 상태에 따른 배지 표시 */}
+                        {isMyTurn ? (
+                          <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded animate-pulse">
+                            결재 필요
+                          </span>
+                        ) : alreadyProcessed ? (
+                          <span className="bg-gray-400 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                            승인 완료(대기중)
+                          </span>
+                        ) : item.userName === userName ? (
+                          <span className="bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                            기안 문서
+                          </span>
+                        ) : (
+                          <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded">
+                            {item.status}
+                          </span>
+                        )}
+
+                        <span className="font-bold text-gray-800 ml-1">
                           {item.userName}
                         </span>
                         <span className="text-xs text-gray-400 ml-2">
