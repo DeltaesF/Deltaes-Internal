@@ -129,40 +129,44 @@ export async function POST(req: Request) {
         }),
       });
 
-      // 4️⃣ 알림 발송 (수정된 로직)
+      // 4️⃣ 알림 발송 부분 수정
       if (notificationTargets.length > 0) {
-        // ✅ 메시지에 코멘트가 있다면 추가해주는 로직
         const commentSuffix = comment ? ` (의견: ${comment})` : "";
         const finalNotiMessage = `${notiMessage}${commentSuffix}`;
 
         notificationTargets.forEach((target) => {
-          let link = "/main/my-approval/pending";
+          // ✅ [핵심 수정] 알림 수신자가 '작성자(applicantUserName)'이거나 '공유자'인 경우에만 알림 생성
+          // 다음 단계 결재자(target)에게는 알림을 보내지 않습니다.
+          const isApplicant = target === applicantUserName;
+          const isShared = data.approvers?.shared?.includes(target);
 
-          // 완료되거나 반려된 경우 상세/공유 페이지로 이동
-          if (newStatus === "최종 승인 완료" || newStatus.includes("반려")) {
-            link =
-              target === applicantUserName
+          // 작성자 혹은 공유자일 때만 알림을 DB에 기록합니다.
+          if (isApplicant || isShared) {
+            let link = "/main/my-approval/pending";
+
+            if (newStatus === "최종 승인 완료" || newStatus.includes("반려")) {
+              link = isApplicant
                 ? `/main/workoutside/approvals/${approvalId}`
                 : `/main/my-approval/shared`;
+            }
+
+            const notiRef = db
+              .collection("notifications")
+              .doc(target)
+              .collection("userNotifications")
+              .doc();
+
+            transaction.set(notiRef, {
+              targetUserName: target,
+              fromUserName: approverName,
+              type: "approval",
+              message: finalNotiMessage,
+              link,
+              isRead: false,
+              createdAt: Date.now(),
+              approvalId: approvalId,
+            });
           }
-
-          const notiRef = db
-            .collection("notifications")
-            .doc(target)
-            .collection("userNotifications")
-            .doc();
-
-          transaction.set(notiRef, {
-            targetUserName: target,
-            fromUserName: approverName,
-            type: "approval",
-            // ✅ 수정된 finalNotiMessage를 사용합니다.
-            message: finalNotiMessage,
-            link,
-            isRead: false,
-            createdAt: Date.now(),
-            approvalId: approvalId,
-          });
         });
       }
     });

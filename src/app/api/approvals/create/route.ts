@@ -253,57 +253,34 @@ export async function POST(req: Request) {
     const cleanDocData = JSON.parse(JSON.stringify(docData));
     await docRef.set(cleanDocData);
 
-    // 5. 알림 발송
+    // 5. 알림 발송 (결재자 알림 제외, 공유자만 발송)
     const batch = db.batch();
-    const firstApprovers = approvalLine.first || [];
 
-    firstApprovers.forEach((approver) => {
-      const notiRef = db
-        .collection("notifications")
-        .doc(approver)
-        .collection("userNotifications")
-        .doc();
-      batch.set(notiRef, {
-        targetUserName: approver,
-        fromUserName: userName,
-        type: "approval",
-        message: `${docData.title} 결재 요청이 도착했습니다.`,
-        link: `/main/my-approval/pending`,
-        isRead: false,
-        createdAt: Date.now(),
-        approvalId: docRef.id,
-      });
-    });
-
-    const futureApprovers = [
+    // 1, 2, 3차 결재자 명단 (알림 제외 대상)
+    const allApprovers = [
+      ...(approvalLine.first || []),
       ...(approvalLine.second || []),
       ...(approvalLine.third || []),
     ];
-    const sharedUsers = approvalLine.shared || [];
-    const allReferenceUsers = [
-      ...new Set([...futureApprovers, ...sharedUsers]),
-    ];
 
-    allReferenceUsers.forEach((targetName) => {
-      if (firstApprovers.includes(targetName)) return;
+    // 공유자 명단 (알림 발송 대상)
+    const sharedUsers = approvalLine.shared || [];
+
+    sharedUsers.forEach((targetName) => {
+      // 만약 공유자가 결재 라인에도 중복 포함되어 있다면 알림을 보내지 않음
+      if (allApprovers.includes(targetName)) return;
+
       const notiRef = db
         .collection("notifications")
         .doc(targetName)
         .collection("userNotifications")
         .doc();
 
-      let message = "";
-      if (futureApprovers.includes(targetName)) {
-        message = `[공유/예정] ${docData.title} 결재 요청이 도착했습니다.`;
-      } else {
-        message = `[공유] ${docData.title}`;
-      }
-
       batch.set(notiRef, {
         targetUserName: targetName,
         fromUserName: userName,
         type: "approval",
-        message,
+        message: `[공유] ${docData.title}`,
         link: `/main/workoutside/approvals/${docRef.id}`,
         isRead: false,
         createdAt: Date.now(),
