@@ -133,7 +133,7 @@ export default function InternalReportDetailPage() {
     editPath = `/main/report/internal/edit/${id}`;
   } else if (isBusiness) {
     pageTitle = "외근 및 출장 보고서";
-    listPath = "/main/report/business";
+    listPath = "/main/workoutside/approvals/vehicle";
     editPath = `/main/report/business/edit/${id}`;
   }
 

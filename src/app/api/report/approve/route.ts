@@ -139,15 +139,18 @@ export async function POST(req: Request) {
         }),
       });
 
-      // 4️⃣ 알림 발송
+      // 4️⃣ 알림 발송 (코멘트 포함 로직 추가)
       if (notificationTargets.length > 0) {
+        // ✅ 메시지에 코멘트(의견)가 있다면 추가
+        const commentSuffix = comment ? ` (의견: ${comment})` : "";
+        const finalNotiMessage = `${notiMessage}${commentSuffix}`;
+
         notificationTargets.forEach((target) => {
           let link = "/main/my-approval/pending"; // 기본: 결재 대기함
           const type = "report";
 
-          // 완료되거나 반려되면 -> 완료함/내 목록 등으로 이동하거나 상세 페이지로
+          // 완료되거나 반려되면 상세 페이지 혹은 공유함으로 이동
           if (newStatus === "최종 승인 완료" || newStatus.includes("반려")) {
-            // 작성자나 공유자는 상세 페이지나 완료함에서 확인
             link =
               target === applicantUserName
                 ? `/main/report/${reportId}`
@@ -164,7 +167,8 @@ export async function POST(req: Request) {
             targetUserName: target,
             fromUserName: approverName,
             type,
-            message: notiMessage, // ✅ 수정된 메시지 사용
+            // ✅ 코멘트가 합쳐진 최종 메시지를 사용합니다.
+            message: finalNotiMessage,
             link,
             isRead: false,
             createdAt: Date.now(),
