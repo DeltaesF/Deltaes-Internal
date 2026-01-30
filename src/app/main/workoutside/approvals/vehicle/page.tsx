@@ -140,7 +140,16 @@ function VehicleReportContent() {
                     <td className="py-3 px-4">
                       {/* 통합 상세 페이지로 이동 */}
                       <Link
-                        href={`/main/workoutside/approvals/${item.id}`}
+                        href={
+                          // 1. 신규 통합 문서 (외근/출장/외근보고/출장보고)
+                          item.approvalType === "integrated_outside"
+                            ? `/main/workoutside/approvals/${item.id}`
+                            : // 2. 구버전 출장 보고서 (business_trip)
+                            item.approvalType === "business_trip"
+                            ? `/main/report/${item.id}`
+                            : // 3. 구버전 외근/차량 신청서 (vehicle)
+                              `/main/workoutside/approvals/${item.id}`
+                        }
                         className="block w-full"
                       >
                         {getBadge(item)}
