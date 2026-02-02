@@ -28,6 +28,7 @@
     "firebase-admin": "^13.5.0",
     "googleapis": "^166.0.0",
     "next": "^16.0.8",
+    "nodemailer": "^7.0.13",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-redux": "^9.2.0"
@@ -36,6 +37,7 @@
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20.19.16",
+    "@types/nodemailer": "^7.0.9",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-redux": "^7.1.34",
