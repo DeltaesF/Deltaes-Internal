@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { sendEmail } from "@/lib/nodemailer";
 
 if (!getApps().length) {
   initializeApp({
@@ -256,37 +257,113 @@ export async function POST(req: Request) {
     // 5. 알림 발송 (결재자 알림 제외, 공유자만 발송)
     const batch = db.batch();
 
-    // 1, 2, 3차 결재자 명단 (알림 제외 대상)
-    const allApprovers = [
-      ...(approvalLine.first || []),
+    // 환경변수에서 도메인 주소 가져오기
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+    const detailPath = `/main/workoutside/approvals/${docRef.id}`; // 상세 페이지 경로
+
+    // ✅ 공통 발송 함수
+    const notifyGroup = async (
+      targetUsers: string[],
+      mailSubject: string,
+      mailHeader: string,
+      mailMessage: string,
+      linkPath: string,
+      isApprovalRequest: boolean,
+      sendDbNotification: boolean // 👈 New: DB 알림 저장 여부
+    ) => {
+      if (!targetUsers || targetUsers.length === 0) return;
+
+      await Promise.all(
+        targetUsers.map(async (targetName) => {
+          // 1. DB 알림 저장 (옵션이 true일 때만)
+          if (sendDbNotification) {
+            const notiRef = db
+              .collection("notifications")
+              .doc(targetName)
+              .collection("userNotifications")
+              .doc();
+            batch.set(notiRef, {
+              targetUserName: targetName,
+              fromUserName: userName,
+              type: "approval",
+              message: `[${docData.title}] ${mailHeader}`,
+              link: isApprovalRequest ? "/main/my-approval/pending" : linkPath,
+              isRead: false,
+              createdAt: Date.now(),
+              approvalId: docRef.id,
+            });
+          }
+
+          // 2. 이메일 발송 (항상 수행)
+          const userQuery = await db
+            .collection("employee")
+            .where("userName", "==", targetName)
+            .get();
+          if (!userQuery.empty) {
+            const email = userQuery.docs[0].data().email;
+
+            if (email) {
+              await sendEmail({
+                to: email,
+                subject: mailSubject,
+                html: `
+                  <div style="padding: 20px; border: 1px solid #ddd; border-radius: 10px; font-family: sans-serif;">
+                    <h2 style="color: #2c3e50;">${mailHeader}</h2>
+                    <p style="font-size: 16px; line-height: 1.5;">${mailMessage}</p>
+                    
+                    <div style="background-color: #f9f9f9; padding: 15px; margin: 20px 0; border-radius: 5px;">
+                      <p style="margin: 5px 0;"><strong>기안자:</strong> ${userName} (${department})</p>
+                      <p style="margin: 5px 0;"><strong>제목:</strong> ${
+                        docData.title
+                      }</p>
+                      <p style="margin: 5px 0;"><strong>기안일:</strong> ${new Date().toLocaleDateString()}</p>
+                    </div>
+
+                    <a href="${baseUrl}${linkPath}" 
+                       style="display: inline-block; padding: 12px 24px; background-color: #519d9e; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">
+                       ${isApprovalRequest ? "결재하러 가기" : "문서 확인하기"}
+                    </a>
+                    
+                    <hr style="margin-top: 30px; border: 0; border-top: 1px solid #eee;" />
+                    <p style="font-size: 12px; color: #999;">본 메일은 델타이에스 ERP 시스템에서 자동 발송되었습니다.</p>
+                  </div>
+                `,
+              });
+            }
+          }
+        })
+      );
+    };
+
+    // 🚀 [A] 1차 결재자: 이메일 O, ERP 알림 X
+    await notifyGroup(
+      approvalLine.first || [],
+      `[결재요청] ${docData.title}`,
+      "1차 결재 요청이 도착했습니다.",
+      `${userName}님이 작성한 문서의 1차 결재 차례입니다.<br/>내용을 확인하시고 결재를 진행해주세요.`,
+      "/main/my-approval/pending",
+      true,
+      false // 👈 DB 알림 끄기
+    );
+
+    // 🚀 [B] 공유자: 이메일 O, ERP 알림 O
+    const allApprovers = approvalLine.first || [];
+    const sharedUsers = [
       ...(approvalLine.second || []),
       ...(approvalLine.third || []),
-    ];
+      ...(approvalLine.shared || []),
+    ].filter((user) => !allApprovers.includes(user));
+    const uniqueSharedUsers = [...new Set(sharedUsers)];
 
-    // 공유자 명단 (알림 발송 대상)
-    const sharedUsers = approvalLine.shared || [];
-
-    sharedUsers.forEach((targetName) => {
-      // 만약 공유자가 결재 라인에도 중복 포함되어 있다면 알림을 보내지 않음
-      if (allApprovers.includes(targetName)) return;
-
-      const notiRef = db
-        .collection("notifications")
-        .doc(targetName)
-        .collection("userNotifications")
-        .doc();
-
-      batch.set(notiRef, {
-        targetUserName: targetName,
-        fromUserName: userName,
-        type: "approval",
-        message: `[공유] ${docData.title}`,
-        link: `/main/workoutside/approvals/${docRef.id}`,
-        isRead: false,
-        createdAt: Date.now(),
-        approvalId: docRef.id,
-      });
-    });
+    await notifyGroup(
+      uniqueSharedUsers,
+      `[공유] ${docData.title}`,
+      "문서가 공유되었습니다.",
+      `${userName}님이 작성한 문서가 공유되었습니다.<br/>(또는 예정된 결재 건입니다.)`,
+      detailPath,
+      false,
+      true // 👈 DB 알림 켜기
+    );
 
     await batch.commit();
     return NextResponse.json({ success: true, id: docRef.id });

@@ -283,17 +283,27 @@ function CompletedApprovalContent() {
                             </span>
                           </div>
                         ) : (
-                          <>
-                            {/* ✅ implementDate가 있으면 표시 */}
-                            {item.implementDate && (
-                              <div className="text-sm text-gray-600 flex items-center gap-2">
-                                <span>{item.implementDate}</span>
-                                <span className="text-black  text-xs truncate max-w-[400px]">
-                                  {item.title || "제목 없음"}
-                                </span>
-                              </div>
-                            )}
-                          </>
+                          /* ✅ [수정됨] 품의서/보고서/외근 통합 표시 로직 */
+                          <div className="text-sm text-gray-600 flex items-center gap-2">
+                            {/* 1. 날짜 표시: implementDate가 있으면 쓰고, 없으면 createdAt(작성일) 사용 */}
+                            <span>
+                              {item.implementDate
+                                ? item.implementDate
+                                : new Date(item.createdAt)
+                                    .toLocaleDateString("ko-KR", {
+                                      year: "numeric",
+                                      month: "2-digit",
+                                      day: "2-digit",
+                                    })
+                                    .replace(/\. /g, "-")
+                                    .replace(/\./g, "")}
+                            </span>
+
+                            {/* 2. 제목 표시: 항상 표시되도록 변경 */}
+                            <span className="text-black text-xs truncate max-w-[400px] font-medium">
+                              {item.title || "제목 없음"}
+                            </span>
+                          </div>
                         )}
                       </div>
                     </div>

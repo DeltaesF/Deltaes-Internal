@@ -158,22 +158,52 @@ export default function ApprovalDetailPage() {
     enabled: !!id,
   });
 
-  // ✅ 결재 승인/반려 Mutation
+  // ✅ [수정] 결재 승인/반려 Mutation (이메일 발송을 위해 update API 사용)
   const approveMutation = useMutation({
     mutationFn: async ({ status }: { status: "approve" | "reject" }) => {
       if (!approval) throw new Error("Document not found");
 
-      const res = await fetch("/api/approvals/approve", {
+      // 1. 현재 내 역할(1차/2차/3차) 확인
+      const myName = userName || "";
+      const isFirst = approval.approvers?.first?.includes(myName);
+      const isSecond = approval.approvers?.second?.includes(myName);
+      const isThird = approval.approvers?.third?.includes(myName);
+
+      // 2. 다음 상태값 계산
+      let nextStatus = "반려"; // 기본값
+
+      if (status === "approve") {
+        if (isFirst && approval.status === "1차 결재 대기") {
+          nextStatus = "2차 결재 대기"; // 1차 승인 -> 2차로 넘김
+        } else if (isSecond && approval.status === "2차 결재 대기") {
+          nextStatus = "3차 결재 대기"; // 2차 승인 -> 3차로 넘김
+        } else if (isThird && approval.status === "3차 결재 대기") {
+          nextStatus = "결재 완료"; // 3차 승인 -> 최종 완료
+        } else {
+          // 예외 케이스 (이미 처리되었거나 권한 없음)
+          return;
+        }
+      }
+
+      // 3. update API 호출 (이메일 자동 발송됨)
+      const res = await fetch("/api/approvals/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          approvalId: id,
-          approverName: userName,
-          applicantUserName: approval.userName,
-          status,
-          comment,
+          id: id,
+          userName: approval.userName, // 🚨 기안자 이름 (매우 중요: DB 경로 찾기용)
+          approvalType: approval.approvalType, // vehicle, purchase 등
+
+          // 🚨 [핵심] 이 상태값을 보고 서버가 이메일을 보냅니다.
+          status: nextStatus,
+
+          // // (선택) 코멘트를 저장하고 싶다면 필드 추가 필요 (현재 update API엔 없음)
+          // content: comment
+          //   ? `${approval.content} <br/> [결재의견] ${comment}`
+          //   : approval.content,
         }),
       });
+
       if (!res.ok) throw new Error("처리 실패");
       return res.json();
     },
@@ -182,7 +212,10 @@ export default function ApprovalDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["approvalDetail", id] });
       router.push("/main/my-approval/pending");
     },
-    onError: () => alert("오류가 발생했습니다."),
+    onError: (err) => {
+      console.error(err);
+      alert("오류가 발생했습니다.");
+    },
   });
 
   if (isLoading) return <div className="p-10 text-center">로딩 중...</div>;

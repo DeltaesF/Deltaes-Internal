@@ -256,6 +256,7 @@ export default function PurchaseApprovalWrite() {
           title: `[구매품의] ${formData.customerName || "미지정"}_${
             formData.product || "미지정"
           }`,
+          createdAt: Date.now(),
         }),
       });
 

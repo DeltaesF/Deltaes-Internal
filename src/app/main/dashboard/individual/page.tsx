@@ -90,6 +90,7 @@ interface NotificationItemProps {
 interface CompletedItem {
   id: string;
   userName: string;
+  createdAt: number;
   startDate: string;
   endDate: string;
   title?: string; // 문서 제목
@@ -538,7 +539,18 @@ export default function Individual() {
                       </div>
                     ) : (
                       <div className="text-sm text-gray-600 flex items-center gap-2">
-                        {v.implementDate && <span>{v.implementDate}</span>}
+                        <span>
+                          {v.implementDate
+                            ? v.implementDate
+                            : new Date(v.createdAt)
+                                .toLocaleDateString("ko-KR", {
+                                  year: "numeric",
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                })
+                                .replace(/\. /g, "-")
+                                .replace(/\./g, "")}
+                        </span>
                         <span className="text-black text-xs truncate max-w-[250px] font-medium">
                           {v.title || "제목 없음"}
                         </span>

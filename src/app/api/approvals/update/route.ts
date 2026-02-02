@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { sendEmail } from "@/lib/nodemailer";
 
 // Firebase 초기화
 if (!getApps().length) {
@@ -73,6 +74,9 @@ interface UpdatePayload {
   content?: string;
   updatedAt: FieldValue;
 
+  // ✅ [추가] 상태 변경용
+  status?: string;
+
   // ✅ [추가] 통합 외근/출장용 필드
   workType?: string;
   transportType?: string;
@@ -143,6 +147,9 @@ export async function POST(req: Request) {
       userName,
       approvalType, // 'purchase' | 'vehicle' | ...
 
+      // ✅ [중요] 상태 변경 (결재 승인/반려 시)
+      status,
+
       // 공통 수정 가능 필드
       title,
       content,
@@ -211,6 +218,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "문서 없음" }, { status: 404 });
     }
 
+    const currentData = doc.data();
+
     // 본인 확인 (이미 경로에 userName이 들어가지만 더블 체크)
     if (doc.data()?.userName !== userName) {
       return NextResponse.json({ error: "권한 없음" }, { status: 403 });
@@ -220,6 +229,11 @@ export async function POST(req: Request) {
     const updateData: UpdatePayload = {
       updatedAt: FieldValue.serverTimestamp(),
     };
+
+    // ✅ 상태 변경이 있다면 업데이트에 포함
+    if (status) {
+      updateData.status = status;
+    }
 
     // 공통 필드 업데이트
     if (title) updateData.title = title;
@@ -302,6 +316,138 @@ export async function POST(req: Request) {
 
     // 4. DB 업데이트 실행
     await docRef.update(updateData);
+
+    // ----------------------------------------------------------------
+    // [5] 🔔 결재 단계별 알림 및 이메일 발송 (상태 변경 시에만 실행)
+    // ----------------------------------------------------------------
+    if (status) {
+      const batch = db.batch();
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+
+      const approvers = currentData?.approvers || {
+        first: [],
+        second: [],
+        third: [],
+      };
+      const drafter = currentData?.userName; // 기안자
+      const docTitle = currentData?.title || title || "제목 없음";
+
+      // ✅ 공통 알림/메일 발송 함수
+      const notifyAndEmail = async (
+        targetUsers: string[],
+        subject: string,
+        message: string,
+        link: string,
+        isActionRequired: boolean,
+        sendDbNotification: boolean // 👈 DB 알림 여부 (결재자는 false, 기안자는 true)
+      ) => {
+        if (!targetUsers || targetUsers.length === 0) return;
+
+        await Promise.all(
+          targetUsers.map(async (targetName) => {
+            // 1. DB 알림 저장 (옵션이 true일 때만)
+            if (sendDbNotification) {
+              const notiRef = db
+                .collection("notifications")
+                .doc(targetName)
+                .collection("userNotifications")
+                .doc();
+              batch.set(notiRef, {
+                targetUserName: targetName,
+                fromUserName: "ERP System", // 또는 현재 결재자(userName)
+                type: "approval",
+                message: `[${docTitle}] ${message}`,
+                link: link,
+                isRead: false,
+                createdAt: Date.now(),
+                approvalId: id,
+              });
+            }
+
+            // 2. 이메일 발송 (항상 수행)
+            const userQuery = await db
+              .collection("employee")
+              .where("userName", "==", targetName)
+              .get();
+            if (!userQuery.empty) {
+              const email = userQuery.docs[0].data().email;
+              if (email) {
+                await sendEmail({
+                  to: email,
+                  subject: subject,
+                  html: `
+                    <div style="padding: 20px; border: 1px solid #ddd; border-radius: 10px; font-family: sans-serif;">
+                      <h2 style="color: #2c3e50;">${message}</h2>
+                      <p><strong>문서 제목:</strong> ${docTitle}</p>
+                      <p><strong>기안자:</strong> ${drafter}</p>
+                      <br/>
+                      <a href="${baseUrl}${link}" 
+                         style="display: inline-block; padding: 12px 24px; background-color: #519d9e; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                         ${isActionRequired ? "결재하러 가기" : "확인하기"}
+                      </a>
+                      <hr style="margin-top: 30px; border: 0; border-top: 1px solid #eee;" />
+                      <p style="font-size: 12px; color: #999;">본 메일은 델타이에스 ERP 시스템에서 자동 발송되었습니다.</p>
+                    </div>
+                  `,
+                });
+              }
+            }
+          })
+        );
+      };
+
+      // 🔄 상태(Status)에 따른 타겟 설정
+
+      // Case 1: 1차 승인됨 -> 2차 결재자에게 알림 (이메일 O, DB알림 X)
+      if (status.includes("2차 결재 대기") || status === "2차 결재 중") {
+        await notifyAndEmail(
+          approvers.second,
+          `[결재요청] 2차 결재가 필요합니다`,
+          "2차 결재 차례입니다.",
+          "/main/my-approval/pending",
+          true,
+          false // 👈 DB 알림 끔
+        );
+      }
+
+      // Case 2: 2차 승인됨 -> 3차 결재자에게 알림 (이메일 O, DB알림 X)
+      else if (status.includes("3차 결재 대기") || status === "3차 결재 중") {
+        await notifyAndEmail(
+          approvers.third,
+          `[결재요청] 3차 결재가 필요합니다`,
+          "3차 결재 차례입니다.",
+          "/main/my-approval/pending",
+          true,
+          false // 👈 DB 알림 끔
+        );
+      }
+
+      // Case 3: 최종 승인 -> 기안자에게 알림 (이메일 O, DB알림 O)
+      else if (status === "결재 완료" || status === "승인") {
+        await notifyAndEmail(
+          [drafter],
+          `[승인완료] ${docTitle}`,
+          "결재가 최종 승인되었습니다.",
+          `/main/workoutside/approvals/${id}`,
+          false,
+          true // 👈 DB 알림 켬 (결과 확인용)
+        );
+      }
+
+      // Case 4: 반려 -> 기안자에게 알림 (이메일 O, DB알림 O)
+      else if (status.includes("반려")) {
+        await notifyAndEmail(
+          [drafter],
+          `[반려] ${docTitle}`,
+          "결재가 반려되었습니다.",
+          `/main/workoutside/approvals/${id}`,
+          false,
+          true // 👈 DB 알림 켬 (결과 확인용)
+        );
+      }
+
+      await batch.commit();
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
