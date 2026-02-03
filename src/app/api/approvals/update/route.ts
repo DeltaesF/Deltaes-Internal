@@ -149,6 +149,7 @@ export async function POST(req: Request) {
 
       // ✅ [중요] 상태 변경 (결재 승인/반려 시)
       status,
+      comment,
 
       // 공통 수정 가능 필드
       title,
@@ -201,6 +202,11 @@ export async function POST(req: Request) {
       costData,
     } = body;
 
+    // ✅ [추가] 로그: 요청 수신 확인
+    console.log(
+      `[Update API] 요청 수신: ID=${id}, User=${userName}, Status=${status}`
+    );
+
     if (!id || !userName) {
       return NextResponse.json({ error: "필수 정보 누락" }, { status: 400 });
     }
@@ -220,8 +226,7 @@ export async function POST(req: Request) {
 
     const currentData = doc.data();
 
-    // 본인 확인 (이미 경로에 userName이 들어가지만 더블 체크)
-    if (doc.data()?.userName !== userName) {
+    if (currentData?.userName !== userName) {
       return NextResponse.json({ error: "권한 없음" }, { status: 403 });
     }
 
@@ -235,61 +240,76 @@ export async function POST(req: Request) {
       updateData.status = status;
     }
 
+    // ✅ [추가] 코멘트 처리 (본문에 추가)
+    if (comment) {
+      const originalContent = content || currentData?.content || "";
+      updateData.content = `${originalContent} <br/><br/> <p style="color:blue;">[결재의견] ${comment}</p>`;
+    } else if (content) {
+      // 코멘트가 없어도 수정된 content가 있으면 저장
+      updateData.content = content;
+    }
+
     // 공통 필드 업데이트
     if (title) updateData.title = title;
     if (content) updateData.content = content;
     if (attachments) updateData.attachments = attachments;
 
-    // ✅ 타입별 분기 처리
+    // ✅ [수정] 타입별 분기 처리 (undefined 체크 로직 추가 - 여기가 문제였음!)
     if (approvalType === "integrated_outside") {
       // [신규] 통합 외근/출장 업데이트
-      Object.assign(updateData, {
-        workType,
-        transportType,
-        implementDate,
+      if (workType !== undefined) updateData.workType = workType;
+      if (transportType !== undefined) updateData.transportType = transportType;
+      if (implementDate !== undefined) updateData.implementDate = implementDate;
+      if (customerName !== undefined) updateData.customerName = customerName;
+      if (customerDept !== undefined) updateData.customerDept = customerDept;
+      if (customerEmail !== undefined) updateData.customerEmail = customerEmail;
+      if (customerContact !== undefined)
+        updateData.customerContact = customerContact;
 
-        // 고객 정보
-        customerName,
-        customerDept,
-        customerEmail,
-        customerContact,
-
-        // 기간 (null 처리 주의)
-        usageDate: usageDate ?? null,
-        tripPeriod: tripPeriod ?? null,
-
-        // 상세 정보
-        vehicleModel: vehicleModel ?? null,
-        transportCosts: transportCosts ?? null,
-        tripDestination: tripDestination ?? null,
-        tripCompanions: tripCompanions ?? null,
-        tripExpenses: tripExpenses ?? [],
-      });
+      // null 허용 필드들은 undefined가 아닐 때만 할당 (null은 허용)
+      if (usageDate !== undefined) updateData.usageDate = usageDate;
+      if (tripPeriod !== undefined) updateData.tripPeriod = tripPeriod;
+      if (vehicleModel !== undefined) updateData.vehicleModel = vehicleModel;
+      if (transportCosts !== undefined)
+        updateData.transportCosts = transportCosts;
+      if (tripDestination !== undefined)
+        updateData.tripDestination = tripDestination;
+      if (tripCompanions !== undefined)
+        updateData.tripCompanions = tripCompanions;
+      if (tripExpenses !== undefined) updateData.tripExpenses = tripExpenses;
     } else if (approvalType === "purchase" || approvalType === "sales") {
-      // [기존] 구매/판매 품의서 업데이트
-      Object.assign(updateData, {
-        serialNumber,
-        customerName,
-        product,
-        endUser,
-        customerInfo,
-        contractDate,
-        introductionType,
-        introductionMemo,
-        deliveryDate,
-        paymentPending,
-        paymentPendingAmount,
-        billingDate,
-        cashCollection,
-        cashCollectionDays,
-        collectionDate,
-        noteCollection,
-        noteCollectionDays,
-        noteMaturityDate,
-        specialNotes,
-        priceData,
-        costData,
-      });
+      // [기존] 구매/판매 품의서 업데이트 (undefined 체크)
+      if (serialNumber !== undefined) updateData.serialNumber = serialNumber;
+      if (customerName !== undefined) updateData.customerName = customerName;
+      if (product !== undefined) updateData.product = product;
+      if (endUser !== undefined) updateData.endUser = endUser;
+      if (customerInfo !== undefined) updateData.customerInfo = customerInfo;
+      if (contractDate !== undefined) updateData.contractDate = contractDate;
+      if (introductionType !== undefined)
+        updateData.introductionType = introductionType;
+      if (introductionMemo !== undefined)
+        updateData.introductionMemo = introductionMemo;
+      if (deliveryDate !== undefined) updateData.deliveryDate = deliveryDate;
+      if (paymentPending !== undefined)
+        updateData.paymentPending = paymentPending;
+      if (paymentPendingAmount !== undefined)
+        updateData.paymentPendingAmount = paymentPendingAmount;
+      if (billingDate !== undefined) updateData.billingDate = billingDate;
+      if (cashCollection !== undefined)
+        updateData.cashCollection = cashCollection;
+      if (cashCollectionDays !== undefined)
+        updateData.cashCollectionDays = cashCollectionDays;
+      if (collectionDate !== undefined)
+        updateData.collectionDate = collectionDate;
+      if (noteCollection !== undefined)
+        updateData.noteCollection = noteCollection;
+      if (noteCollectionDays !== undefined)
+        updateData.noteCollectionDays = noteCollectionDays;
+      if (noteMaturityDate !== undefined)
+        updateData.noteMaturityDate = noteMaturityDate;
+      if (specialNotes !== undefined) updateData.specialNotes = specialNotes;
+      if (priceData !== undefined) updateData.priceData = priceData;
+      if (costData !== undefined) updateData.costData = costData;
 
       // 제목 자동 업데이트 (옵션)
       // 사용자가 제목을 직접 수정하지 않았고, 고객명/제품명이 변경된 경우 제목 갱신
@@ -317,61 +337,91 @@ export async function POST(req: Request) {
     // 4. DB 업데이트 실행
     await docRef.update(updateData);
 
+    // ✅ [추가] 로그: DB 업데이트 성공 확인
+    console.log("[Update API] DB 업데이트 성공");
+
     // ----------------------------------------------------------------
     // [5] 🔔 결재 단계별 알림 및 이메일 발송 (상태 변경 시에만 실행)
     // ----------------------------------------------------------------
     if (status) {
-      const batch = db.batch();
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+      // ✅ [수정] 알림 로직 전체를 try-catch로 감싸서, 메일 실패 시에도 API는 성공으로 처리
+      try {
+        const batch = db.batch();
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
 
-      const approvers = currentData?.approvers || {
-        first: [],
-        second: [],
-        third: [],
-      };
-      const drafter = currentData?.userName; // 기안자
-      const docTitle = currentData?.title || title || "제목 없음";
+        const approvers = currentData?.approvers || {
+          first: [],
+          second: [],
+          third: [],
+        };
+        const drafter = currentData?.userName;
+        const docTitle = currentData?.title || title || "제목 없음";
 
-      // ✅ 공통 알림/메일 발송 함수
-      const notifyAndEmail = async (
-        targetUsers: string[],
-        subject: string,
-        message: string,
-        link: string,
-        isActionRequired: boolean,
-        sendDbNotification: boolean // 👈 DB 알림 여부 (결재자는 false, 기안자는 true)
-      ) => {
-        if (!targetUsers || targetUsers.length === 0) return;
+        // ✅ [수정] 안전한 발송 함수 (개별 실패가 전체를 멈추지 않음)
+        const safeNotifyAndEmail = async (
+          targetUsers: string[],
+          subject: string,
+          message: string,
+          link: string,
+          isActionRequired: boolean,
+          sendDbNotification: boolean,
+          approvalComment?: string
+        ) => {
+          if (!targetUsers || targetUsers.length === 0) return;
 
-        await Promise.all(
-          targetUsers.map(async (targetName) => {
-            // 1. DB 알림 저장 (옵션이 true일 때만)
-            if (sendDbNotification) {
-              const notiRef = db
-                .collection("notifications")
-                .doc(targetName)
-                .collection("userNotifications")
-                .doc();
-              batch.set(notiRef, {
-                targetUserName: targetName,
-                fromUserName: "ERP System", // 또는 현재 결재자(userName)
-                type: "approval",
-                message: `[${docTitle}] ${message}`,
-                link: link,
-                isRead: false,
-                createdAt: Date.now(),
-                approvalId: id,
-              });
-            }
+          console.log(`[메일발송 시도] 대상: ${targetUsers.join(", ")}`);
 
-            // 2. 이메일 발송 (항상 수행)
-            const userQuery = await db
-              .collection("employee")
-              .where("userName", "==", targetName)
-              .get();
-            if (!userQuery.empty) {
-              const email = userQuery.docs[0].data().email;
-              if (email) {
+          await Promise.all(
+            targetUsers.map(async (targetName) => {
+              try {
+                // 1. DB 알림 (옵션)
+                if (sendDbNotification) {
+                  const notiRef = db
+                    .collection("notifications")
+                    .doc(targetName)
+                    .collection("userNotifications")
+                    .doc();
+
+                  let erpMessage = `[${docTitle}] ${message}`;
+                  if (approvalComment)
+                    erpMessage += ` (의견: ${approvalComment})`;
+
+                  batch.set(notiRef, {
+                    targetUserName: targetName,
+                    fromUserName: "ERP System",
+                    type: "approval",
+                    message: erpMessage,
+                    link: link,
+                    isRead: false,
+                    createdAt: Date.now(),
+                    approvalId: id,
+                  });
+                }
+
+                // 2. 이메일 발송
+                const userQuery = await db
+                  .collection("employee")
+                  .where("userName", "==", targetName)
+                  .get();
+
+                if (userQuery.empty) {
+                  // ✅ [추가] 로그: 사용자 찾기 실패
+                  console.warn(
+                    `[메일실패] '${targetName}' 사용자를 찾을 수 없음`
+                  );
+                  return;
+                }
+
+                const email = userQuery.docs[0].data().email;
+
+                if (!email) {
+                  // ✅ [추가] 로그: 이메일 필드 없음
+                  console.warn(
+                    `[메일실패] '${targetName}'의 이메일 정보가 없음`
+                  );
+                  return;
+                }
+
                 await sendEmail({
                   to: email,
                   subject: subject,
@@ -390,68 +440,82 @@ export async function POST(req: Request) {
                     </div>
                   `,
                 });
+
+                // ✅ [추가] 로그: 발송 성공
+                console.log(
+                  `[메일성공] ${targetName} (${email})에게 발송 완료`
+                );
+              } catch (innerError) {
+                // ✅ [추가] 로그: 개별 발송 에러 (여기서 잡아서 멈추지 않게 함)
+                console.error(
+                  `[메일에러] ${targetName} 발송 중 오류:`,
+                  innerError
+                );
               }
-            }
-          })
-        );
-      };
+            })
+          );
+        };
 
-      // 🔄 상태(Status)에 따른 타겟 설정
+        // 상태별 타겟 설정 및 발송 호출
+        if (status.includes("2차 결재 대기") || status === "2차 결재 중") {
+          await safeNotifyAndEmail(
+            approvers.second,
+            `[결재요청] 2차 결재가 필요합니다`,
+            "2차 결재 차례입니다.",
+            "/main/my-approval/pending",
+            true,
+            false,
+            comment
+          );
+        } else if (
+          status.includes("3차 결재 대기") ||
+          status === "3차 결재 중"
+        ) {
+          await safeNotifyAndEmail(
+            approvers.third,
+            `[결재요청] 3차 결재가 필요합니다`,
+            "3차 결재 차례입니다.",
+            "/main/my-approval/pending",
+            true,
+            false,
+            comment
+          );
+        } else if (status === "결재 완료" || status === "승인") {
+          await safeNotifyAndEmail(
+            [drafter],
+            `[승인완료] ${docTitle}`,
+            "결재가 최종 승인되었습니다.",
+            `/main/workoutside/approvals/${id}`,
+            false,
+            true,
+            comment
+          );
+        } else if (status.includes("반려")) {
+          await safeNotifyAndEmail(
+            [drafter],
+            `[반려] ${docTitle}`,
+            "결재가 반려되었습니다.",
+            `/main/workoutside/approvals/${id}`,
+            false,
+            true,
+            comment
+          );
+        }
 
-      // Case 1: 1차 승인됨 -> 2차 결재자에게 알림 (이메일 O, DB알림 X)
-      if (status.includes("2차 결재 대기") || status === "2차 결재 중") {
-        await notifyAndEmail(
-          approvers.second,
-          `[결재요청] 2차 결재가 필요합니다`,
-          "2차 결재 차례입니다.",
-          "/main/my-approval/pending",
-          true,
-          false // 👈 DB 알림 끔
+        await batch.commit();
+        console.log("[Update API] 알림 배치 커밋 완료");
+      } catch (notifyError) {
+        // ✅ [추가] 로그: 전체 알림 로직 에러 (DB 업데이트는 이미 되었으므로 성공 응답)
+        console.error(
+          "[알림시스템 에러] 알림 발송 실패 (DB 업데이트는 성공함):",
+          notifyError
         );
       }
-
-      // Case 2: 2차 승인됨 -> 3차 결재자에게 알림 (이메일 O, DB알림 X)
-      else if (status.includes("3차 결재 대기") || status === "3차 결재 중") {
-        await notifyAndEmail(
-          approvers.third,
-          `[결재요청] 3차 결재가 필요합니다`,
-          "3차 결재 차례입니다.",
-          "/main/my-approval/pending",
-          true,
-          false // 👈 DB 알림 끔
-        );
-      }
-
-      // Case 3: 최종 승인 -> 기안자에게 알림 (이메일 O, DB알림 O)
-      else if (status === "결재 완료" || status === "승인") {
-        await notifyAndEmail(
-          [drafter],
-          `[승인완료] ${docTitle}`,
-          "결재가 최종 승인되었습니다.",
-          `/main/workoutside/approvals/${id}`,
-          false,
-          true // 👈 DB 알림 켬 (결과 확인용)
-        );
-      }
-
-      // Case 4: 반려 -> 기안자에게 알림 (이메일 O, DB알림 O)
-      else if (status.includes("반려")) {
-        await notifyAndEmail(
-          [drafter],
-          `[반려] ${docTitle}`,
-          "결재가 반려되었습니다.",
-          `/main/workoutside/approvals/${id}`,
-          false,
-          true // 👈 DB 알림 켬 (결과 확인용)
-        );
-      }
-
-      await batch.commit();
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Approval Update Error:", error);
+    console.error("Approval Update API Critical Error:", error);
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
 }
