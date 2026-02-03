@@ -17,6 +17,8 @@ interface NotificationItem {
   isRead: boolean;
   createdAt: number;
   vacationId?: string;
+  approvalId?: string; // ✅ 품의서 ID 추가
+  reportId?: string; // ✅ 보고서 ID 추가
 }
 
 interface NotificationApiResponse {
@@ -177,8 +179,20 @@ function SharedBoxContent() {
         const errorMessage = e instanceof Error ? e.message : "알 수 없는 오류";
         alert(`오류: ${errorMessage}`);
       }
-    } else {
+    } // 2. 품의서 로직 (ID가 있으면 강제 이동)
+    else if (item.type === "approval" && item.approvalId) {
+      router.push(`/main/workoutside/approvals/${item.approvalId}`);
+    }
+    // 3. 보고서 로직 (ID가 있으면 강제 이동)
+    else if (item.type === "report" && item.reportId) {
+      router.push(`/main/report/${item.reportId}`);
+    }
+    // 4. 일반 링크 이동 (기존 fallback)
+    else if (item.link) {
       router.push(item.link);
+    } else {
+      // 링크도 없고 ID도 없는 경우
+      alert("이동할 수 있는 경로가 없습니다.");
     }
   };
 
@@ -276,8 +290,9 @@ function SharedBoxContent() {
                       >
                         {typeLabels[item.type] || item.type}
                       </span>
-                      <div>
-                        <p className="text-gray-800 font-medium group-hover:text-purple-600 transition-colors">
+                      <div className="min-w-0 flex-1">
+                        {/* ✅ [수정 3] 긴 텍스트 말줄임 처리 (line-clamp-2) */}
+                        <p className="text-gray-800 font-medium group-hover:text-purple-600 transition-colors line-clamp-2 break-keep">
                           {item.message}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">

@@ -57,6 +57,14 @@ interface CostData {
   total: { val: string; desc: string };
 }
 
+// ✅ [추가] 결재 이력 타입 정의
+interface ApprovalHistoryEntry {
+  approver: string;
+  status: string;
+  comment?: string;
+  approvedAt: { seconds: number; nanoseconds: number } | string | number; // Firebase Timestamp or others
+}
+
 interface ApprovalDetail {
   id: string;
   approvalType?: string; // "vehicle" | "purchase" | "sales"
@@ -132,6 +140,9 @@ interface ApprovalDetail {
   priceData?: PriceData;
   costData?: CostData;
   attachments?: { name: string; url: string }[];
+
+  // ✅ [추가] 결재 이력 필드 추가
+  approvalHistory?: ApprovalHistoryEntry[];
 }
 
 const fetchDetail = async (id: string): Promise<ApprovalDetail> => {
@@ -886,6 +897,106 @@ export default function ApprovalDetailPage() {
       ) : (
         // 🛒 구매 품의서 뷰
         renderPurchaseView()
+      )}
+
+      {/* ---------------------------------------------------------------- */}
+      {/* ✅ [추가] 결재 진행 이력 및 코멘트 표시 영역 */}
+      {/* ---------------------------------------------------------------- */}
+      {approval.approvalHistory && approval.approvalHistory.length > 0 && (
+        <div className="mt-12 border-t border-gray-200">
+          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            📋 결재 진행 이력
+          </h3>
+          <div className="space-y-4">
+            {approval.approvalHistory.map((history, idx) => {
+              let dateStr = "";
+
+              // 1. [ESLint 해결] any 대신 구체적인 타입을 사용하여 타입 단언
+              const at = history.approvedAt as
+                | { seconds?: number; _seconds?: number }
+                | string
+                | number
+                | Date;
+
+              try {
+                if (!at) {
+                  dateStr = "-";
+                }
+                // 2. { seconds: ... } 형태 (Standard Firestore)
+                else if (
+                  typeof at === "object" &&
+                  "seconds" in at &&
+                  typeof at.seconds === "number"
+                ) {
+                  dateStr = new Date(at.seconds * 1000).toLocaleString();
+                }
+                // 3. { _seconds: ... } 형태 (Admin SDK 직렬화 이슈 대응)
+                else if (
+                  typeof at === "object" &&
+                  "_seconds" in at &&
+                  typeof at._seconds === "number"
+                ) {
+                  dateStr = new Date(at._seconds * 1000).toLocaleString();
+                }
+                // 4. 문자열, 숫자, Date 객체 처리
+                else {
+                  const d = new Date(at as string | number | Date);
+                  if (!isNaN(d.getTime())) {
+                    dateStr = d.toLocaleString();
+                  } else {
+                    dateStr = "날짜 오류";
+                  }
+                }
+              } catch {
+                // 5. [ESLint 해결] 사용하지 않는 (e) 제거 -> catch 만 사용
+                dateStr = "-";
+              }
+
+              // 상태에 따른 배지 색상
+              const isReject = history.status.includes("반려");
+              const badgeClass = isReject
+                ? "bg-red-100 text-red-700 border-red-200"
+                : "bg-blue-100 text-blue-700 border-blue-200";
+
+              return (
+                <div
+                  key={idx}
+                  className="bg-gray-50 border rounded-lg p-4 shadow-sm"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-gray-800">
+                        {history.approver}
+                      </span>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded border ${badgeClass}`}
+                      >
+                        {history.status}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-500">{dateStr}</span>
+                  </div>
+
+                  {/* 코멘트가 있을 때만 표시 */}
+                  {history.comment ? (
+                    <div className="mt-2 bg-white  rounded text-sm text-gray-700 whitespace-pre-wrap">
+                      <span className="font-bold text-gray-500 mr-2">
+                        💬 의견:
+                      </span>
+                      {history.comment}
+                    </div>
+                  ) : (
+                    <div className="mt-2 bg-white  rounded text-sm text-gray-700 whitespace-pre-wrap">
+                      <span className="font-bold text-gray-500 mr-2">
+                        💬 의견: 코멘트가 없습니다.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {/* 3. 결재 처리 (권한 있을 때만) */}

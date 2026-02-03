@@ -34,10 +34,9 @@ export async function POST(req: Request) {
       .doc(userName)
       .collection("userNotifications");
 
-    // 2. ✅ 서버 사이드 필터링 (필터가 'all'이 아닐 때만 적용)
+    // 2. ✅ 서버 사이드 필터링
     if (filterType !== "all") {
       if (filterType === "vacation") {
-        // 휴가 관련 타입들을 한꺼번에 조회
         query = query.where("type", "in", [
           "vacation",
           "vacation_request",
@@ -50,16 +49,13 @@ export async function POST(req: Request) {
     }
 
     // 3. 정렬 (최신순)
-    // ⚠️ 주의: Firestore에서 'where(필터)'와 'orderBy(정렬)'를 함께 쓰려면 복합 색인(Index)이 필요할 수 있습니다.
-    // 에러 발생 시 서버 로그에 뜨는 링크를 클릭하여 색인을 생성해주세요.
     query = query.orderBy("createdAt", "desc");
 
-    // 4. ✅ 전체 개수 조회 (비용 절감: count 쿼리 사용)
-    // 현재 필터 조건에 맞는 전체 문서 수를 가져옵니다.
+    // 4. ✅ 전체 개수 조회
     const countSnapshot = await query.count().get();
     const totalCount = countSnapshot.data().count;
 
-    // 5. ✅ 페이지네이션 (limit, offset) 적용하여 데이터 조회
+    // 5. ✅ 페이지네이션 적용하여 데이터 조회
     const offset = (page - 1) * limit;
     const snapshot = await query.limit(limit).offset(offset).get();
 
@@ -73,7 +69,12 @@ export async function POST(req: Request) {
         message: data.message,
         link: data.link,
         isRead: data.isRead,
+
+        // ✅ [핵심 수정] DB에 저장된 ID들을 꺼내서 전달
         vacationId: data.vacationId || null,
+        approvalId: data.approvalId || null, // 품의서 ID
+        reportId: data.reportId || null, // 보고서 ID
+
         createdAt:
           data.createdAt && typeof data.createdAt.toMillis === "function"
             ? data.createdAt.toMillis()
