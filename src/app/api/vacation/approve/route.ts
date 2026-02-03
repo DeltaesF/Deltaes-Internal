@@ -6,7 +6,7 @@ import { sendEmail } from "@/lib/nodemailer";
 type ApprovalHistoryEntry = {
   approver: string;
   status: string;
-  comment?: string; // ✅ 코멘트 필드 추가
+  comment?: string;
   approvedAt: Date | FirebaseFirestore.Timestamp;
 };
 
@@ -24,27 +24,31 @@ type VacationDoc = {
   approvalHistory?: ApprovalHistoryEntry[];
 };
 
-// ✅ [추가] 이메일 발송을 위한 데이터 타입
+// 이메일 발송 데이터 타입
 type EmailTask = {
   targets: string[];
   subject: string;
   title: string;
   message: string;
   link: string;
-  isAction: boolean; // 결재 필요 여부
+  isAction: boolean;
 };
 
 export async function POST(req: Request) {
   try {
-    // ✅ status(approve/reject), comment 추가 수신
     const { vacationId, approverName, applicantUserName, status, comment } =
       await req.json();
+
+    // ✅ 로그: 요청 수신
+    console.log(
+      `[Vacation Approve] 요청: ID=${vacationId}, Approver=${approverName}, Status=${status}`
+    );
 
     if (!vacationId || !approverName || !applicantUserName) {
       return NextResponse.json({ error: "필수 정보 누락" }, { status: 400 });
     }
 
-    const action = status === "reject" ? "reject" : "approve"; // action 구분
+    const action = status === "reject" ? "reject" : "approve";
 
     const vacationRef = db
       .collection("vacation")
@@ -52,9 +56,12 @@ export async function POST(req: Request) {
       .collection("requests")
       .doc(vacationId);
 
-    // ✅ 트랜잭션 밖에서 이메일 보낼 정보를 담을 변수
+    // 트랜잭션 밖에서 이메일 정보를 담을 변수
     let emailTask: EmailTask | null = null;
 
+    // ----------------------------------------------------------------
+    // 1. DB 트랜잭션 (상태 변경 & 휴가일수 차감)
+    // ----------------------------------------------------------------
     await db.runTransaction(async (transaction) => {
       const doc = await transaction.get(vacationRef);
       if (!doc.exists) throw new Error("문서를 찾을 수 없습니다.");
@@ -77,7 +84,7 @@ export async function POST(req: Request) {
       // 🛑 [반려 로직]
       if (action === "reject") {
         newStatus = `반려됨 (${approverName})`;
-        notificationTargets = [applicantUserName]; // 신청자에게 알림
+        notificationTargets = [applicantUserName];
         notiMessage = `[반려] ${approverName}님이 결재를 반려했습니다. 사유: ${
           comment || "없음"
         }`;
@@ -91,21 +98,21 @@ export async function POST(req: Request) {
           message: `결재자(${approverName})님에 의해 반려되었습니다.<br/>사유: ${
             comment || "없음"
           }`,
-          link: "/main/vacation/user", // 내 휴가 목록
+          link: "/main/vacation/user",
           isAction: false,
         };
       }
-      // ✅ [승인 로직] (기존 로직 유지)
+      // ✅ [승인 로직]
       else {
         if (isFirst) {
           if (currentStatus !== "1차 결재 대기")
             throw new Error("순서가 아니거나 이미 처리되었습니다.");
+
           if (hasSecondApprover) {
             newStatus = "2차 결재 대기";
             notificationTargets = approvers.second || [];
             notiMessage = `[1차 승인] ${applicantUserName} 결재 요청 (2차 대기)`;
 
-            // 📧 이메일: 2차 결재자에게 요청
             emailTask = {
               targets: approvers.second || [],
               subject: `[결재요청] ${applicantUserName} - 휴가 신청`,
@@ -119,7 +126,6 @@ export async function POST(req: Request) {
             notificationTargets = approvers.third || [];
             notiMessage = `[1차 승인] ${applicantUserName} 결재 요청 (3차 대기)`;
 
-            // 📧 이메일: 3차 결재자에게 요청
             emailTask = {
               targets: approvers.third || [],
               subject: `[결재요청] ${applicantUserName} - 휴가 신청`,
@@ -133,7 +139,6 @@ export async function POST(req: Request) {
             notificationTargets = approvers.shared || [];
             notiMessage = `[최종 승인] ${applicantUserName} 결재가 승인되었습니다.`;
 
-            // 📧 이메일: 기안자에게 승인 통보
             emailTask = {
               targets: [applicantUserName],
               subject: `[승인완료] ${applicantUserName} - 휴가 신청`,
@@ -147,12 +152,12 @@ export async function POST(req: Request) {
         } else if (isSecond) {
           if (currentStatus !== "2차 결재 대기")
             throw new Error("순서가 아니거나 이미 처리되었습니다.");
+
           if (hasThirdApprover) {
             newStatus = "3차 결재 대기";
             notificationTargets = approvers.third || [];
             notiMessage = `[2차 승인] ${applicantUserName} 결재 요청 (3차 대기)`;
 
-            // 📧 이메일: 3차 결재자에게 요청
             emailTask = {
               targets: approvers.third || [],
               subject: `[결재요청] ${applicantUserName} - 휴가 신청`,
@@ -166,7 +171,6 @@ export async function POST(req: Request) {
             notificationTargets = approvers.shared || [];
             notiMessage = `[최종 승인] ${applicantUserName} 결재가 승인되었습니다.`;
 
-            // 📧 이메일: 기안자에게 승인 통보
             emailTask = {
               targets: [applicantUserName],
               subject: `[승인완료] ${applicantUserName} - 휴가 신청`,
@@ -185,7 +189,6 @@ export async function POST(req: Request) {
           notificationTargets = [applicantUserName];
           notiMessage = `[최종 승인] ${applicantUserName} 결재가 승인되었습니다.`;
 
-          // 📧 이메일: 기안자에게 승인 통보
           emailTask = {
             targets: [applicantUserName],
             subject: `[승인완료] ${applicantUserName} - 휴가 신청`,
@@ -200,7 +203,7 @@ export async function POST(req: Request) {
         }
       }
 
-      // 1. 상태 및 이력 업데이트 (코멘트 포함)
+      // DB 업데이트
       transaction.update(vacationRef, {
         status: newStatus,
         lastApprovedAt: new Date(),
@@ -212,7 +215,7 @@ export async function POST(req: Request) {
         }),
       });
 
-      // 2. 최종 승인 시 휴가 일수 차감 (반려 시에는 차감 안 함)
+      // 최종 승인 시 휴가 차감
       if (newStatus === "최종 승인 완료") {
         let deductibleDays = 0;
         if (types && Array.isArray(types) && types.length > 0) {
@@ -232,20 +235,18 @@ export async function POST(req: Request) {
         });
       }
 
-      // ----------------------------------------------------------------
-      // 3. 알림(Notification) DB 저장
-      // ----------------------------------------------------------------
+      // DB 알림 저장
       if (notificationTargets.length > 0) {
         notificationTargets.forEach((target) => {
           let link = "/main/my-approval/pending";
           let type = "vacation_request";
 
           if (action === "reject") {
-            link = "/main/vacation/list"; // 내 휴가 목록
+            link = "/main/vacation/user";
             type = "vacation_reject";
           } else if (newStatus === "최종 승인 완료") {
             type = "vacation_complete";
-            link = "/main/vacation/list"; // 내 휴가 목록
+            link = "/main/vacation/user";
           }
 
           const notiRef = db
@@ -268,58 +269,79 @@ export async function POST(req: Request) {
       }
     });
 
+    // ✅ 로그: DB 업데이트 성공
+    console.log("[Vacation Approve] DB 트랜잭션 성공");
+
     // ----------------------------------------------------------------
-    // 4. 이메일 발송 (트랜잭션 성공 후 실행)
+    // 2. 이메일 발송 (안전장치 try-catch 적용)
     // ----------------------------------------------------------------
     if (emailTask) {
-      const task = emailTask as EmailTask; // 타입 단언
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+      try {
+        const task = emailTask as EmailTask;
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
 
-      // 타겟 유저들의 이메일 주소 조회
-      const emails: string[] = [];
-      const userSnapshots = await Promise.all(
-        task.targets.map((name) =>
-          db.collection("employee").where("userName", "==", name).get()
-        )
-      );
+        // 이메일 주소 찾기
+        const emails: string[] = [];
+        const userSnapshots = await Promise.all(
+          task.targets.map((name) =>
+            db.collection("employee").where("userName", "==", name).get()
+          )
+        );
 
-      userSnapshots.forEach((snap) => {
-        if (!snap.empty) {
-          const email = snap.docs[0].data().email;
-          if (email) emails.push(email);
+        userSnapshots.forEach((snap, idx) => {
+          if (!snap.empty) {
+            const email = snap.docs[0].data().email;
+            if (email) {
+              emails.push(email);
+            } else {
+              console.warn(`[메일경고] ${task.targets[idx]}의 이메일 없음`);
+            }
+          } else {
+            console.warn(`[메일경고] ${task.targets[idx]} 사용자 정보 없음`);
+          }
+        });
+
+        if (emails.length > 0) {
+          console.log(`[메일발송 시도] 대상: ${emails.join(", ")}`);
+
+          await Promise.all(
+            emails.map((email) =>
+              sendEmail({
+                to: email,
+                subject: task.subject,
+                html: `
+                  <div style="padding: 20px; border: 1px solid #ddd; border-radius: 10px; font-family: sans-serif;">
+                    <h2 style="color: #2c3e50;">${task.title}</h2>
+                    <p style="font-size: 16px; line-height: 1.5;">${
+                      task.message
+                    }</p>
+                    <div style="background-color: #f9f9f9; padding: 15px; margin: 20px 0; border-radius: 5px;">
+                      <p style="margin: 5px 0;"><strong>신청자:</strong> ${applicantUserName}</p>
+                      <p style="margin: 5px 0;"><strong>처리자:</strong> ${approverName}</p>
+                    </div>
+                    <a href="${baseUrl}${task.link}" 
+                      style="display: inline-block; padding: 12px 24px; background-color: #519d9e; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">
+                      ${task.isAction ? "결재하러 가기" : "확인하기"}
+                    </a>
+                  </div>
+                `,
+              })
+            )
+          );
+          console.log("[Vacation Approve] 메일 발송 완료");
         }
-      });
-
-      // 이메일 전송 (병렬 처리)
-      await Promise.all(
-        emails.map((email) =>
-          sendEmail({
-            to: email,
-            subject: task.subject,
-            html: `
-              <div style="padding: 20px; border: 1px solid #ddd; border-radius: 10px; font-family: sans-serif;">
-                <h2 style="color: #2c3e50;">${task.title}</h2>
-                <p style="font-size: 16px; line-height: 1.5;">${
-                  task.message
-                }</p>
-                <div style="background-color: #f9f9f9; padding: 15px; margin: 20px 0; border-radius: 5px;">
-                  <p style="margin: 5px 0;"><strong>신청자:</strong> ${applicantUserName}</p>
-                  <p style="margin: 5px 0;"><strong>처리자:</strong> ${approverName}</p>
-                </div>
-                <a href="${baseUrl}${task.link}" 
-                   style="display: inline-block; padding: 12px 24px; background-color: #519d9e; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">
-                   ${task.isAction ? "결재하러 가기" : "확인하기"}
-                </a>
-              </div>
-            `,
-          })
-        )
-      );
+      } catch (emailError) {
+        // 🚨 중요: 메일 발송 에러가 나도 API는 성공으로 처리해야 함 (DB는 이미 업데이트됨)
+        console.error(
+          "[Vacation Approve] 메일 발송 실패 (DB는 성공):",
+          emailError
+        );
+      }
     }
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error(err);
+    console.error("[Vacation Approve API Error]:", err);
     const msg = err instanceof Error ? err.message : "Error";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
