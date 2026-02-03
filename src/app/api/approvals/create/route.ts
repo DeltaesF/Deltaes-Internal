@@ -340,7 +340,7 @@ export async function POST(req: Request) {
       approvalLine.first || [],
       `[결재요청] ${docData.title}`,
       "1차 결재 요청이 도착했습니다.",
-      `${userName}님이 작성한 문서의 1차 결재 차례입니다.<br/>내용을 확인하시고 결재를 진행해주세요.`,
+      `${userName} 작성한 문서의 1차 결재 차례입니다.<br/>내용을 확인하시고 결재를 진행해주세요.`,
       "/main/my-approval/pending",
       true,
       false // 👈 DB 알림 끄기
@@ -359,7 +359,7 @@ export async function POST(req: Request) {
       uniqueSharedUsers,
       `[공유] ${docData.title}`,
       "문서가 공유되었습니다.",
-      `${userName}님이 작성한 문서가 공유되었습니다.<br/>(또는 예정된 결재 건입니다.)`,
+      `${userName} 작성한 문서가 공유되었습니다.<br/>(또는 예정된 결재 건입니다.)`,
       detailPath,
       false,
       true // 👈 DB 알림 켜기

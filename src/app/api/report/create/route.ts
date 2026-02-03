@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { sendEmail } from "@/lib/nodemailer";
 
 if (!getApps().length) {
   initializeApp({
@@ -140,64 +141,122 @@ export async function POST(req: Request) {
 
     await docRef.set(docData);
 
-    // 3. [알림] 결재자(요청) + 나머지(참조) 발송
+    // -------------------------------------------------------------
+    // [4] 🔔 알림 및 이메일 발송 (수정됨)
+    // -------------------------------------------------------------
     const batch = db.batch();
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+    const detailPath = `/main/report/${docRef.id}`; // 상세 페이지 경로
+
+    // ✅ 공통 발송 함수 (Reports 전용)
+    const notifyGroup = async (
+      targetUsers: string[],
+      mailSubject: string,
+      mailHeader: string,
+      mailMessage: string,
+      linkPath: string,
+      isApprovalRequest: boolean,
+      sendDbNotification: boolean // 👈 DB 알림 여부 제어
+    ) => {
+      if (!targetUsers || targetUsers.length === 0) return;
+
+      await Promise.all(
+        targetUsers.map(async (targetName) => {
+          // 1. DB 알림 저장 (옵션 true일 때만)
+          if (sendDbNotification) {
+            const notiRef = db
+              .collection("notifications")
+              .doc(targetName)
+              .collection("userNotifications")
+              .doc();
+            batch.set(notiRef, {
+              targetUserName: targetName,
+              fromUserName: userName,
+              type: "report",
+              message: `[${title}] ${mailHeader}`, // 예: "[제목] 결재 요청이..."
+              link: isApprovalRequest ? "/main/my-approval/pending" : linkPath,
+              isRead: false,
+              createdAt: Date.now(),
+              reportId: docRef.id,
+            });
+          }
+
+          // 2. 이메일 발송 (항상 수행)
+          const userQuery = await db
+            .collection("employee")
+            .where("userName", "==", targetName)
+            .get();
+          if (!userQuery.empty) {
+            const email = userQuery.docs[0].data().email;
+            if (email) {
+              await sendEmail({
+                to: email,
+                subject: mailSubject,
+                html: `
+                  <div style="padding: 20px; border: 1px solid #ddd; border-radius: 10px; font-family: sans-serif;">
+                    <h2 style="color: #2c3e50;">${mailHeader}</h2>
+                    <p style="font-size: 16px; line-height: 1.5;">${mailMessage}</p>
+                    
+                    <div style="background-color: #f9f9f9; padding: 15px; margin: 20px 0; border-radius: 5px;">
+                      <p style="margin: 5px 0;"><strong>기안자:</strong> ${userName} (${
+                  empData.department || ""
+                })</p>
+                      <p style="margin: 5px 0;"><strong>보고서 제목:</strong> ${title}</p>
+                      <p style="margin: 5px 0;"><strong>작성일:</strong> ${new Date().toLocaleDateString()}</p>
+                    </div>
+
+                    <a href="${baseUrl}${linkPath}" 
+                       style="display: inline-block; padding: 12px 24px; background-color: #519d9e; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">
+                       ${
+                         isApprovalRequest ? "결재하러 가기" : "보고서 확인하기"
+                       }
+                    </a>
+                  </div>
+                `,
+              });
+            }
+          }
+        })
+      );
+    };
 
     // -------------------------------------------------------------
-    // [A] 1차 결재자 (결재 요청)
+    // [A] 1차 결재자 (결재 요청) -> 이메일 O, ERP 알림 X
     // -------------------------------------------------------------
     const firstApprovers: string[] = reportLine.first || [];
-    firstApprovers.forEach((approver) => {
-      const notiRef = db
-        .collection("notifications")
-        .doc(approver)
-        .collection("userNotifications")
-        .doc();
-      batch.set(notiRef, {
-        targetUserName: approver,
-        fromUserName: userName,
-        type: "report",
-        message: `[${title}] 결재 요청이 도착했습니다.`,
-        link: `/main/my-approval/pending`, // 결재 대기함으로 이동
-        isRead: false,
-        createdAt: Date.now(),
-        reportId: docRef.id,
-      });
-    });
+    await notifyGroup(
+      firstApprovers,
+      `[결재요청] ${title}`,
+      "보고서 결재 요청이 도착했습니다.",
+      `${userName} 작성한 보고서의 1차 결재 차례입니다.<br/>내용을 확인하시고 결재를 진행해주세요.`,
+      "/main/my-approval/pending",
+      true,
+      false // 👈 DB 알림 끄기
+    );
 
     // -------------------------------------------------------------
-    // [B] 2차, 3차 결재자 + 공유자 (참조 알림)
+    // [B] 공유자 (참조 알림) -> 이메일 O, ERP 알림 O
     // -------------------------------------------------------------
     const referenceUsers = [
-      ...(reportLine.second || []),
+      ...(reportLine.second || []), // 보고서는 보통 2,3차가 없거나 있어도 전결 규정에 따라 다름. 여기선 참조로 분류됨 (기존 로직 유지)
       ...(reportLine.third || []),
       ...(reportLine.shared || []),
     ];
 
-    // 중복 제거
-    const uniqueRefs = [...new Set(referenceUsers)];
+    // 1차 결재자와 겹치는 사람 제외
+    const uniqueRefs = [...new Set(referenceUsers)].filter(
+      (u) => !firstApprovers.includes(u)
+    );
 
-    uniqueRefs.forEach((targetName: string) => {
-      // 1차 결재자와 겹치면 제외 (이미 보냈으므로)
-      if (firstApprovers.includes(targetName)) return;
-
-      const notiRef = db
-        .collection("notifications")
-        .doc(targetName)
-        .collection("userNotifications")
-        .doc();
-
-      batch.set(notiRef, {
-        targetUserName: targetName,
-        fromUserName: userName,
-        type: "report",
-        message: `[공유/예정] ${title} 결재 요청이 도착했습니다.`,
-        link: `/main/report/${docRef.id}`, // 보고서 상세 페이지로 바로 이동
-        isRead: false,
-        createdAt: Date.now(),
-        reportId: docRef.id,
-      });
-    });
+    await notifyGroup(
+      uniqueRefs,
+      `[공유] ${title}`,
+      "보고서가 공유되었습니다.",
+      `${userName} 작성한 보고서가 공유되었습니다.<br/>(또는 예정된 결재 건입니다.)`,
+      detailPath, // 상세 페이지로 이동
+      false,
+      true // 👈 DB 알림 켜기
+    );
 
     await batch.commit();
 

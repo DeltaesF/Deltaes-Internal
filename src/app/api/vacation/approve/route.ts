@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
+import { sendEmail } from "@/lib/nodemailer";
 
 type ApprovalHistoryEntry = {
   approver: string;
@@ -23,6 +24,16 @@ type VacationDoc = {
   approvalHistory?: ApprovalHistoryEntry[];
 };
 
+// ✅ [추가] 이메일 발송을 위한 데이터 타입
+type EmailTask = {
+  targets: string[];
+  subject: string;
+  title: string;
+  message: string;
+  link: string;
+  isAction: boolean; // 결재 필요 여부
+};
+
 export async function POST(req: Request) {
   try {
     // ✅ status(approve/reject), comment 추가 수신
@@ -40,6 +51,9 @@ export async function POST(req: Request) {
       .doc(applicantUserName)
       .collection("requests")
       .doc(vacationId);
+
+    // ✅ 트랜잭션 밖에서 이메일 보낼 정보를 담을 변수
+    let emailTask: EmailTask | null = null;
 
     await db.runTransaction(async (transaction) => {
       const doc = await transaction.get(vacationRef);
@@ -68,6 +82,18 @@ export async function POST(req: Request) {
           comment || "없음"
         }`;
         historyStatus = "반려";
+
+        // 📧 이메일: 기안자에게 반려 통보
+        emailTask = {
+          targets: [applicantUserName],
+          subject: `[반려] ${applicantUserName} - 휴가 신청`,
+          title: "휴가 신청이 반려되었습니다.",
+          message: `결재자(${approverName})님에 의해 반려되었습니다.<br/>사유: ${
+            comment || "없음"
+          }`,
+          link: "/main/vacation/user", // 내 휴가 목록
+          isAction: false,
+        };
       }
       // ✅ [승인 로직] (기존 로직 유지)
       else {
@@ -77,15 +103,45 @@ export async function POST(req: Request) {
           if (hasSecondApprover) {
             newStatus = "2차 결재 대기";
             notificationTargets = approvers.second || [];
-            notiMessage = `[1차 승인] ${applicantUserName}님의 결재 요청 (2차 대기)`;
+            notiMessage = `[1차 승인] ${applicantUserName} 결재 요청 (2차 대기)`;
+
+            // 📧 이메일: 2차 결재자에게 요청
+            emailTask = {
+              targets: approvers.second || [],
+              subject: `[결재요청] ${applicantUserName} - 휴가 신청`,
+              title: "2차 결재가 필요합니다.",
+              message: "다음 결재 차례입니다. 내용을 확인해주세요.",
+              link: "/main/my-approval/pending",
+              isAction: true,
+            };
           } else if (hasThirdApprover) {
             newStatus = "3차 결재 대기";
             notificationTargets = approvers.third || [];
-            notiMessage = `[1차 승인] ${applicantUserName}님의 결재 요청 (3차 대기)`;
+            notiMessage = `[1차 승인] ${applicantUserName} 결재 요청 (3차 대기)`;
+
+            // 📧 이메일: 3차 결재자에게 요청
+            emailTask = {
+              targets: approvers.third || [],
+              subject: `[결재요청] ${applicantUserName} - 휴가 신청`,
+              title: "3차 결재가 필요합니다.",
+              message: "다음 결재 차례입니다. 내용을 확인해주세요.",
+              link: "/main/my-approval/pending",
+              isAction: true,
+            };
           } else {
             newStatus = "최종 승인 완료";
             notificationTargets = approvers.shared || [];
-            notiMessage = `[최종 승인] ${applicantUserName}님의 결재가 승인되었습니다.`;
+            notiMessage = `[최종 승인] ${applicantUserName} 결재가 승인되었습니다.`;
+
+            // 📧 이메일: 기안자에게 승인 통보
+            emailTask = {
+              targets: [applicantUserName],
+              subject: `[승인완료] ${applicantUserName} - 휴가 신청`,
+              title: "휴가 신청이 최종 승인되었습니다.",
+              message: "모든 결재가 완료되었습니다.",
+              link: "/main/vacation/user",
+              isAction: false,
+            };
           }
           historyStatus = "1차 승인";
         } else if (isSecond) {
@@ -94,22 +150,50 @@ export async function POST(req: Request) {
           if (hasThirdApprover) {
             newStatus = "3차 결재 대기";
             notificationTargets = approvers.third || [];
-            notiMessage = `[2차 승인] ${applicantUserName}님의 결재 요청 (3차 대기)`;
+            notiMessage = `[2차 승인] ${applicantUserName} 결재 요청 (3차 대기)`;
+
+            // 📧 이메일: 3차 결재자에게 요청
+            emailTask = {
+              targets: approvers.third || [],
+              subject: `[결재요청] ${applicantUserName} - 휴가 신청`,
+              title: "3차 결재가 필요합니다.",
+              message: "다음 결재 차례입니다. 내용을 확인해주세요.",
+              link: "/main/my-approval/pending",
+              isAction: true,
+            };
           } else {
             newStatus = "최종 승인 완료";
             notificationTargets = approvers.shared || [];
-            notiMessage = `[최종 승인] ${applicantUserName}님의 결재가 승인되었습니다.`;
+            notiMessage = `[최종 승인] ${applicantUserName} 결재가 승인되었습니다.`;
+
+            // 📧 이메일: 기안자에게 승인 통보
+            emailTask = {
+              targets: [applicantUserName],
+              subject: `[승인완료] ${applicantUserName} - 휴가 신청`,
+              title: "휴가 신청이 최종 승인되었습니다.",
+              message: "모든 결재가 완료되었습니다.",
+              link: "/main/vacation/user",
+              isAction: false,
+            };
           }
           historyStatus = "2차 승인";
         } else if (isThird) {
           if (currentStatus !== "3차 결재 대기")
             throw new Error("순서가 아니거나 이미 처리되었습니다.");
+
           newStatus = "최종 승인 완료";
-          notificationTargets = [
-            applicantUserName,
-            ...(approvers.shared || []),
-          ];
-          notiMessage = `[최종 승인] ${applicantUserName}님의 결재가 승인되었습니다.`;
+          notificationTargets = [applicantUserName];
+          notiMessage = `[최종 승인] ${applicantUserName} 결재가 승인되었습니다.`;
+
+          // 📧 이메일: 기안자에게 승인 통보
+          emailTask = {
+            targets: [applicantUserName],
+            subject: `[승인완료] ${applicantUserName} - 휴가 신청`,
+            title: "휴가 신청이 최종 승인되었습니다.",
+            message: "모든 결재가 완료되었습니다.",
+            link: "/main/vacation/user",
+            isAction: false,
+          };
           historyStatus = "최종 승인";
         } else {
           throw new Error("결재 권한이 없습니다.");
@@ -148,22 +232,20 @@ export async function POST(req: Request) {
         });
       }
 
-      // 3. 알림 발송
+      // ----------------------------------------------------------------
+      // 3. 알림(Notification) DB 저장
+      // ----------------------------------------------------------------
       if (notificationTargets.length > 0) {
         notificationTargets.forEach((target) => {
-          // 반려일 경우와 승인일 경우 링크 구분
           let link = "/main/my-approval/pending";
           let type = "vacation_request";
 
           if (action === "reject") {
-            link = "/main/vacation/list"; // 반려되면 내 목록으로
+            link = "/main/vacation/list"; // 내 휴가 목록
             type = "vacation_reject";
           } else if (newStatus === "최종 승인 완료") {
             type = "vacation_complete";
-            link =
-              target === applicantUserName
-                ? "/main/vacation/user"
-                : "/main/my-approval/shared";
+            link = "/main/vacation/list"; // 내 휴가 목록
           }
 
           const notiRef = db
@@ -171,6 +253,7 @@ export async function POST(req: Request) {
             .doc(target)
             .collection("userNotifications")
             .doc();
+
           transaction.set(notiRef, {
             targetUserName: target,
             fromUserName: approverName,
@@ -184,6 +267,55 @@ export async function POST(req: Request) {
         });
       }
     });
+
+    // ----------------------------------------------------------------
+    // 4. 이메일 발송 (트랜잭션 성공 후 실행)
+    // ----------------------------------------------------------------
+    if (emailTask) {
+      const task = emailTask as EmailTask; // 타입 단언
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+
+      // 타겟 유저들의 이메일 주소 조회
+      const emails: string[] = [];
+      const userSnapshots = await Promise.all(
+        task.targets.map((name) =>
+          db.collection("employee").where("userName", "==", name).get()
+        )
+      );
+
+      userSnapshots.forEach((snap) => {
+        if (!snap.empty) {
+          const email = snap.docs[0].data().email;
+          if (email) emails.push(email);
+        }
+      });
+
+      // 이메일 전송 (병렬 처리)
+      await Promise.all(
+        emails.map((email) =>
+          sendEmail({
+            to: email,
+            subject: task.subject,
+            html: `
+              <div style="padding: 20px; border: 1px solid #ddd; border-radius: 10px; font-family: sans-serif;">
+                <h2 style="color: #2c3e50;">${task.title}</h2>
+                <p style="font-size: 16px; line-height: 1.5;">${
+                  task.message
+                }</p>
+                <div style="background-color: #f9f9f9; padding: 15px; margin: 20px 0; border-radius: 5px;">
+                  <p style="margin: 5px 0;"><strong>신청자:</strong> ${applicantUserName}</p>
+                  <p style="margin: 5px 0;"><strong>처리자:</strong> ${approverName}</p>
+                </div>
+                <a href="${baseUrl}${task.link}" 
+                   style="display: inline-block; padding: 12px 24px; background-color: #519d9e; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">
+                   ${task.isAction ? "결재하러 가기" : "확인하기"}
+                </a>
+              </div>
+            `,
+          })
+        )
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {

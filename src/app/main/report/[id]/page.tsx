@@ -67,22 +67,51 @@ export default function InternalReportDetailPage() {
     enabled: !!id,
   });
 
-  // ✅ 결재 승인/반려 Mutation
+  // ✅ [수정] 결재 승인/반려 Mutation (이메일 발송을 위해 update API 사용)
   const approveMutation = useMutation({
     mutationFn: async ({ status }: { status: "approve" | "reject" }) => {
       if (!report) throw new Error("Report not found");
 
-      const res = await fetch("/api/report/approve", {
+      // 1. 현재 내 역할(1차/2차/3차) 확인
+      const myName = userName || "";
+      const isFirst = report.approvers?.first?.includes(myName);
+      const isSecond = report.approvers?.second?.includes(myName);
+      const isThird = report.approvers?.third?.includes(myName);
+
+      // 2. 다음 상태값 계산
+      let nextStatus = "반려"; // 기본값 (status === 'reject'일 때 사용)
+
+      if (status === "approve") {
+        if (isFirst && report.status === "1차 결재 대기") {
+          nextStatus = "2차 결재 대기"; // 1차 승인 -> 2차로 넘김
+        } else if (isSecond && report.status === "2차 결재 대기") {
+          nextStatus = "3차 결재 대기"; // 2차 승인 -> 3차로 넘김
+        } else if (isThird && report.status === "3차 결재 대기") {
+          nextStatus = "결재 완료"; // 3차 승인 -> 최종 완료
+        } else {
+          // 예외 케이스: 이미 처리되었거나 권한 오류 등
+          console.warn("결재 권한이 없거나 순서가 아닙니다.");
+          return;
+        }
+      }
+
+      // 3. update API 호출 (이메일 자동 발송됨)
+      const res = await fetch("/api/report/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          reportId: id,
-          approverName: userName,
-          applicantUserName: report.userName,
-          status,
-          comment,
+          id: id,
+          userName: report.userName, // 🚨 기안자 이름 (매우 중요: DB 경로 찾기용)
+
+          // 🚨 [핵심] 이 상태값을 보고 서버가 다음 사람에게 이메일을 보냅니다.
+          status: nextStatus,
+
+          // (참고) 코멘트는 DB에 저장하고 싶으시면 API도 수정해야 하지만,
+          // 현재는 알림 로직에 집중하기 위해 보내기만 합니다.
+          // comment: comment,
         }),
       });
+
       if (!res.ok) throw new Error("처리 실패");
       return res.json();
     },
@@ -91,7 +120,10 @@ export default function InternalReportDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["reportDetail", id] });
       router.push("/main/my-approval/pending");
     },
-    onError: () => alert("오류가 발생했습니다."),
+    onError: (err) => {
+      console.error(err);
+      alert("오류가 발생했습니다.");
+    },
   });
 
   if (isLoading) return <div className="p-10 text-center">로딩 중...</div>;
