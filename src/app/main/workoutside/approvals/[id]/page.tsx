@@ -169,49 +169,60 @@ export default function ApprovalDetailPage() {
     enabled: !!id,
   });
 
-  // ✅ [수정] 결재 승인/반려 Mutation (이메일 발송을 위해 update API 사용)
+  // ✅ [수정] 부서별 라인 대응 로직 + approverName 전송
   const approveMutation = useMutation({
     mutationFn: async ({ status }: { status: "approve" | "reject" }) => {
       if (!approval) throw new Error("Document not found");
 
-      // 1. 현재 내 역할(1차/2차/3차) 확인
       const myName = userName || "";
       const isFirst = approval.approvers?.first?.includes(myName);
       const isSecond = approval.approvers?.second?.includes(myName);
       const isThird = approval.approvers?.third?.includes(myName);
 
-      // 2. 다음 상태값 계산
-      let nextStatus = "반려"; // 기본값
+      // 다음 결재자가 진짜 존재하는지 체크 (빈 배열 확인)
+      const hasSecondApprover =
+        approval.approvers?.second && approval.approvers.second.length > 0;
+      const hasThirdApprover =
+        approval.approvers?.third && approval.approvers.third.length > 0;
+
+      let nextStatus = "반려";
 
       if (status === "approve") {
+        // [1차 결재자]
         if (isFirst && approval.status === "1차 결재 대기") {
-          nextStatus = "2차 결재 대기"; // 1차 승인 -> 2차로 넘김
-        } else if (isSecond && approval.status === "2차 결재 대기") {
-          nextStatus = "3차 결재 대기"; // 2차 승인 -> 3차로 넘김
-        } else if (isThird && approval.status === "3차 결재 대기") {
-          nextStatus = "결재 완료"; // 3차 승인 -> 최종 완료
+          if (hasSecondApprover) {
+            nextStatus = "2차 결재 대기";
+          } else {
+            nextStatus = "최종 승인 완료"; // 2차 없으면 바로 끝
+          }
+        }
+        // [2차 결재자]
+        else if (isSecond && approval.status === "2차 결재 대기") {
+          if (hasThirdApprover) {
+            nextStatus = "3차 결재 대기";
+          } else {
+            nextStatus = "최종 승인 완료"; // 3차 없으면 바로 끝
+          }
+        }
+        // [3차 결재자]
+        else if (isThird && approval.status === "3차 결재 대기") {
+          nextStatus = "최종 승인 완료";
         } else {
-          // 예외 케이스 (이미 처리되었거나 권한 없음)
-          return;
+          return; // 권한 없음
         }
       }
 
-      // 3. update API 호출 (이메일 자동 발송됨)
+      // API 호출
       const res = await fetch("/api/approvals/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: id,
-          userName: approval.userName, // 🚨 기안자 이름 (매우 중요: DB 경로 찾기용)
-          approvalType: approval.approvalType, // vehicle, purchase 등
-
-          // 🚨 [핵심] 이 상태값을 보고 서버가 이메일을 보냅니다.
+          userName: approval.userName,
+          approvalType: approval.approvalType,
           status: nextStatus,
-
-          // // (선택) 코멘트를 저장하고 싶다면 필드 추가 필요 (현재 update API엔 없음)
-          // content: comment
-          //   ? `${approval.content} <br/> [결재의견] ${comment}`
-          //   : approval.content,
+          approverName: userName, // ✅ 결재자 실명 전송
+          comment: comment,
         }),
       });
 

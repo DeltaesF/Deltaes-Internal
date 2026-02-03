@@ -145,6 +145,7 @@ export async function POST(req: Request) {
     const {
       id,
       userName,
+      approverName,
       approvalType, // 'purchase' | 'vehicle' | ...
 
       // ✅ [중요] 상태 변경 (결재 승인/반려 시)
@@ -332,6 +333,19 @@ export async function POST(req: Request) {
       if (implementDate !== undefined) updateData.implementDate = implementDate;
       if (vehicleModel !== undefined) updateData.vehicleModel = vehicleModel;
       if (usagePeriod !== undefined) updateData.usagePeriod = usagePeriod;
+    }
+
+    // ✅ [핵심 수정] 결재 이력(History) 저장
+    if (status) {
+      // approverName이 없으면 비상용으로 "결재자"라고 기록하지만, 프론트에서 보내주므로 정상 기록됨
+      const finalApprover = approverName || "결재자";
+
+      updateData.approvalHistory = FieldValue.arrayUnion({
+        approver: finalApprover, // ✅ 실제 결재자 이름 저장
+        status: status,
+        comment: comment || "",
+        approvedAt: new Date(), // 현재 시간
+      });
     }
 
     // 4. DB 업데이트 실행

@@ -176,14 +176,41 @@ export async function POST(req: Request) {
           return false;
         }
 
-        const myApproval = item.approvalHistory?.find(
+        // ✅ [핵심 수정] 완료함 필터 조건 강화 (안전장치 추가)
+
+        // 조건 1: 문서가 "완료"된 상태인가?
+        const s = item.status || "";
+        const isCompleted =
+          s === "최종 승인 완료" ||
+          s === "결재 완료" ||
+          s === "승인" ||
+          s.includes("반려");
+
+        // 진행 중(대기) 상태는 완료함에서 제외 (단, '최종 승인 완료'는 예외)
+        const isPending =
+          (s.includes("대기") || s.includes("중")) && s !== "최종 승인 완료";
+
+        if (!isCompleted || isPending) return false;
+
+        // 조건 2: 내가 이 문서의 당사자인가?
+
+        // A. 결재 이력(History)에 내 이름이 있으면 무조건 OK (가장 정확)
+        const hasHistory = item.approvalHistory?.some(
           (entry) => entry.approver === userName
         );
-        if (myApproval) return true;
+        if (hasHistory) return true;
 
-        if (item.userName === userName && item.status === "최종 승인 완료") {
-          return true;
-        }
+        // B. [추가된 안전장치] 이력이 없더라도, 내가 결재 라인(approvers)에 포함되어 있다면 OK
+        // (과거 버그로 이력이 누락된 경우를 구제)
+        const isApprover =
+          item.approvers?.first?.includes(userName) ||
+          item.approvers?.second?.includes(userName) ||
+          item.approvers?.third?.includes(userName);
+
+        if (isApprover) return true;
+
+        // C. 기안자(작성자)라면 OK
+        if (item.userName === userName) return true;
 
         return false;
       })
