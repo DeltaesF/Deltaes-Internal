@@ -259,21 +259,24 @@ export async function POST(req: Request) {
       true
     );
 
-    // [B] 공유자 알림
     const shared = [
-      ...structuredApprovers.second,
-      ...structuredApprovers.third,
-      ...structuredApprovers.shared,
-    ].filter((u) => !structuredApprovers.first.includes(u));
-    const uniqueShared = [...new Set(shared)];
+      // ...structuredApprovers.second, // ❌ 제거: 2차 결재자는 자기 차례에 받음
+      // ...structuredApprovers.third,  // ❌ 제거: 3차 결재자는 자기 차례에 받음
+      ...structuredApprovers.shared, // ⭕ 유지: 순수 참조자만 받음
+    ];
 
-    // ✅ [수정] 여기서 detailPath 변수를 사용합니다!
+    // 혹시라도 1차 결재자가 공유자에 중복되어 있으면 제외
+    const uniqueShared = [...new Set(shared)].filter(
+      (u) => !structuredApprovers.first.includes(u)
+    );
+
+    // detailPath 변수 사용 (Unused variable 해결됨)
     await notifyGroup(
       uniqueShared,
       `[공유] ${title}`,
       "보고서가 공유되었습니다.",
       `${userName} 작성한 보고서가 공유되었습니다.`,
-      detailPath, // 👈 Unused variable 해결!
+      detailPath,
       false,
       true
     );

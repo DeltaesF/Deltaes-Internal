@@ -357,9 +357,10 @@ export async function POST(req: Request) {
       );
     };
 
-    // [A] 1차 결재자 알림
+    // [A] 1차 결재자 알림 (유지)
+    const firstApprovers = structuredApprovers.first || [];
     await notifyGroup(
-      structuredApprovers.first,
+      firstApprovers,
       `[결재요청] ${docData.title}`,
       "1차 결재 요청이 도착했습니다.",
       `${userName} 작성한 문서의 1차 결재 차례입니다.`,
@@ -368,15 +369,14 @@ export async function POST(req: Request) {
       true
     );
 
-    // [B] 공유자 알림
-    const allApprovers = structuredApprovers.first;
-    const sharedUsers = [
-      ...structuredApprovers.second,
-      ...structuredApprovers.third,
-      ...structuredApprovers.shared,
-    ].filter((user) => !allApprovers.includes(user));
+    // [B] 공유자 알림 (수정됨: 2차/3차 결재자 제외)
+    // 오직 'shared' 필드에 있는 사람만 알림을 받음
+    const referenceUsers = structuredApprovers.shared || [];
 
-    const uniqueSharedUsers = [...new Set(sharedUsers)];
+    // 혹시라도 1차 결재자와 중복되면 제외
+    const uniqueSharedUsers = [...new Set(referenceUsers)].filter(
+      (user) => !firstApprovers.includes(user)
+    );
 
     await notifyGroup(
       uniqueSharedUsers,

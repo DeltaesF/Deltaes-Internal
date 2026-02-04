@@ -194,8 +194,8 @@ export async function POST(req: NextRequest) {
     // [B] 참조/공유자
     // ✅ structuredApprovers 사용
     const referenceUsers: string[] = [
-      ...(structuredApprovers.second || []),
-      ...(structuredApprovers.third || []),
+      // ...(structuredApprovers.second || []),
+      // ...(structuredApprovers.third || []),
       ...(structuredApprovers.shared || []),
     ];
 
