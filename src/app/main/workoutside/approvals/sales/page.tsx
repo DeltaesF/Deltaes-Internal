@@ -70,6 +70,7 @@ function SalesReportContent() {
           <h2 className="text-2xl font-bold text-gray-800">판매 품의서 목록</h2>
           <Link
             href="/main/workoutside/approvals/sales/write"
+            prefetch={false}
             className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-bold text-sm"
           >
             품의서 작성 ✎
@@ -102,6 +103,7 @@ function SalesReportContent() {
                     <td className="py-3 px-4">
                       <Link
                         href={`/main/workoutside/approvals/${item.id}`}
+                        prefetch={false}
                         className="block w-full"
                       >
                         <span className="text-gray-800 hover:text-indigo-600 font-medium transition-colors">

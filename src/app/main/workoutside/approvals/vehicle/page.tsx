@@ -100,6 +100,7 @@ function VehicleReportContent() {
             {/* 신청서 작성 버튼 */}
             <Link
               href="/main/workoutside/approvals/vehicle/write"
+              prefetch={false}
               className="px-4 py-2 bg-[#519d9e] text-white rounded-lg hover:bg-[#407f80] font-bold text-sm shadow-sm"
             >
               신청서 작성 ✎
@@ -107,6 +108,7 @@ function VehicleReportContent() {
             {/* 보고서 작성 버튼 */}
             <Link
               href="/main/workoutside/approvals/vehicle/write-report"
+              prefetch={false}
               className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold text-sm shadow-sm"
             >
               결과보고 작성 🚩
@@ -150,6 +152,7 @@ function VehicleReportContent() {
                             : // 3. 구버전 외근/차량 신청서 (vehicle)
                               `/main/workoutside/approvals/${item.id}`
                         }
+                        prefetch={false}
                         className="block w-full"
                       >
                         {getBadge(item)}

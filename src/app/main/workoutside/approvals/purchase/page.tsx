@@ -75,6 +75,7 @@ function PurchaseReportContent() {
           <h2 className="text-2xl font-bold text-gray-800">구매 품의서</h2>
           <Link
             href="/main/workoutside/approvals/purchase/write"
+            prefetch={false}
             className="px-4 py-2 bg-[#519d9e] text-white rounded-lg hover:bg-[#407f80] transition-colors font-bold text-sm"
           >
             품의서 작성 ✎
@@ -108,6 +109,7 @@ function PurchaseReportContent() {
                       {/* 통합 상세 페이지로 이동 */}
                       <Link
                         href={`/main/workoutside/approvals/${item.id}`}
+                        prefetch={false}
                         className="block w-full"
                       >
                         <span className="text-gray-800 hover:text-[#519d9e] font-medium transition-colors">

@@ -738,14 +738,14 @@ export default function ApprovalDetailPage() {
         <h2 className="text-2xl font-bold text-gray-800">{pageTitle}</h2>
         <div className="flex gap-2">
           <Link
-            href={listPath}
+            href={listPath} prefetch={false}
             className="px-3 py-1.5 border rounded hover:bg-gray-100 text-sm flex items-center"
           >
             목록으로
           </Link>
           {userName === approval.userName && (
             <Link
-              href={editPath}
+              href={editPath} prefetch={false}
               className="px-3 py-1.5 bg-[#519d9e] text-white rounded hover:bg-[#407f80] text-sm flex items-center"
             >
               수정
