@@ -2,6 +2,28 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/firebaseAdmin";
 import { Timestamp } from "firebase-admin/firestore";
 
+interface SerializedTimestamp {
+  _seconds: number;
+  _nanoseconds: number;
+}
+
+type ApprovalDoc = {
+  id: string;
+  userName: string;
+  status: string;
+  approvers: {
+    first?: string[];
+    second?: string[];
+    third?: string[];
+    shared?: string[];
+  };
+  createdAt?: Timestamp | number | SerializedTimestamp;
+  title?: string;
+  category?: string;
+  docType?: string;
+  [key: string]: unknown;
+};
+
 export async function POST(req: Request) {
   try {
     const { approverName } = await req.json();
@@ -12,41 +34,32 @@ export async function POST(req: Request) {
 
     const ref = db.collectionGroup("userApprovals");
 
-    // ✅ [핵심 수정] 대상자별로 보는 기준을 다르게 설정 (하이브리드 방식)
+    // ----------------------------------------------------------------
+    // [1] 데이터 가져오기 (범위를 넓혀서 옛날 데이터도 포함)
+    // ----------------------------------------------------------------
     const queries = [
-      // ---------------------------------------------------------
-      // [1] 1차 결재자: 엄격 모드 (내 차례인 '1차 대기'일 때만 보임)
-      // -> 승인하면 '2차 대기'가 되므로 목록에서 즉시 사라짐
-      // ---------------------------------------------------------
+      // 1. 1차 결재자: "1차 결재 대기"
       ref
         .where("approvers.first", "array-contains", approverName)
         .where("status", "==", "1차 결재 대기"),
 
-      // ---------------------------------------------------------
-      // [2] 2차 결재자: 엄격 모드 (내 차례인 '2차 대기'일 때만 보임)
-      // -> 승인하면 '3차 대기'가 되므로 목록에서 즉시 사라짐
-      // ---------------------------------------------------------
+      // 2. 2차 결재자: "2차 결재 대기" OR "1차 승인"(옛날 데이터 호환)
       ref
         .where("approvers.second", "array-contains", approverName)
-        .where("status", "==", "2차 결재 대기"),
+        .where("status", "in", ["1차 결재 대기", "2차 결재 대기", "1차 승인"]),
 
-      // ---------------------------------------------------------
-      // [3] 3차 결재자: 관전 모드 (1차, 2차, 3차 대기 모두 보임)
-      // -> 요청하신 대로 미리 볼 수 있음.
-      // -> 단, '최종 승인 완료'는 리스트에 없으므로, 최종 승인 시 사라짐
-      // ---------------------------------------------------------
+      // 3. 3차 결재자: "3차 결재 대기" OR "2차 승인"(옛날 데이터 호환) 및 하위 단계
       ref
         .where("approvers.third", "array-contains", approverName)
         .where("status", "in", [
           "1차 결재 대기",
           "2차 결재 대기",
           "3차 결재 대기",
+          "1차 승인", // 옛날 데이터 호환
+          "2차 승인", // 옛날 데이터 호환
         ]),
 
-      // ---------------------------------------------------------
-      // [4] (옵션) 기안자 본인: 내가 올린 건이 진행 중이면 보기
-      // -> 필요 없다면 이 부분은 주석 처리 하셔도 됩니다.
-      // ---------------------------------------------------------
+      // 4. (옵션) 기안자 본인
       ref
         .where("userName", "==", approverName)
         .where("status", "in", [
@@ -56,38 +69,98 @@ export async function POST(req: Request) {
         ]),
     ];
 
-    // 쿼리 병렬 실행
     const snapshots = await Promise.all(queries.map((q) => q.get()));
 
-    // 데이터 병합 (중복 제거)
-    // 3차 결재자가 동시에 1차 결재자일 수도 있는 예외 상황 등을 대비해 Map으로 중복 제거
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const docsMap = new Map<string, any>();
+    // ----------------------------------------------------------------
+    // [2] 데이터 병합 및 정교한 필터링
+    // ----------------------------------------------------------------
+    const docsMap = new Map<string, ApprovalDoc>();
 
     snapshots.forEach((snap) => {
       snap.docs.forEach((doc) => {
-        const data = doc.data();
+        if (docsMap.has(doc.id)) return;
 
-        const createdAtMillis =
-          data.createdAt instanceof Timestamp
-            ? data.createdAt.toMillis()
-            : typeof data.createdAt === "number"
-            ? data.createdAt
-            : Date.now();
+        const data = doc.data() as ApprovalDoc;
+        const status = data.status;
+        const approvers = data.approvers || {
+          first: [],
+          second: [],
+          third: [],
+        };
 
-        docsMap.set(doc.id, {
-          id: doc.id,
-          ...data,
-          createdAt: createdAtMillis,
-          docType: "approval",
-        });
+        const isFirst = approvers.first?.includes(approverName);
+        const isSecond = approvers.second?.includes(approverName);
+        const isThird = approvers.third?.includes(approverName);
+        const isDrafter = data.userName === approverName;
+
+        const hasThirdApprover = approvers.third && approvers.third.length > 0;
+
+        let shouldShow = false;
+
+        // ✅ Case 1: 내 차례일 때 (Action Required)
+        // -> "2차 결재 대기" 뿐만 아니라 "1차 승인" 상태도 내 차례로 인식하게 함
+
+        if (isFirst && status === "1차 결재 대기") shouldShow = true;
+
+        if (isSecond && (status === "2차 결재 대기" || status === "1차 승인")) {
+          shouldShow = true;
+        }
+
+        if (isThird && (status === "3차 결재 대기" || status === "2차 승인")) {
+          shouldShow = true;
+        }
+
+        // ✅ Case 2: 관망 모드 (Monitoring) - 하위 단계 보기
+        // (A) 3차 결재자
+        if (isThird) {
+          if (
+            status === "1차 결재 대기" ||
+            status === "2차 결재 대기" ||
+            status === "1차 승인"
+          ) {
+            shouldShow = true;
+          }
+        }
+
+        // (B) 2차 결재자가 최종일 때
+        if (isSecond && !hasThirdApprover && status === "1차 결재 대기") {
+          shouldShow = true;
+        }
+
+        // (C) 기안자
+        if (isDrafter) shouldShow = true;
+
+        if (shouldShow) {
+          let createdAtMillis = Date.now();
+
+          if (data.createdAt) {
+            if (typeof data.createdAt === "number") {
+              createdAtMillis = data.createdAt;
+            } else if (data.createdAt instanceof Timestamp) {
+              createdAtMillis = data.createdAt.toMillis();
+            } else if (
+              typeof data.createdAt === "object" &&
+              "_seconds" in data.createdAt
+            ) {
+              createdAtMillis =
+                (data.createdAt as SerializedTimestamp)._seconds * 1000;
+            }
+          }
+
+          docsMap.set(doc.id, {
+            ...data,
+            id: doc.id,
+            createdAt: createdAtMillis,
+            docType: "approval",
+          });
+        }
       });
     });
 
     const list = Array.from(docsMap.values());
 
     // 최신순 정렬
-    list.sort((a, b) => b.createdAt - a.createdAt);
+    list.sort((a, b) => (b.createdAt as number) - (a.createdAt as number));
 
     return NextResponse.json({ pending: list });
   } catch (error) {

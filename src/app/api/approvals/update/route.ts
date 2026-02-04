@@ -335,16 +335,34 @@ export async function POST(req: Request) {
       if (usagePeriod !== undefined) updateData.usagePeriod = usagePeriod;
     }
 
-    // ✅ [핵심 수정] 결재 이력(History) 저장
+    // ✅ 상태 변경이 있으면 업데이트
     if (status) {
-      // approverName이 없으면 비상용으로 "결재자"라고 기록하지만, 프론트에서 보내주므로 정상 기록됨
+      updateData.status = status; // 예: "2차 결재 대기" (문서 상태는 이게 맞음)
+
       const finalApprover = approverName || "결재자";
 
+      // ✨ [핵심 수정] 이력용 멘트를 따로 만듦
+      let historyStatus = status; // 기본값
+
+      if (status.includes("반려")) {
+        historyStatus = "반려";
+      } else if (status === "2차 결재 대기") {
+        historyStatus = "1차 승인"; // ✅ 다음이 2차 대기라면, 나는 "1차 승인"을 한 것임
+      } else if (status === "3차 결재 대기") {
+        historyStatus = "2차 승인"; // ✅ 다음이 3차 대기라면, 나는 "2차 승인"을 한 것임
+      } else if (
+        status === "최종 승인 완료" ||
+        status === "결재 완료" ||
+        status === "승인"
+      ) {
+        historyStatus = "승인"; // ✅ 최종 단계면 깔끔하게 "승인"
+      }
+
       updateData.approvalHistory = FieldValue.arrayUnion({
-        approver: finalApprover, // ✅ 실제 결재자 이름 저장
-        status: status,
+        approver: finalApprover,
+        status: historyStatus, // ⭕ 변환된 멘트("1차 승인") 저장
         comment: comment || "",
-        approvedAt: new Date(), // 현재 시간
+        approvedAt: new Date(),
       });
     }
 

@@ -731,6 +731,167 @@ export default function ApprovalDetailPage() {
     );
   };
 
+  // ✅ [추가] 결재 라인 볼 수 있는 권한 확인
+  const canViewApprovalLine = () => {
+    if (!approval || !userName) return false;
+    // 1. 작성자 본인
+    if (approval.userName === userName) return true;
+
+    // 2. 결재선에 포함된 사람 (1,2,3차)
+    const first = approval.approvers?.first || [];
+    const second = approval.approvers?.second || [];
+    const third = approval.approvers?.third || [];
+    const shared = approval.approvers?.shared || [];
+
+    const allRelatedUsers = [...first, ...second, ...third, ...shared];
+    return allRelatedUsers.includes(userName);
+  };
+
+  // ✅ [수정] 결재 라인 박스 렌더링 함수 (Type Error 해결)
+  const renderApprovalLineBox = () => {
+    if (!canViewApprovalLine()) return null;
+
+    const drafter = approval.userName;
+    const firstApprover = approval.approvers?.first?.[0];
+    const secondApprover = approval.approvers?.second?.[0];
+    const thirdApprover = approval.approvers?.third?.[0];
+
+    // 상태 및 날짜 찾는 헬퍼 함수
+    const getStatusAndDate = (
+      name: string | undefined
+    ): { status: string; date: string; color: string } => {
+      if (!name) return { status: "미결", date: "", color: "text-gray-300" };
+
+      // 이력에서 찾기
+      const historyItem = approval.approvalHistory?.find(
+        (h) => h.approver === name
+      );
+
+      if (historyItem) {
+        let dateStr = "";
+        const at = historyItem.approvedAt;
+
+        try {
+          // 2. [ESLint 해결] 구체적인 타입 가드 사용 (any 제거)
+          if (typeof at === "object" && "seconds" in at) {
+            // Standard Firestore Timestamp
+            dateStr = new Date(
+              (at as { seconds: number }).seconds * 1000
+            ).toLocaleDateString(undefined, {
+              month: "2-digit",
+              day: "2-digit",
+            });
+          } else if (typeof at === "object" && "_seconds" in at) {
+            // Serialized Timestamp
+            dateStr = new Date(
+              (at as { _seconds: number })._seconds * 1000
+            ).toLocaleDateString(undefined, {
+              month: "2-digit",
+              day: "2-digit",
+            });
+          } else {
+            // String, Number, Date
+            dateStr = new Date(at as string | number | Date).toLocaleDateString(
+              undefined,
+              { month: "2-digit", day: "2-digit" }
+            );
+          }
+        } catch {
+          dateStr = "완료";
+        }
+
+        // 반려 체크
+        if (historyItem.status.includes("반려")) {
+          return { status: "반려", date: dateStr, color: "text-red-600" };
+        }
+        return { status: "승인", date: dateStr, color: "text-blue-600" };
+      }
+
+      // 3. [TS 해결] 모든 리턴 객체에 'color' 속성 추가
+      // 이력에 없으면 현재 문서 상태로 추론
+      if (approval.status.includes("반려")) {
+        return { status: "취소", date: "-", color: "text-gray-400" }; // 이미 반려된 문서의 미결재자 처리
+      }
+
+      // 대기 상태 체크
+      if (name === firstApprover && approval.status === "1차 결재 대기")
+        return { status: "대기", date: "", color: "text-gray-500" };
+      if (name === secondApprover && approval.status === "2차 결재 대기")
+        return { status: "대기", date: "", color: "text-gray-500" };
+      if (name === thirdApprover && approval.status === "3차 결재 대기")
+        return { status: "대기", date: "", color: "text-gray-500" };
+
+      return { status: "미결", date: "", color: "text-gray-300" };
+    };
+
+    // 박스 UI 생성 헬퍼
+    const ApproverBox = ({
+      role,
+      name,
+      isDrafter = false,
+    }: {
+      role: string;
+      name?: string;
+      isDrafter?: boolean;
+    }) => {
+      if (!name && !isDrafter) return null;
+
+      let info = { status: "미결", date: "", color: "text-gray-300" };
+
+      if (isDrafter) {
+        const date = new Date(approval.createdAt).toLocaleDateString(
+          undefined,
+          { month: "2-digit", day: "2-digit" }
+        );
+        info = { status: "신청", date: date, color: "text-gray-800" };
+      } else {
+        info = getStatusAndDate(name);
+      }
+
+      return (
+        <div className="flex flex-col border border-gray-400 w-[70px]">
+          <div className="bg-gray-100 text-center text-[10px] py-1 border-b border-gray-400 font-medium text-gray-600">
+            {role}
+          </div>
+          <div className="h-[50px] flex flex-col justify-center items-center text-[11px] bg-white relative">
+            <span className="text-[10px] text-gray-800 mb-0.5">
+              {isDrafter ? name : name?.split(" ")[0]}
+            </span>
+
+            {info.status === "승인" || info.status === "신청" ? (
+              <div
+                className={`border-2 rounded-full w-10 h-10 flex items-center justify-center absolute opacity-80 ${
+                  isDrafter
+                    ? "border-gray-400 text-gray-600"
+                    : "border-red-500 text-red-500"
+                }`}
+              >
+                <span className="text-[10px] font-bold">{info.status}</span>
+              </div>
+            ) : (
+              <span className={`font-bold ${info.color}`}>{info.status}</span>
+            )}
+          </div>
+          <div className="bg-white text-center text-[9px] py-0.5 border-t border-gray-200 text-gray-500 h-[18px]">
+            {info.date}
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div className="flex select-none">
+        <div className="flex items-center justify-center bg-gray-200 border border-gray-400 w-6 text-center text-xs font-bold text-gray-600 px-1">
+          결<br />재
+        </div>
+        <ApproverBox role="신청" name={drafter} isDrafter={true} />
+        <ApproverBox role="1차" name={firstApprover} />
+        <ApproverBox role="2차" name={secondApprover} />
+        <ApproverBox role="3차" name={thirdApprover} />
+      </div>
+    );
+  };
+
   return (
     <div className="p-8 border rounded-xl bg-white shadow-sm w-5xl mx-auto mt-6 mb-20">
       {/* 1. 헤더 */}
@@ -738,14 +899,16 @@ export default function ApprovalDetailPage() {
         <h2 className="text-2xl font-bold text-gray-800">{pageTitle}</h2>
         <div className="flex gap-2">
           <Link
-            href={listPath} prefetch={false}
+            href={listPath}
+            prefetch={false}
             className="px-3 py-1.5 border rounded hover:bg-gray-100 text-sm flex items-center"
           >
             목록으로
           </Link>
           {userName === approval.userName && (
             <Link
-              href={editPath} prefetch={false}
+              href={editPath}
+              prefetch={false}
               className="px-3 py-1.5 bg-[#519d9e] text-white rounded hover:bg-[#407f80] text-sm flex items-center"
             >
               수정
@@ -754,37 +917,49 @@ export default function ApprovalDetailPage() {
         </div>
       </div>
 
-      <div className="mb-6">
-        <h3 className="text-xl font-semibold text-gray-700 mb-2">
-          {/* 통합 외근/출장 문서일 경우에만 배지 표시 */}
-          {approval.approvalType === "integrated_outside" && (
-            <span
-              className={`mr-2 font-bold ${
-                // 보고서 타입(_report)이면 보라색, 아니면 청록색
-                approval.workType === "outside_report" ||
-                approval.workType === "trip_report"
-                  ? "text-purple-600"
-                  : "text-[#519d9e]"
-              }`}
-            >
-              {/* 4가지 workType에 따라 정확한 말머리 표시 */}
-              {approval.workType === "outside" && "[외근]"}
-              {approval.workType === "trip" && "[출장]"}
-              {approval.workType === "outside_report" && "[외근보고]"}
-              {approval.workType === "trip_report" && "[출장보고]"}
+      {/* 타이틀 및 결재선 영역 */}
+      <div className="mb-6 flex flex-col md:flex-row justify-between items-start gap-4">
+        {/* 왼쪽: 제목 및 정보 */}
+        <div className="flex-1">
+          <div className="flex items-center flex-wrap gap-2 mb-2">
+            <h3 className="text-xl font-semibold text-gray-700 flex items-center">
+              {/* 통합 외근/출장 문서일 경우에만 배지 표시 */}
+              {approval.approvalType === "integrated_outside" && (
+                <span
+                  className={`mr-2 font-bold whitespace-nowrap ${
+                    // 보고서 타입(_report)이면 보라색, 아니면 청록색
+                    approval.workType?.includes("report")
+                      ? "text-purple-600"
+                      : "text-[#519d9e]"
+                  }`}
+                >
+                  {/* 4가지 workType에 따라 정확한 말머리 표시 */}
+                  {approval.workType === "outside" && "[외근]"}
+                  {approval.workType === "trip" && "[출장]"}
+                  {approval.workType === "outside_report" && "[외근보고]"}
+                  {approval.workType === "trip_report" && "[출장보고]"}
+                </span>
+              )}
+              {approval.title}
+            </h3>
+          </div>
+
+          <p className="text-sm text-gray-500">
+            {/* 날짜 표시 로직 */}
+            {approval.approvalType === "integrated_outside" &&
+            approval.implementDate
+              ? `날짜: ${new Date(approval.implementDate).toLocaleDateString()}`
+              : `작성일: ${new Date(approval.createdAt).toLocaleDateString()}`}
+            <span className="mx-2">|</span>
+            작성자:{" "}
+            <span className="font-medium text-gray-700">
+              {approval.userName}
             </span>
-          )}
-          {approval.title}
-        </h3>
-        <p className="text-sm text-gray-500">
-          {/* ✅ [수정] 날짜 표시 로직 (통합 문서는 implementDate, 그 외는 작성일) */}
-          {approval.approvalType === "integrated_outside" &&
-          approval.implementDate
-            ? `날짜: ${new Date(approval.implementDate).toLocaleDateString()}`
-            : `작성일: ${new Date(approval.createdAt).toLocaleDateString()}`}
-          {" | 작성자: "}
-          {approval.userName}
-        </p>
+          </p>
+        </div>
+
+        {/* 오른쪽: 결재 라인 (권한 있는 사람만 보임) */}
+        <div className="flex-shrink-0">{renderApprovalLineBox()}</div>
       </div>
 
       {/* 2. 상세 정보 렌더링 (타입 분기) */}

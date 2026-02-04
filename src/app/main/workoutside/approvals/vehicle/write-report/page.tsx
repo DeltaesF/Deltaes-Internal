@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Editor from "@/components/editor";
+import { useQueryClient } from "@tanstack/react-query"; // ✅ 추가
 
 const getTodayWithTime = () => {
   const now = new Date();
@@ -61,6 +62,7 @@ const TRANSPORT_OPTIONS = [
 
 export default function ResultReportWritePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { userName } = useSelector((state: RootState) => state.auth);
 
   const [uiWorkType, setUiWorkType] = useState<UIWorkType>("outside");
@@ -217,6 +219,11 @@ export default function ResultReportWritePage() {
       });
 
       if (!res.ok) throw new Error("저장 실패");
+
+      // ✅ [마법의 한 줄 추가]
+      // 결제 대기/완료 리스트 등 'approvals' 키를 쓰는 모든 곳을 새로고침 없이 업데이트합니다.
+      await queryClient.invalidateQueries({ queryKey: ["approvals"] });
+
       alert("결과보고서가 등록되었습니다.");
       router.push("/main/workoutside/approvals/vehicle");
     } catch (error) {

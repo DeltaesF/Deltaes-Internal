@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Editor from "@/components/editor";
+import { useQueryClient } from "@tanstack/react-query"; // ✅ 추가
 
 // ----------------------------------------------------------------
 // [Type Definitions]
@@ -99,6 +100,7 @@ const fetchReportDetail = async (
 export default function IntegratedEditPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { userName } = useSelector((state: RootState) => state.auth);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -283,6 +285,15 @@ export default function IntegratedEditPage() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Error");
+
+      // ✅ [수정 포인트: 두 개의 데이터를 새로고침함]
+      // 1. 전체 목록 데이터를 최신화 (목록으로 돌아갔을 때 반영됨)
+      await queryClient.invalidateQueries({ queryKey: ["approvals"] });
+
+      // 2. 특정 게시글의 상세 데이터를 최신화 (상세 페이지로 돌아갔을 때 반영됨)
+      // 보통 상세페이지는 ["approvals", id] 형식을 많이 씁니다.
+      await queryClient.invalidateQueries({ queryKey: ["approvals", id] });
+
       alert("수정되었습니다.");
       router.push(`/main/workoutside/approvals/${id}`);
     } catch {

@@ -156,15 +156,30 @@ export async function POST(req: Request) {
       }
     }
 
-    // ✅ [핵심 추가] 결재 이력(History) 저장
+    // ✅ [핵심 추가] 결재 이력(History) 저장 - 상태 텍스트 변환 로직
     if (status) {
-      // approverName이 없으면 "결재자"로 대체 (안전장치)
       const finalApprover = approverName || "결재자";
+      let historyStatus = status;
+
+      // 문서의 다음 상태(status)를 보고 이력 멘트 결정
+      if (status.includes("반려")) {
+        historyStatus = "반려";
+      } else if (status === "2차 결재 대기") {
+        historyStatus = "1차 승인";
+      } else if (status === "3차 결재 대기") {
+        historyStatus = "2차 승인";
+      } else if (
+        status === "최종 승인 완료" ||
+        status === "결재 완료" ||
+        status === "승인"
+      ) {
+        historyStatus = "승인";
+      }
 
       updateData.approvalHistory = FieldValue.arrayUnion({
         approver: finalApprover,
-        status: status,
-        comment: comment || "", // 코멘트 여기에 저장
+        status: historyStatus, // ✅ "1차 승인" 등으로 변환되어 저장
+        comment: comment || "",
         approvedAt: new Date(),
       });
     }

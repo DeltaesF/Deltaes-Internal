@@ -23,21 +23,23 @@ function getTodayString() {
   return `${year}-${month}-${day}`;
 }
 
-interface Approvers {
-  first?: string[];
-  second?: string[];
-  third?: string[];
-  shared?: string[];
+// ✅ [추가] 결재선 구조 인터페이스
+interface ApproverStructure {
+  first: string[];
+  second: string[];
+  third: string[];
+  shared: string[];
 }
 
 interface VacationRequestBody {
   userDocId: string;
   startDate: string;
   endDate: string;
-  types: string[]; // ✅ [수정] 프론트에서 배열로 오므로 string[]으로 변경
+  types: string[];
   days: number;
   reason: string;
-  approvers: Approvers;
+  // ✅ [수정] 배열이나 객체 둘 다 들어올 수 있게 처리
+  approvers: string[] | ApproverStructure;
   userName: string;
 }
 
@@ -51,11 +53,35 @@ export async function POST(req: NextRequest) {
       types,
       days,
       reason,
-      approvers,
+      approvers: rawApprovers, // raw 데이터로 받음
       userName,
     } = body;
 
     const vacationRef = db.collection("vacation").doc(userDocId);
+
+    // ----------------------------------------------------------------
+    // ✅ [핵심 수정] 결재선 구조 변환 (배열 -> 객체) - 안전장치 추가
+    // ----------------------------------------------------------------
+    const structuredApprovers: ApproverStructure = {
+      first: [],
+      second: [],
+      third: [],
+      shared: [],
+    };
+
+    if (Array.isArray(rawApprovers)) {
+      // 배열로 들어온 경우 (예전 방식) -> 순서대로 매핑
+      if (rawApprovers[0]) structuredApprovers.first = [rawApprovers[0]];
+      if (rawApprovers[1]) structuredApprovers.second = [rawApprovers[1]];
+      if (rawApprovers[2]) structuredApprovers.third = [rawApprovers[2]];
+    } else if (rawApprovers && typeof rawApprovers === "object") {
+      // 객체로 들어온 경우 -> 그대로 매핑
+      const ra = rawApprovers as ApproverStructure;
+      if (ra.first) structuredApprovers.first = ra.first;
+      if (ra.second) structuredApprovers.second = ra.second;
+      if (ra.third) structuredApprovers.third = ra.third;
+      if (ra.shared) structuredApprovers.shared = ra.shared;
+    }
 
     // 1. 휴가 신청 문서 생성
     const newDocRef = await vacationRef.collection("requests").add({
@@ -65,13 +91,12 @@ export async function POST(req: NextRequest) {
       daysUsed: days,
       reason,
       status: "1차 결재 대기",
-      approvers,
+      approvers: structuredApprovers, // ✅ 변환된 객체로 저장
       userName,
       approvalStep: 0,
       createdAt: FieldValue.serverTimestamp(),
       createdDate: getTodayString(),
-      // ✅ [추가] 결재 이력 배열 초기화 (중요)
-      approvalHistory: [],
+      approvalHistory: [], // ✅ 이력 초기화
     });
 
     const vacationId = newDocRef.id;
@@ -87,7 +112,7 @@ export async function POST(req: NextRequest) {
       mailSubject: string,
       mailHeader: string,
       mailMessage: string,
-      dbMessage: string, // 👈 여기가 비어있으면 안 됩니다!
+      dbMessage: string,
       linkPath: string,
       isApprovalRequest: boolean,
       sendDbNotification: boolean
@@ -107,13 +132,13 @@ export async function POST(req: NextRequest) {
             batch.set(notiRef, {
               targetUserName: targetName,
               fromUserName: userName,
-              type: isApprovalRequest ? "vacation_request" : "vacation", // 공유일 땐 일반 알림
-              message: dbMessage, // ✅ 전달받은 메시지 사용
+              type: isApprovalRequest ? "vacation_request" : "vacation",
+              message: dbMessage,
               link: linkPath,
               isRead: false,
               createdAt: Date.now(),
               createdDate: todayStr,
-              vacationId: vacationId, // 상세 이동용 ID
+              vacationId: vacationId,
             });
           }
 
@@ -153,34 +178,29 @@ export async function POST(req: NextRequest) {
       );
     };
 
-    // -------------------------------------------------------------
     // [A] 1차 결재자 (결재 요청)
-    // -------------------------------------------------------------
-    const firstApprovers: string[] = approvers.first || [];
+    // ✅ structuredApprovers 사용
     await notifyGroup(
-      firstApprovers,
+      structuredApprovers.first,
       `[결재요청] ${userName} - 휴가 신청`,
       "휴가 결재 요청이 도착했습니다.",
       `${userName}님의 휴가 신청 건입니다.<br/>내용을 확인하시고 결재를 진행해주세요.`,
-      `[결재요청] ${userName} - 휴가 신청 (1차 대기)`, // ✅ DB 알림 메시지 채움
+      `[결재요청] ${userName} - 휴가 신청 (1차 대기)`,
       "/main/my-approval/pending",
       true,
-      true // ✅ [변경] 1차 결재자도 알림(종 모양)이 뜨는 게 좋습니다.
+      true
     );
 
-    // -------------------------------------------------------------
-    // [B] 참조/공유자 (공유 알림) - 2차, 3차는 아직 결재 차례 아님
-    // -------------------------------------------------------------
-    // 2차, 3차 결재자는 "참조"로 먼저 알림을 받을지, 자기 차례에 받을지 정책에 따라 다르지만
-    // 여기서는 "공유" 개념으로 먼저 알림을 보내는 로직입니다.
+    // [B] 참조/공유자
+    // ✅ structuredApprovers 사용
     const referenceUsers: string[] = [
-      ...(approvers.second || []),
-      ...(approvers.third || []),
-      ...(approvers.shared || []),
+      ...(structuredApprovers.second || []),
+      ...(structuredApprovers.third || []),
+      ...(structuredApprovers.shared || []),
     ];
 
     const uniqueRefs = [...new Set(referenceUsers)].filter(
-      (u: string) => !firstApprovers.includes(u)
+      (u: string) => !structuredApprovers.first.includes(u)
     );
 
     await notifyGroup(
@@ -188,7 +208,7 @@ export async function POST(req: NextRequest) {
       `[공유] ${userName} - 휴가 신청`,
       "휴가 신청이 공유되었습니다.",
       `${userName}님의 휴가 신청 내역입니다.<br/>(진행 상황을 공유합니다.)`,
-      `[공유] ${userName} - 휴가 신청`, // ✅ DB 알림 메시지 채움
+      `[공유] ${userName} - 휴가 신청`,
       "/main/my-approval/shared",
       false,
       true
