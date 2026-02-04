@@ -693,6 +693,7 @@ function ListModalLayout({
           {moreLink && (
             <Link
               href={moreLink}
+              prefetch={false}
               className="flex-1 bg-[#519d9e] flex items-center justify-center py-3 rounded-lg hover:bg-[#407f80] font-medium text-white"
             >
               전체 보기 →
@@ -747,7 +748,12 @@ function NotificationItem({ noti, onClose }: NotificationItemProps) {
   };
 
   return (
-    <Link href={noti.link} onClick={onClose} className="block group">
+    <Link
+      href={noti.link}
+      prefetch={false}
+      onClick={onClose}
+      className="block group"
+    >
       <div className="bg-white p-4 border rounded-lg group-hover:border-blue-300 group-hover:shadow-md transition-all">
         <div className="flex justify-between items-start mb-2">
           <div className="flex items-center gap-2 flex-wrap">
