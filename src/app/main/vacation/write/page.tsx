@@ -7,7 +7,7 @@ import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
-// ✅ [수정] 반차를 오전/오후로 세분화
+// ✅ [수정] 반차를 오전/오후로 세분
 type DayType = "연차" | "오전반차" | "오후반차" | "공가";
 
 interface Employee {
