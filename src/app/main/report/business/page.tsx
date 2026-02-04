@@ -71,6 +71,7 @@ function BusinessReportContent() {
           </h2>
           <Link
             href="/main/report/business/write"
+            prefetch={false}
             className="px-4 py-2 bg-[#519d9e] text-white rounded-lg hover:bg-[#407f80] transition-colors font-bold text-sm"
           >
             보고서 작성 ✎
@@ -102,6 +103,7 @@ function BusinessReportContent() {
                     <td className="py-3 px-4">
                       <Link
                         href={`/main/report/${item.id}`}
+                        prefetch={false}
                         className="block w-full"
                       >
                         <span className="text-gray-800 hover:text-[#519d9e] font-medium transition-colors">

@@ -207,6 +207,7 @@ export default function InternalReportDetailPage() {
         <div className="flex gap-2">
           <Link
             href={listPath}
+            prefetch={false}
             className="px-3 py-1.5 border rounded hover:bg-gray-100 text-sm flex items-center"
           >
             목록으로
@@ -214,6 +215,7 @@ export default function InternalReportDetailPage() {
           {userName === report.userName && (
             <Link
               href={editPath}
+              prefetch={false}
               className="px-3 py-1.5 bg-[#519d9e] text-white rounded hover:bg-[#407f80] text-sm"
             >
               수정
