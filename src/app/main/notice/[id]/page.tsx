@@ -40,6 +40,7 @@ export default async function NoticeDetailPage({
       <div className="flex justify-between items-center mb-4">
         <Link
           href="/main/notice"
+          prefetch={false}
           className="inline-block px-3 py-1 border rounded-lg hover:bg-gray-100 text-sm"
         >
           ← 목록으로

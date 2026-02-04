@@ -55,6 +55,7 @@ export default function WeeklyMeetingListPage() {
               >
                 <Link
                   href={`/main/meeting/weekly-work/week/${item.id}`}
+                  prefetch={false}
                   className="flex justify-between items-center w-full py-1"
                 >
                   <div className="flex items-center gap-4 overflow-hidden">

@@ -61,6 +61,7 @@ export default async function NoticePage({
           <h3 className="text-xl font-semibold">공지사항</h3>
           <Link
             href="/main/notice/write"
+            prefetch={false}
             className="px-4 py-2 rounded-xl border border-[#bd4747] hover:bg-[#bd4747] hover:text-white cursor-pointer text-sm transition-colors"
           >
             글작성 ✎
@@ -75,6 +76,7 @@ export default async function NoticePage({
             >
               <Link
                 href={`/main/notice/${item.id}`}
+                prefetch={false}
                 className="flex justify-between items-center w-full py-1"
               >
                 <div className="flex items-center gap-4 overflow-hidden">
