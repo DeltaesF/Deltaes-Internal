@@ -154,7 +154,7 @@ export default function Sidebar() {
         {/* 사용자 정보 */}
         {/* [수정] 모바일에서는 상단 햄버거 버튼과 겹치지 않게 여백 추가 */}
         <div className="mb-6 text-center mt-12 md:mt-0">
-          <Link href="/main/dashboard/individual">
+          <Link href="/main/dashboard/individual" prefetch={false}>
             <div className="w-16 h-16 bg-[#519d9e] rounded-full mx-auto mb-2 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
               {userName ? userName[0] : "U"}
             </div>
@@ -172,6 +172,7 @@ export default function Sidebar() {
         {role === "admin" && (
           <Link
             href="/main/supervisor/employees"
+            prefetch={false}
             className="mb-4 block text-center p-2 rounded-lg bg-gray-800 text-white text-sm font-bold hover:bg-black transition-colors"
           >
             ⚙️ 관리자 페이지
@@ -194,18 +195,21 @@ export default function Sidebar() {
             <div className="flex flex-col gap-1 pl-2 mb-4 animate-fadeIn">
               <Link
                 href="/main/my-approval/pending"
+                prefetch={false}
                 className={getLinkClass("/main/my-approval/pending")}
               >
                 • 결재 대기함
               </Link>
               <Link
                 href="/main/my-approval/completed"
+                prefetch={false}
                 className={getLinkClass("/main/my-approval/completed")}
               >
                 • 결재 완료함
               </Link>
               <Link
                 href="/main/my-approval/shared"
+                prefetch={false}
                 className={getLinkClass("/main/my-approval/shared")}
               >
                 • 수신 / 공유함
@@ -226,6 +230,7 @@ export default function Sidebar() {
                   <div className="pl-3 border-l border-gray-300 ml-2 space-y-1">
                     <Link
                       href="/main/workoutside/approvals/purchase"
+                      prefetch={false}
                       className={getLinkClass(
                         "/main/workoutside/approvals/purchase"
                       )}
@@ -234,6 +239,7 @@ export default function Sidebar() {
                     </Link>
                     <Link
                       href="/main/workoutside/approvals/sales"
+                      prefetch={false}
                       className={getLinkClass(
                         "/main/workoutside/approvals/sales"
                       )}
@@ -242,6 +248,7 @@ export default function Sidebar() {
                     </Link>
                     <Link
                       href="/main/workoutside/approvals/vehicle"
+                      prefetch={false}
                       className={getLinkClass(
                         "/main/workoutside/approvals/vehicle"
                       )}
@@ -284,12 +291,14 @@ export default function Sidebar() {
                   <div className="pl-3 border-l border-gray-300 ml-2 space-y-1">
                     <Link
                       href="/main/notice"
+                      prefetch={false}
                       className={getLinkClass("/main/notice")}
                     >
                       - 공지사항
                     </Link>
                     <Link
                       href="/main/resources"
+                      prefetch={false}
                       className={getLinkClass("/main/resources")}
                     >
                       - 자료실
@@ -313,12 +322,14 @@ export default function Sidebar() {
                   <div className="pl-3 border-l border-gray-300 ml-2 space-y-1">
                     <Link
                       href="/main/work/daily"
+                      prefetch={false}
                       className={getLinkClass("/main/work/daily")}
                     >
                       - 일일업무보고
                     </Link>
                     <Link
                       href="/main/work/weekly"
+                      prefetch={false}
                       className={getLinkClass("/main/work/weekly")}
                     >
                       - 주간업무보고
@@ -343,6 +354,7 @@ export default function Sidebar() {
                     {isSalesTeam ? (
                       <Link
                         href="/main/meeting/weekly-sales/sales"
+                        prefetch={false}
                         className={getLinkClass("/main/meeting/weekly-sales")}
                       >
                         - 주간 영업 보고
@@ -371,12 +383,14 @@ export default function Sidebar() {
                   <div className="pl-3 border-l border-gray-300 ml-2 space-y-1">
                     <Link
                       href="/main/report/internal"
+                      prefetch={false}
                       className={getLinkClass("/main/report/internal")}
                     >
                       - 사내교육보고서
                     </Link>
                     <Link
                       href="/main/report/external"
+                      prefetch={false}
                       className={getLinkClass("/main/report/external")}
                     >
                       - 외부교육보고서
@@ -388,6 +402,7 @@ export default function Sidebar() {
               {/* 휴가원 & 조직도 (단일 메뉴) */}
               <Link
                 href="/main/vacation/user"
+                prefetch={false}
                 className={`${getLinkClass("/main/vacation/user")} mt-2`}
               >
                 🏖️ 휴가원
@@ -395,6 +410,7 @@ export default function Sidebar() {
 
               <Link
                 href="/main/organization"
+                prefetch={false}
                 className={getLinkClass("/main/organization")}
               >
                 🏢 조직도
