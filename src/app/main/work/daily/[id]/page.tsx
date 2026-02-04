@@ -199,6 +199,7 @@ export default function DailyDetailPage() {
       <div className="flex justify-between items-center mb-4">
         <Link
           href="/main/work/daily"
+          prefetch={false}
           className="px-3 py-1 border rounded-lg hover:bg-gray-100 text-sm"
         >
           ← 목록으로
@@ -207,6 +208,7 @@ export default function DailyDetailPage() {
           <div className="flex gap-2">
             <Link
               href={`/main/work/daily/edit/${id}`}
+              prefetch={false}
               className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium"
             >
               수정

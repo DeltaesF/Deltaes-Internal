@@ -77,6 +77,7 @@ function DailyContent() {
           <h3 className="text-xl font-semibold">일일 업무 보고서</h3>
           <Link
             href="/main/work/dailywrite"
+            prefetch={false}
             className="px-4 py-2 rounded-xl border border-[#51709e] hover:bg-[#51709e] hover:text-white cursor-pointer text-sm transition-colors"
           >
             글작성 ✎
@@ -97,6 +98,7 @@ function DailyContent() {
                 >
                   <Link
                     href={`/main/work/daily/${item.id}`}
+                    prefetch={false}
                     className="flex justify-between items-center w-full py-1"
                   >
                     <div className="flex items-center gap-4 overflow-hidden">

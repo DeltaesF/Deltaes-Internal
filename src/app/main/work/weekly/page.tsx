@@ -72,6 +72,7 @@ function WeeklyMeetingContent() {
           <h3 className="text-xl font-bold text-gray-800">주간 업무 회의</h3>
           <Link
             href="/main/work/weeklywrite"
+            prefetch={false}
             className="px-4 py-2 rounded-xl border border-[#519d9e] hover:bg-[#519d9e] hover:text-white cursor-pointer text-sm transition-colors"
           >
             글작성 ✎
@@ -92,6 +93,7 @@ function WeeklyMeetingContent() {
                 >
                   <Link
                     href={`/main/work/weekly/${item.id}`}
+                    prefetch={false}
                     className="flex justify-between items-center w-full py-1.5"
                   >
                     <div className="flex items-center gap-4 overflow-hidden">

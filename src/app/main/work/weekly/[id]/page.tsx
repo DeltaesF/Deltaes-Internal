@@ -338,6 +338,7 @@ function AuthorizedContent({
                     {daily.userName === myName && (
                       <Link
                         href={`/main/work/daily/edit/${daily.id}`}
+                        prefetch={false}
                         className="text-sm px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-100 text-gray-700 transition-colors"
                       >
                         수정
@@ -386,6 +387,7 @@ function AuthorizedContent({
           {weekly.userName === myName && (
             <Link
               href={`/main/work/weekly/edit/${weekly.id}`}
+              prefetch={false}
               className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-base font-medium border border-white/30 transition-colors"
             >
               수정하기
