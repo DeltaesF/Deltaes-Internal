@@ -121,6 +121,7 @@ export default function UserV() {
       <div className="flex justify-between items-center">
         <Link
           href="/main/vacation/write"
+          prefetch={false}
           className="ml-auto px-4 py-2 rounded-xl bg-[#519d9e] text-white hover:bg-[#407f80] transition-colors text-sm font-bold shadow-md"
         >
           + 휴가 신청하기
@@ -248,6 +249,7 @@ export default function UserV() {
               {/* ✅ [전체 보기] 버튼 -> list 페이지로 이동 */}
               <Link
                 href="/main/vacation/list"
+                prefetch={false}
                 className="flex-1 bg-[#519d9e] flex items-center justify-center py-2.5 rounded-lg hover:bg-[#407f80] font-medium text-white text-sm transition-colors"
               >
                 전체/상세 내역 보기 →

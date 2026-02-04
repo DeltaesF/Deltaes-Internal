@@ -36,6 +36,7 @@ export default async function ResourcesPage() {
           <h3 className="text-xl font-semibold">자료실</h3>
           <Link
             href="/main/resources/write"
+            prefetch={false}
             className="px-4 py-2 rounded-xl border border-[#bdbb47] hover:bg-[#bdab47] hover:text-white cursor-pointer text-sm transition-colors"
           >
             글작성 ✎
@@ -50,6 +51,7 @@ export default async function ResourcesPage() {
             >
               <Link
                 href={`/main/resources/${item.id}`}
+                prefetch={false}
                 className="flex justify-between items-center w-full py-1"
               >
                 <div className="flex items-center gap-4 overflow-hidden">
