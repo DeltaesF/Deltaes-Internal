@@ -24,6 +24,19 @@ interface ReportDetail {
     third?: string[];
     shared?: string[];
   };
+
+  // ✅ [추가] 결재 이력 타입
+  approvalHistory?: {
+    approver: string;
+    status: string;
+    comment?: string;
+    approvedAt:
+      | { seconds?: number; _seconds?: number }
+      | string
+      | number
+      | Date;
+  }[];
+
   // 교육 보고서용 필드
   educationName?: string;
   educationPeriod?: string;
@@ -78,18 +91,36 @@ export default function InternalReportDetailPage() {
       const isSecond = report.approvers?.second?.includes(myName);
       const isThird = report.approvers?.third?.includes(myName);
 
+      // ✅ [추가] 다음 결재자 존재 여부 확인
+      const hasSecondApprover =
+        report.approvers?.second && report.approvers.second.length > 0;
+      const hasThirdApprover =
+        report.approvers?.third && report.approvers.third.length > 0;
+
       // 2. 다음 상태값 계산
       let nextStatus = "반려"; // 기본값 (status === 'reject'일 때 사용)
 
       if (status === "approve") {
+        // [1차 결재자]
         if (isFirst && report.status === "1차 결재 대기") {
-          nextStatus = "2차 결재 대기"; // 1차 승인 -> 2차로 넘김
-        } else if (isSecond && report.status === "2차 결재 대기") {
-          nextStatus = "3차 결재 대기"; // 2차 승인 -> 3차로 넘김
-        } else if (isThird && report.status === "3차 결재 대기") {
-          nextStatus = "결재 완료"; // 3차 승인 -> 최종 완료
+          if (hasSecondApprover) {
+            nextStatus = "2차 결재 대기";
+          } else {
+            nextStatus = "결재 완료"; // 2차 없으면 끝
+          }
+        }
+        // [2차 결재자]
+        else if (isSecond && report.status === "2차 결재 대기") {
+          if (hasThirdApprover) {
+            nextStatus = "3차 결재 대기";
+          } else {
+            nextStatus = "결재 완료"; // 3차 없으면 끝
+          }
+        }
+        // [3차 결재자]
+        else if (isThird && report.status === "3차 결재 대기") {
+          nextStatus = "결재 완료";
         } else {
-          // 예외 케이스: 이미 처리되었거나 권한 오류 등
           console.warn("결재 권한이 없거나 순서가 아닙니다.");
           return;
         }
@@ -101,14 +132,14 @@ export default function InternalReportDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: id,
-          userName: report.userName, // 🚨 기안자 이름 (매우 중요: DB 경로 찾기용)
-
-          // 🚨 [핵심] 이 상태값을 보고 서버가 다음 사람에게 이메일을 보냅니다.
+          userName: report.userName,
           status: nextStatus,
 
-          // (참고) 코멘트는 DB에 저장하고 싶으시면 API도 수정해야 하지만,
-          // 현재는 알림 로직에 집중하기 위해 보내기만 합니다.
-          // comment: comment,
+          // ✅ [추가] 결재자 실명 전송 (이력 저장용)
+          approverName: userName,
+
+          // ✅ [추가] 코멘트 전송
+          comment: comment,
         }),
       });
 
@@ -355,6 +386,86 @@ export default function InternalReportDetailPage() {
             </h2>
           </div>
         </>
+      )}
+
+      {/* ---------------------------------------------------------------- */}
+      {/* ✅ [추가] 결재 진행 이력 및 코멘트 표시 영역 (품의서와 동일 스타일) */}
+      {/* ---------------------------------------------------------------- */}
+      {report.approvalHistory && report.approvalHistory.length > 0 && (
+        <div className="mt-12 pt-8 border-t border-gray-200">
+          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            📋 결재 진행 이력
+          </h3>
+          <div className="space-y-4">
+            {report.approvalHistory.map((history, idx) => {
+              let dateStr = "";
+              const at = history.approvedAt;
+
+              try {
+                if (!at) {
+                  dateStr = "-";
+                } else if (
+                  typeof at === "object" &&
+                  "seconds" in at &&
+                  typeof at.seconds === "number"
+                ) {
+                  dateStr = new Date(at.seconds * 1000).toLocaleString();
+                } else if (
+                  typeof at === "object" &&
+                  "_seconds" in at &&
+                  typeof at._seconds === "number"
+                ) {
+                  dateStr = new Date(at._seconds * 1000).toLocaleString();
+                } else {
+                  const d = new Date(at as string | number | Date);
+                  if (!isNaN(d.getTime())) {
+                    dateStr = d.toLocaleString();
+                  } else {
+                    dateStr = "날짜 오류";
+                  }
+                }
+              } catch {
+                dateStr = "-";
+              }
+
+              const isReject = history.status.includes("반려");
+              const badgeClass = isReject
+                ? "bg-red-100 text-red-700 border-red-200"
+                : "bg-blue-100 text-blue-700 border-blue-200";
+
+              return (
+                <div
+                  key={idx}
+                  className="bg-white border rounded-lg p-4 shadow-sm border-l-4 border-l-gray-400"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-gray-900 text-base">
+                        {history.approver}
+                      </span>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded border font-bold ${badgeClass}`}
+                      >
+                        {history.status}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-500 font-mono">
+                      {dateStr}
+                    </span>
+                  </div>
+                  {history.comment && (
+                    <div className="mt-3 p-3 bg-gray-50 border rounded text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                      <span className="font-bold text-[#519d9e] mr-2">
+                        💬 의견:
+                      </span>
+                      {history.comment}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {/* ✅ [수정] 결재 권한이 있을 때만 표시 (canApprove) */}

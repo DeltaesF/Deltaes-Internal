@@ -39,6 +39,16 @@ interface UpdatePayload {
   attachments?: { name: string; url: string }[];
   fileUrl?: string;
   fileName?: string;
+
+  // 인덱스 시그니처 (동적 할당용)
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | object
+    | undefined
+    | null
+    | FieldValue;
 }
 
 export async function POST(req: Request) {
@@ -47,6 +57,8 @@ export async function POST(req: Request) {
     const {
       id,
       userName,
+
+      approverName,
 
       // 상태 및 코멘트
       status,
@@ -114,13 +126,8 @@ export async function POST(req: Request) {
       updateData.status = status;
     }
 
-    // ✅ 코멘트 처리 (본문에 추가)
-    if (comment) {
-      const originalContent = content || currentData?.content || "";
-      updateData.content = `${originalContent} <br/><br/> <p style="color:blue;">[결재의견] ${comment}</p>`;
-    } else if (content) {
-      updateData.content = content;
-    }
+    // 코멘트
+    if (content) updateData.content = content;
 
     // 값이 있는 경우에만 필드 추가 (undefined 체크)
     if (educationName !== undefined) updateData.educationName = educationName;
@@ -147,6 +154,19 @@ export async function POST(req: Request) {
         updateData.fileUrl = fileUrl;
         updateData.fileName = fileName;
       }
+    }
+
+    // ✅ [핵심 추가] 결재 이력(History) 저장
+    if (status) {
+      // approverName이 없으면 "결재자"로 대체 (안전장치)
+      const finalApprover = approverName || "결재자";
+
+      updateData.approvalHistory = FieldValue.arrayUnion({
+        approver: finalApprover,
+        status: status,
+        comment: comment || "", // 코멘트 여기에 저장
+        approvedAt: new Date(),
+      });
     }
 
     await docRef.update({ ...updateData });
