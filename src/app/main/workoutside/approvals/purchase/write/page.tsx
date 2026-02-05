@@ -4,7 +4,7 @@ import { useState, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 // --------------------------------------------------------
 // [1] 타입 정의
@@ -72,6 +72,7 @@ interface PurchaseFormData {
 
 export default function PurchaseApprovalWrite() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { userName } = useSelector((state: RootState) => state.auth);
 
   // 파일 선택 상태 (UI 표시용 Raw Files)
@@ -263,9 +264,13 @@ export default function PurchaseApprovalWrite() {
       if (!res.ok) throw new Error("저장 실패");
       return res.json();
     },
-    onSuccess: () => {
-      alert("상신되었습니다.");
-      router.push("/main/workoutside/approvals/purchase");
+    onSuccess: async () => {
+      // ✅ [핵심 추가] 'approvals' 키를 가진 데이터를 무효화합니다.
+      // 이렇게 해야 판매 품의 리스트 페이지로 갔을 때 새로고침 없이 방금 쓴 글이 보입니다.
+      await queryClient.invalidateQueries({ queryKey: ["approvals"] });
+
+      alert("판매 품의서가 상신되었습니다.");
+      router.push("/main/workoutside/approvals/sales");
     },
     onError: (err) => alert(err.message),
   });

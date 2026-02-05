@@ -4,7 +4,7 @@ import { useEffect, useState, ChangeEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 // --------------------------------------------------------
 // [1] 타입 정의 (Write 페이지와 동일)
@@ -89,6 +89,7 @@ const fetchDetail = async (id: string): Promise<ApprovalDetailResponse> => {
 
 export default function PurchaseApprovalEdit() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { id } = useParams() as { id: string };
   const { userName } = useSelector((state: RootState) => state.auth);
 
@@ -294,7 +295,13 @@ export default function PurchaseApprovalEdit() {
       if (!res.ok) throw new Error("수정 실패");
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // ✅ [핵심 추가 1] 전체 결재 목록 데이터를 최신화합니다.
+      await queryClient.invalidateQueries({ queryKey: ["approvals"] });
+
+      // ✅ [핵심 추가 2] 현재 보고 있는 이 글의 상세 데이터 캐시를 무효화합니다.
+      // 이렇게 해야 상세 페이지로 이동했을 때 수정한 내용이 즉시 반영됩니다.
+      await queryClient.invalidateQueries({ queryKey: ["approvalDetail", id] });
       alert("수정되었습니다.");
       router.push(`/main/workoutside/approvals/${id}`);
     },

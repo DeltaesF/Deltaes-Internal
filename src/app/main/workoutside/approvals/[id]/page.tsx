@@ -229,9 +229,19 @@ export default function ApprovalDetailPage() {
       if (!res.ok) throw new Error("처리 실패");
       return res.json();
     },
-    onSuccess: (_, { status }) => {
+    onSuccess: async (_, { status }) => {
+      // ✅ async 추가
       alert(status === "approve" ? "승인되었습니다." : "반려되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["approvalDetail", id] });
+
+      // ✅ [핵심 추가 1] 전체 결재 목록 데이터를 최신화합니다.
+      // 결재 대기함, 완료함 등의 리스트가 즉시 업데이트됩니다.
+      await queryClient.invalidateQueries({ queryKey: ["approvals"] });
+
+      // ✅ [핵심 추가 2] 현재 보고 있는 이 문서의 상세 데이터도 무효화합니다.
+      // 이렇게 해야 상세 페이지 내의 결재 이력이나 상태 배지가 즉시 바뀝니다.
+      await queryClient.invalidateQueries({ queryKey: ["approvalDetail", id] });
+
+      // ✅ [추천] 대기함 목록으로 이동 (현재 로직 유지)
       router.push("/main/my-approval/pending");
     },
     onError: (err) => {
