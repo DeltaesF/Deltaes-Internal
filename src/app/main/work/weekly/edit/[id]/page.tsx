@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Editor from "@/components/editor";
+import { useQueryClient } from "@tanstack/react-query";
 
 const fetchWeeklyDetail = async (id: string) => {
   const res = await fetch(`/api/weekly/${id}`);
@@ -15,6 +16,7 @@ const fetchWeeklyDetail = async (id: string) => {
 export default function WeeklyEditPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { userName } = useSelector((state: RootState) => state.auth);
 
   const [title, setTitle] = useState("");
@@ -89,6 +91,15 @@ export default function WeeklyEditPage() {
       });
 
       if (!res.ok) throw new Error("수정 실패");
+
+      // ✅ [수정 포인트: 데이터 동기화]
+      // 1. 일일업무 목록 데이터를 최신화 (목록으로 돌아갔을 때 반영됨)
+      // 보통 목록에서 ["dailys"] 키를 사용하므로 이를 무효화합니다.
+      await queryClient.invalidateQueries({ queryKey: ["weeklys"] });
+
+      // 2. 이 글의 상세 데이터도 무효화 (상세 페이지로 이동했을 때 반영됨)
+      // 이 파일의 useEffect에서 데이터를 가져올 때 쓰는 로직과 매칭됩니다.
+      await queryClient.invalidateQueries({ queryKey: ["weeklyDetail", id] });
 
       alert("수정되었습니다.");
       router.back(); // 이전 페이지(상세)로 복귀

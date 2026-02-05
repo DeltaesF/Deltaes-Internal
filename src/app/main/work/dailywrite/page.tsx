@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"; // router 사용
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Editor from "@/components/editor";
+import { useQueryClient } from "@tanstack/react-query";
 
 // ✅ [추가] 오늘 날짜 문자열 생성 함수 (YYYY.MM.DD)
 const getTodayString = () => {
@@ -17,6 +18,7 @@ const getTodayString = () => {
 
 export default function DailyWritePage() {
   const router = useRouter(); // 라우터 훅 사용
+  const queryClient = useQueryClient();
   const { userName } = useSelector(
     (state: RootState) => state.auth || { userName: "사용자" }
   );
@@ -84,6 +86,11 @@ export default function DailyWritePage() {
       });
 
       if (!createRes.ok) throw new Error("저장 실패");
+
+      // ✅ [수정 포인트: 데이터 동기화]
+      // 일일업무 목록 데이터를 최신화하라고 명령합니다.
+      // 이 한 줄 덕분에 목록으로 갔을 때 새로고침 없이도 방금 쓴 글이 바로 보입니다.
+      await queryClient.invalidateQueries({ queryKey: ["dailys"] });
 
       alert("보고서가 저장되었습니다!");
 

@@ -209,6 +209,8 @@ function AuthorizedContent({
       queryClient.invalidateQueries({
         queryKey: ["weeklyComments", weekly.id],
       });
+      // [추가 팁] 목록 페이지의 댓글 개수 표시도 업데이트하고 싶다면 아래 줄 추가
+      queryClient.invalidateQueries({ queryKey: ["weeklys"] });
     },
     onError: (err) => alert(err.message),
   });
@@ -233,6 +235,7 @@ function AuthorizedContent({
       queryClient.invalidateQueries({
         queryKey: ["weeklyComments", weekly.id],
       });
+      queryClient.invalidateQueries({ queryKey: ["weeklys"] });
     },
   });
 

@@ -85,7 +85,11 @@ export default function DailyDetailPage() {
     },
     onSuccess: () => {
       setCommentText("");
+      // ✅ 현재 글의 댓글 목록만 새로고침 (파이어베이스 읽기 최소화)
       queryClient.invalidateQueries({ queryKey: ["dailyComments", id] });
+
+      // [추가 팁] 목록 페이지의 댓글 개수 표시도 업데이트하고 싶다면 아래 줄 추가
+      queryClient.invalidateQueries({ queryKey: ["dailys"] });
     },
     onError: (err) => alert(err.message),
   });
@@ -114,6 +118,7 @@ export default function DailyDetailPage() {
     onSuccess: () => {
       alert("댓글이 삭제되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["dailyComments", id] });
+      queryClient.invalidateQueries({ queryKey: ["dailys"] }); // 목록의 댓글수 업데이트용
     },
     onError: (err) => alert(err.message),
   });
