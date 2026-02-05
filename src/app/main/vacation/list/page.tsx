@@ -85,6 +85,7 @@ function VacationListContent() {
     queryFn: () => fetchMyVacations(userDocId!, currentPage, ITEMS_PER_PAGE),
     enabled: !!userDocId,
     placeholderData: (prev) => prev,
+    refetchOnMount: true,
   });
 
   const list = data?.list || [];

@@ -44,6 +44,7 @@ function BusinessReportContent() {
     queryKey: ["reports", "business", currentPage],
     queryFn: () => fetchReports(currentPage, ITEMS_PER_PAGE),
     placeholderData: (prev) => prev,
+    refetchOnMount: true,
   });
 
   const list = data?.list || [];

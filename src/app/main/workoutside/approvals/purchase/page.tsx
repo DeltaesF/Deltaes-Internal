@@ -50,6 +50,7 @@ function PurchaseReportContent() {
     queryFn: () => fetchReports(currentPage, ITEMS_PER_PAGE, userName || ""),
     placeholderData: (prev) => prev, // ✅ 로딩 중 이전 데이터 유지
     enabled: !!userName,
+    refetchOnMount: true,
   });
 
   const list = data?.list || [];

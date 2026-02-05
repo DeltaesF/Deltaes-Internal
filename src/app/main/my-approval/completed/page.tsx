@@ -96,6 +96,7 @@ function CompletedApprovalContent() {
       fetchCompleted(userName!, currentPage, ITEMS_PER_PAGE, filterType),
     enabled: !!userName,
     placeholderData: (prev) => prev,
+    refetchOnMount: true,
   });
 
   const list = data?.list || [];

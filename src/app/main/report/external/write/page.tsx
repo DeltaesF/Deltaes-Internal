@@ -96,7 +96,10 @@ export default function ExternalReportWritePage() {
       // ✅ [수정 포인트]
       // 'reports' 키로 시작하는 모든 목록 데이터(사내, 사외, 업무 보고 등)를 무효화합니다.
       // 이렇게 해야 목록 페이지로 이동했을 때 방금 쓴 글이 새로고침 없이 보입니다.
-      await queryClient.invalidateQueries({ queryKey: ["reports"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["reports"],
+        exact: false,
+      });
 
       alert("보고서가 작성되었습니다.");
       router.push("/main/report/external"); // 작성 후 외부 보고서 목록으로 이동

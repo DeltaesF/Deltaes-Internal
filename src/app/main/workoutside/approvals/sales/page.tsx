@@ -47,6 +47,7 @@ function SalesReportContent() {
     queryFn: () => fetchReports(currentPage, ITEMS_PER_PAGE, userName || ""),
     placeholderData: (prev) => prev,
     enabled: !!userName,
+    refetchOnMount: true,
   });
 
   const list = data?.list || [];

@@ -251,7 +251,10 @@ export default function IntegratedWritePage() {
       // ✅ [수정 포인트]
       // 'approvals'라는 키를 사용하는 모든 목록(대기함, 완료함 등)을 최신화합니다.
       // 이 한 줄 덕분에 목록 페이지로 갔을 때 새로고침 없이 최신 글이 보입니다.
-      await queryClient.invalidateQueries({ queryKey: ["approvals"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["approvals"],
+        exact: false,
+      });
 
       alert("상신되었습니다.");
       router.push("/main/workoutside/approvals/vehicle");

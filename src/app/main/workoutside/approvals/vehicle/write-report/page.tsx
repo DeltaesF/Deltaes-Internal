@@ -222,7 +222,10 @@ export default function ResultReportWritePage() {
 
       // ✅ [마법의 한 줄 추가]
       // 결제 대기/완료 리스트 등 'approvals' 키를 쓰는 모든 곳을 새로고침 없이 업데이트합니다.
-      await queryClient.invalidateQueries({ queryKey: ["approvals"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["approvals"],
+        exact: false,
+      });
 
       alert("결과보고서가 등록되었습니다.");
       router.push("/main/workoutside/approvals/vehicle");

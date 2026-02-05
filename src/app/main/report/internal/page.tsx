@@ -45,6 +45,7 @@ function InternalReportContent() {
     queryKey: ["reports", "internal", currentPage],
     queryFn: () => fetchReports(currentPage, ITEMS_PER_PAGE),
     placeholderData: (prev) => prev, // ✅ [최적화] 로딩 중 이전 데이터 유지 (깜빡임 방지)
+    refetchOnMount: true,
   });
 
   const list = data?.list || [];

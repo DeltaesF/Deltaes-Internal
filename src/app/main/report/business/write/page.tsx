@@ -181,7 +181,10 @@ export default function BusinessReportWritePage() {
       // ✅ [수정 포인트]
       // 'reports' 키로 시작하는 모든 보고서 목록(사내/사외/출장)을 무효화합니다.
       // 사용자가 목록으로 돌아갔을 때 방금 쓴 출장 보고서가 새로고침 없이 바로 보입니다.
-      await queryClient.invalidateQueries({ queryKey: ["reports"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["reports"],
+        exact: false,
+      });
 
       alert("출장 보고서가 제출되었습니다.");
       router.push("/main/report/business");

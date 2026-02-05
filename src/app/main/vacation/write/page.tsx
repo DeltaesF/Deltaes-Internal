@@ -147,7 +147,10 @@ export default function VacationWritePage() {
         // ✅ [핵심 수정 포인트]
         // 'vacations'라는 키로 시작하는 모든 데이터(내 이력, 통계 숫자, 캘린더 일정)를
         // 새로고침 없이 즉시 최신 상태로 업데이트합니다.
-        await queryClient.invalidateQueries({ queryKey: ["vacations"] });
+        await queryClient.invalidateQueries({
+          queryKey: ["vacations"],
+          exact: false,
+        });
         alert("휴가 신청이 완료되었습니다.");
         router.push("/main/vacation/user");
       } else {

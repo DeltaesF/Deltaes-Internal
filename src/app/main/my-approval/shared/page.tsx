@@ -98,6 +98,7 @@ function SharedBoxContent() {
       fetchNotifications(userName!, currentPage, ITEMS_PER_PAGE, filterType),
     enabled: !!userName,
     placeholderData: (previousData) => previousData,
+    refetchOnMount: true,
   });
 
   const list = data?.list || [];

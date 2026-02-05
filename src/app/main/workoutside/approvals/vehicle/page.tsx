@@ -50,6 +50,7 @@ function VehicleReportContent() {
     queryKey: ["approvals", "vehicle_integrated", currentPage], // 쿼리 키 변경
     queryFn: () => fetchReports(currentPage, ITEMS_PER_PAGE),
     placeholderData: (prev) => prev,
+    refetchOnMount: true,
   });
 
   const list = data?.list || [];

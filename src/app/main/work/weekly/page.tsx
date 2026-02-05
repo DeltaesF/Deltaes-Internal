@@ -47,6 +47,7 @@ function WeeklyMeetingContent() {
       fetchMyWeeklys(userName || "", role || "", currentPage, ITEMS_PER_PAGE),
     enabled: !!userName,
     placeholderData: (prev) => prev, // 로딩 중 이전 데이터 유지
+    refetchOnMount: true,
   });
 
   const weeklyList = data?.list || [];

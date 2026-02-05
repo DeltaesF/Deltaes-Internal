@@ -103,6 +103,7 @@ function PendingApprovalContent() {
     queryKey: ["pendingCombined", userName],
     queryFn: () => fetchCombinedPending(userName || ""),
     enabled: !!userName,
+    refetchOnMount: true,
   });
 
   // 승인/반려 Mutation (휴가용)
