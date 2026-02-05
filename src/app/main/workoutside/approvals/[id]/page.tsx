@@ -6,6 +6,9 @@ import Link from "next/link";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { useState } from "react";
+import { toPng } from "html-to-image";
+import jsPDF from "jspdf";
+import { useRef } from "react";
 
 // ----------------------------------------------------------------
 // [1] 타입 정의 (Strict Typing)
@@ -250,6 +253,55 @@ export default function ApprovalDetailPage() {
     },
   });
 
+  // ✅ [PDF] PDF 변환을 위한 Ref 생성
+  const pdfRef = useRef<HTMLDivElement>(null);
+
+  // ✅ [PDF] 다운로드 핸들러
+  const handleDownloadPdf = async () => {
+    const element = pdfRef.current;
+    if (!element) return;
+
+    try {
+      // 1. 이미지 변환
+      const imgData = await toPng(element, {
+        quality: 0.95,
+        backgroundColor: "white",
+      });
+
+      // 2. PDF 생성 (A4)
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
+      const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
+
+      const imgProps = pdf.getImageProperties(imgData);
+
+      // 3. 이미지 사이즈 계산 (기본: 너비 기준 꽉 채우기)
+      let imgWidth = pdfWidth;
+      let imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      // 🚨 핵심: 만약 높이가 A4보다 길다면? -> 높이 기준으로 다시 축소!
+      if (imgHeight > pdfHeight) {
+        imgHeight = pdfHeight;
+        imgWidth = (imgProps.width * pdfHeight) / imgProps.height;
+      }
+
+      // 4. 가로 중앙 정렬 (너비가 줄어들었을 경우를 대비)
+      const x = (pdfWidth - imgWidth) / 2;
+      const y = 0; // 상단부터 시작
+
+      // 5. 페이지 추가 없이 한 번에 그리기
+      pdf.addImage(imgData, "PNG", x, y, imgWidth, imgHeight);
+
+      // 6. 저장
+      const fileName = `${approvalType === "sales" ? "판매" : "구매"}품의서_${
+        approval?.customerName || approval?.userName
+      }.pdf`;
+      pdf.save(fileName);
+    } catch (err) {
+      console.error("PDF 저장 실패:", err);
+      alert("PDF 변환 중 오류가 발생했습니다.");
+    }
+  };
   if (isLoading) return <div className="p-10 text-center">로딩 중...</div>;
   if (!approval)
     return <div className="p-10 text-center">문서를 찾을 수 없습니다.</div>;
@@ -322,7 +374,7 @@ export default function ApprovalDetailPage() {
   // [2] 렌더링 헬퍼: 구매 품의서 뷰
   // ----------------------------------------------------------------
   const renderPurchaseView = () => (
-    <div className="space-y-8 text-sm">
+    <div ref={pdfRef} className="space-y-8 text-sm">
       {/* Table 1: 기본 정보 */}
       <table className="w-full border-collapse border border-gray-300">
         <tbody>
@@ -968,8 +1020,21 @@ export default function ApprovalDetailPage() {
           </p>
         </div>
 
-        {/* 오른쪽: 결재 라인 (권한 있는 사람만 보임) */}
-        <div className="flex-shrink-0">{renderApprovalLineBox()}</div>
+        {/* ✅ [오른쪽 수정] PDF 버튼과 결재 라인을 세로로 배치 */}
+        <div className="flex-shrink-0 flex flex-col items-end gap-3">
+          {/* 🖨️ PDF 버튼 (구매/판매 품의서일 때만 표시) */}
+          {(approvalType === "purchase" || approvalType === "sales") && (
+            <button
+              onClick={handleDownloadPdf}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 text-white rounded hover:bg-gray-700 text-xs font-bold transition-colors shadow-sm cursor-pointer"
+            >
+              <span>📥</span> PDF 저장
+            </button>
+          )}
+
+          {/* 결재 라인 박스 */}
+          {renderApprovalLineBox()}
+        </div>
       </div>
 
       {/* 2. 상세 정보 렌더링 (타입 분기) */}
