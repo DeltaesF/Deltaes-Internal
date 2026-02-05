@@ -5,9 +5,16 @@ import { notFound } from "next/navigation";
 
 async function getNoticeDetail(id: string) {
   try {
-    const snapshot = await db.collectionGroup("userNotices").get();
-    const doc = snapshot.docs.find((d) => d.id === id);
-    if (!doc) return null;
+    // ✅ 수정: 전체를 다 가져오지 않고, ID가 일치하는 문서 딱 1개만 요청합니다.
+    const snapshot = await db
+      .collectionGroup("userNotices")
+      .where("__name__", "==", id) // 문서 ID로 직접 쿼리
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) return null;
+
+    const doc = snapshot.docs[0];
     const data = doc.data();
     return {
       id: doc.id,

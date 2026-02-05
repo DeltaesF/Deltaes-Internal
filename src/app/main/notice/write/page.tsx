@@ -70,9 +70,13 @@ export default function NoticeWritePage() {
 
       alert("보고서가 저장되었습니다!");
 
-      // [수정] 작성 완료 후 리스트 페이지로 이동
+      // ✅ [수정 포인트: 서버 컴포넌트 갱신]
+      // 1. 목록 페이지로 이동합니다.
       router.push("/main/notice");
-      // router.refresh(); // 필요하다면 데이터 갱신을 위해 추가
+
+      // 2. 서버 컴포넌트의 데이터를 새로고침하도록 명령합니다.
+      // 이 코드가 있어야 서버에서 getNotices 함수를 다시 실행하여 최신 글을 가져옵니다.
+      router.refresh();
     } catch (error) {
       console.error(error);
       alert("오류가 발생했습니다.");

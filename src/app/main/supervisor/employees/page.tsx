@@ -89,6 +89,7 @@ export default function EmployeeManagementPage() {
     queryKey: ["employees"],
     queryFn: fetchEmployees,
     enabled: role === "admin",
+    staleTime: 1000 * 60 * 10, // ✅ 10분 동안은 캐시된 데이터를 사용 (파이어베이스 읽기 방지)
   });
 
   // ✅ [RowSpan 계산 로직]

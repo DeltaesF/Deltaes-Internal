@@ -5,7 +5,7 @@ import { RootState } from "@/store";
 import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 // ✅ [수정] 반차를 오전/오후로 세분
 type DayType = "연차" | "오전반차" | "오후반차" | "공가";
@@ -38,6 +38,7 @@ const fetchEmployees = async (): Promise<Employee[]> => {
 
 export default function VacationWritePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { userDocId, userName } = useSelector((state: RootState) => state.auth);
 
   const [reason, setReason] = useState("");
@@ -143,6 +144,10 @@ export default function VacationWritePage() {
 
       const result = await res.json();
       if (res.ok && result.success) {
+        // ✅ [핵심 수정 포인트]
+        // 'vacations'라는 키로 시작하는 모든 데이터(내 이력, 통계 숫자, 캘린더 일정)를
+        // 새로고침 없이 즉시 최신 상태로 업데이트합니다.
+        await queryClient.invalidateQueries({ queryKey: ["vacations"] });
         alert("휴가 신청이 완료되었습니다.");
         router.push("/main/vacation/user");
       } else {

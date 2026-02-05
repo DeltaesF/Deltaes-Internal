@@ -100,7 +100,14 @@ export default function NoticeEditPage() {
       if (!res.ok) throw new Error("수정 실패");
 
       alert("수정되었습니다.");
+
+      // ✅ [수정 포인트] 상세 페이지로 이동 전/후에 서버 데이터를 갱신합니다.
+      // 1. 상세 페이지로 이동
       router.push(`/main/notice/${id}`);
+
+      // 2. 서버 컴포넌트들에게 "데이터 바뀌었으니 새로 그려!"라고 신호를 보냅니다.
+      // 이 코드가 있어야 목록이나 상세 페이지가 서버 컴포넌트일 때 최신 내용을 반영합니다.
+      router.refresh();
     } catch (error) {
       console.error(error);
       alert("오류가 발생했습니다.");
