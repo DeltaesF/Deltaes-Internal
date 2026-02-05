@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Editor from "@/components/editor";
+import { useQueryClient } from "@tanstack/react-query";
 
 // ✅ 오늘 날짜 포맷 함수 (YYYY.MM.DD)
 const getTodayString = () => {
@@ -17,6 +18,7 @@ const getTodayString = () => {
 
 export default function InternalReportWritePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { userName } = useSelector((state: RootState) => state.auth);
 
   const [form, setForm] = useState({
@@ -93,6 +95,11 @@ export default function InternalReportWritePage() {
       });
 
       if (!res.ok) throw new Error("저장 실패");
+
+      // ✅ [수정 포인트]
+      // 'reports' 키로 시작하는 모든 목록 데이터(사내, 사외, 업무 보고 등)를 무효화합니다.
+      // 이렇게 해야 목록 페이지로 이동했을 때 방금 쓴 글이 새로고침 없이 보입니다.
+      await queryClient.invalidateQueries({ queryKey: ["reports"] });
 
       alert("보고서가 작성되었습니다.");
       router.push("/main/report/internal");

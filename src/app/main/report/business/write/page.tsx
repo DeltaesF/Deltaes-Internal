@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Editor from "@/components/editor";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 // 오늘 날짜 (YYYY-MM-DD)
 const getTodayDate = () => {
@@ -34,6 +34,7 @@ const fetchUserInfo = async (userDocId: string) => {
 
 export default function BusinessReportWritePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { userName, userDocId } = useSelector((state: RootState) => state.auth);
 
   // 부서 정보 가져오기 (React Query)
@@ -176,6 +177,11 @@ export default function BusinessReportWritePage() {
       });
 
       if (!res.ok) throw new Error("저장 실패");
+
+      // ✅ [수정 포인트]
+      // 'reports' 키로 시작하는 모든 보고서 목록(사내/사외/출장)을 무효화합니다.
+      // 사용자가 목록으로 돌아갔을 때 방금 쓴 출장 보고서가 새로고침 없이 바로 보입니다.
+      await queryClient.invalidateQueries({ queryKey: ["reports"] });
 
       alert("출장 보고서가 제출되었습니다.");
       router.push("/main/report/business");

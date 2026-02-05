@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Editor from "@/components/editor";
+import { useQueryClient } from "@tanstack/react-query";
 
 const fetchReportDetail = async (id: string) => {
   const res = await fetch("/api/report/detail", {
@@ -19,6 +20,7 @@ const fetchReportDetail = async (id: string) => {
 export default function InternalReportEditPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { userName } = useSelector((state: RootState) => state.auth);
 
   const [form, setForm] = useState({
@@ -101,6 +103,11 @@ export default function InternalReportEditPage() {
       });
 
       if (!res.ok) throw new Error("수정 실패");
+
+      // ✅ [중요] router.refresh() 대신 이걸 사용하세요!
+      // 'reports'로 시작하는 모든 쿼리(목록)를 즉시 최신화합니다.
+      await queryClient.invalidateQueries({ queryKey: ["reports"] });
+      await queryClient.invalidateQueries({ queryKey: ["reportDetail", id] });
 
       alert("수정되었습니다.");
       // ✅ 사내교육 상세페이지로 이동

@@ -140,7 +140,17 @@ function PendingApprovalContent() {
       const msg =
         variables.status === "reject" ? "반려되었습니다." : "승인되었습니다.";
       alert(msg);
+
+      // 1️⃣ 현재 페이지(대기 목록) 갱신
       queryClient.invalidateQueries({ queryKey: ["pendingCombined"] });
+
+      // 2️⃣ [추가] 대시보드의 통합 대기 카운트 갱신
+      queryClient.invalidateQueries({ queryKey: ["combinedPending"] });
+
+      // 3️⃣ [추가] 대시보드 알림 및 결재 완료 이력 갱신
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["completedHistory"] });
+
       setSelectedVacation(null);
       setComment("");
     },

@@ -146,9 +146,19 @@ export default function InternalReportDetailPage() {
       if (!res.ok) throw new Error("처리 실패");
       return res.json();
     },
-    onSuccess: (_, { status }) => {
+    onSuccess: async (_, { status }) => {
+      // ✅ async 추가
       alert(status === "approve" ? "승인되었습니다." : "반려되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["reportDetail", id] });
+
+      // ✅ [수정 포인트 1] 모든 보고서 목록 캐시를 무효화합니다.
+      // 사용자가 목록으로 돌아갔을 때 상태(결재 대기 -> 완료)가 즉시 반영됩니다.
+      await queryClient.invalidateQueries({ queryKey: ["reports"] });
+
+      // ✅ [수정 포인트 2] 현재 보고 있는 이 보고서의 상세 캐시를 무효화합니다.
+      // 이렇게 해야 상세 페이지 내의 '결재 진행 이력' 테이블이 즉시 업데이트됩니다.
+      await queryClient.invalidateQueries({ queryKey: ["reportDetail", id] });
+
+      // 결재를 마쳤으므로 대기함으로 이동
       router.push("/main/my-approval/pending");
     },
     onError: (err) => {

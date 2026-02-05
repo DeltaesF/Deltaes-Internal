@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Editor from "@/components/editor";
+import { useQueryClient } from "@tanstack/react-query";
 
 const fetchReportDetail = async (id: string) => {
   const res = await fetch("/api/report/detail", {
@@ -19,6 +20,7 @@ const fetchReportDetail = async (id: string) => {
 export default function InternalReportEditPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { userName } = useSelector((state: RootState) => state.auth);
 
   const [form, setForm] = useState({
@@ -101,6 +103,12 @@ export default function InternalReportEditPage() {
       });
 
       if (!res.ok) throw new Error("수정 실패");
+
+      // ✅ [수정 포인트]
+      // 'reports' 키로 시작하는 모든 목록 데이터(사내, 사외, 업무 보고 등)를 무효화합니다.
+      // 이렇게 해야 목록 페이지로 이동했을 때 방금 쓴 글이 새로고침 없이 보입니다.
+      await queryClient.invalidateQueries({ queryKey: ["reports"] });
+      await queryClient.invalidateQueries({ queryKey: ["reportDetail", id] });
 
       alert("수정되었습니다.");
       // ✅ 사내교육 상세페이지로 이동

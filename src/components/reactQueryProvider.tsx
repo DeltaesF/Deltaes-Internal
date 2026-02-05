@@ -13,14 +13,22 @@ export default function ReactQueryProvider({
       new QueryClient({
         defaultOptions: {
           queries: {
-            // ✅ [수정] 데이터가 30분 동안은 상하지 않은 것으로 취급 (재요청 안 함)
+            // 1️⃣ [비용 절감 핵심] 데이터의 유통기한을 30분으로 설정
             staleTime: 1000 * 60 * 30,
-            // ✅ [수정] 60분 동안 메모리에 캐시 유지
+
+            // 2️⃣ [메모리 관리] 사용하지 않는 캐시를 60분 동안 유지
             gcTime: 1000 * 60 * 60,
-            // ✅ [수정] 탭 전환 시 자동 재요청 끄기 (읽기 폭증의 주범 차단)
+
+            // 3️⃣ [탭 전환 폭탄 차단] 다른 탭 갔다 와도 절대 재요청 안 함
             refetchOnWindowFocus: false,
-            // ✅ [수정] 컴포넌트 다시 마운트 될 때 재요청 끄기
+
+            // 4️⃣ [메뉴 이동 폭탄 차단] 메뉴 왔다 갔다 해도 30분 안에는 재요청 안 함
             refetchOnMount: false,
+
+            // 5️⃣ [네트워크 불안정 차단] 인터넷 잠시 끊겼다 연결돼도 재요청 안 함 (추가 추천)
+            refetchOnReconnect: false,
+
+            // 에러 발생 시 딱 1번만 다시 시도
             retry: 1,
           },
         },
