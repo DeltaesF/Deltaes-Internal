@@ -150,7 +150,7 @@ export async function POST(req: Request) {
       if (attachments !== undefined) {
         updateData.attachments = attachments;
       }
-      if (fileUrl) {
+      if (fileUrl !== undefined) {
         updateData.fileUrl = fileUrl;
         updateData.fileName = fileName;
       }

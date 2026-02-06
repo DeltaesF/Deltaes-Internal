@@ -85,8 +85,8 @@ export default function WeeklyEditPage() {
           userName,
           title,
           content,
-          fileUrl: fileUrl || undefined,
-          fileName: fileName || undefined,
+          fileUrl: fileUrl || null,
+          fileName: fileName || null,
         }),
       });
 

@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     };
 
     // 파일이 새로 첨부된 경우에만 업데이트 객체에 추가
-    if (fileUrl) {
+    if (fileUrl !== undefined) {
       updateData.fileUrl = fileUrl;
       updateData.fileName = fileName;
     }

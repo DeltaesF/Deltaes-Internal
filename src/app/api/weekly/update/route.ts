@@ -47,7 +47,7 @@ export async function POST(req: Request) {
       updatedAt: Date.now(),
     };
 
-    if (fileUrl) {
+    if (fileUrl !== undefined) {
       updateData.fileUrl = fileUrl;
       updateData.fileName = fileName;
     }

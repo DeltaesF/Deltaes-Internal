@@ -88,8 +88,8 @@ export default function DailyEditPage() {
           userName, // 경로 찾기용
           title,
           content,
-          fileUrl: fileUrl || undefined, // 새 파일 없으면 undefined (기존 유지)
-          fileName: fileName || undefined,
+          fileUrl: fileUrl || null,
+          fileName: fileName || null,
         }),
       });
 
