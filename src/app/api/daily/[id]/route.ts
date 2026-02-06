@@ -22,14 +22,18 @@ export async function GET(
   try {
     const { id } = await params;
 
-    // [중요] userDailys 컬렉션 전체에서 해당 ID를 가진 문서를 찾습니다.
-    const snapshot = await db.collectionGroup("userDailys").get();
-    const doc = snapshot.docs.find((d) => d.id === id);
+    // ✅ [최적화 완료] 인덱스를 통해 문서 딱 1개만 정밀 타격해서 읽습니다. (읽기 1회)
+    const snapshot = await db
+      .collectionGroup("userDailys")
+      .where("id", "==", id)
+      .limit(1)
+      .get();
 
-    if (!doc) {
+    if (snapshot.empty) {
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
+    const doc = snapshot.docs[0];
     const data = doc.data();
 
     // 데이터 포맷팅 (날짜 등)

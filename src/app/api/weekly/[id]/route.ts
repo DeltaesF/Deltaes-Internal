@@ -22,14 +22,18 @@ export async function GET(
   try {
     const { id } = await params;
 
-    // [중요] userWeeklys 컬렉션 전체에서 해당 ID를 가진 문서를 찾습니다.
-    const snapshot = await db.collectionGroup("userWeeklys").get();
-    const doc = snapshot.docs.find((d) => d.id === id);
+    // ✅ [수정] 인덱스 기반 조회 (읽기 1회)
+    const snapshot = await db
+      .collectionGroup("userWeeklys") // 또는 "requests"
+      .where("id", "==", id)
+      .limit(1)
+      .get();
 
-    if (!doc) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+    if (snapshot.empty) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    const doc = snapshot.docs[0];
     const data = doc.data();
 
     // 데이터 포맷팅 (날짜 등)

@@ -18,14 +18,18 @@ export async function POST(req: Request) {
   try {
     const { id } = await req.json();
 
-    // 전체 컬렉션 그룹에서 ID로 검색
-    const snapshot = await db.collectionGroup("userReports").get();
-    const doc = snapshot.docs.find((d) => d.id === id);
+    // ✅ [수정] 전체를 get() 하지 않고 id 필드로 1개만 정밀 타격
+    const snapshot = await db
+      .collectionGroup("userReports") // 또는 "userApprovals"
+      .where("id", "==", id)
+      .limit(1)
+      .get();
 
-    if (!doc) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+    if (snapshot.empty) {
+      return NextResponse.json({ error: "Data not found" }, { status: 404 });
     }
 
+    const doc = snapshot.docs[0];
     const d = doc.data();
 
     // 데이터 반환 (필드 전체)
