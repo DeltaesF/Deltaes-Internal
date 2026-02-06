@@ -31,6 +31,7 @@ export async function POST(req: Request) {
       .doc();
 
     await docRef.set({
+      id: docRef.id,
       title,
       content,
       userName,

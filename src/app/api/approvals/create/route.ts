@@ -140,6 +140,7 @@ interface CreateRequestBody {
 }
 
 interface ApprovalDocData extends Partial<CreateRequestBody> {
+  id?: string;
   department: string;
   approvers: ApproverStructure;
   status: string;
@@ -284,6 +285,9 @@ export async function POST(req: Request) {
       .doc(userName)
       .collection("userApprovals")
       .doc();
+
+    // ✅ [추가] 생성된 문서 ID를 데이터 필드에 저장
+    docData.id = docRef.id;
 
     const cleanDocData = JSON.parse(JSON.stringify(docData));
     await docRef.set(cleanDocData);

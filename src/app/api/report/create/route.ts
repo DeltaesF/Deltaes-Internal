@@ -30,6 +30,7 @@ interface ApprovalHistoryEntry {
 }
 
 interface ReportData {
+  id?: string;
   reportType: string;
   title: string;
   content: string;
@@ -168,6 +169,9 @@ export async function POST(req: Request) {
       .doc(userName)
       .collection("userReports")
       .doc();
+
+    // ✅ [추가] 생성된 문서 ID를 데이터 필드에 저장
+    docData.id = docRef.id;
 
     await docRef.set(docData);
 

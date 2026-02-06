@@ -21,7 +21,7 @@ export async function POST(req: Request) {
       userName,
       role,
       page = 1,
-      limit = 5,
+      limit = 12,
       startDate,
       endDate,
     } = await req.json();
