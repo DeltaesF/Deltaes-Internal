@@ -1,6 +1,18 @@
 // /api/migration/route.ts
 import { NextResponse } from "next/server";
+import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+
+// ✅ 빌드 시 에러를 방지하기 위해 초기화 로직을 반드시 포함해야 합니다.
+if (!getApps().length) {
+  initializeApp({
+    credential: cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    }),
+  });
+}
 
 const db = getFirestore();
 
