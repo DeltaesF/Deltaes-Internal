@@ -223,23 +223,25 @@ function SharedBoxContent() {
       return (
         <div
           key={name}
-          className="flex justify-between items-center text-xs border-b border-dashed border-gray-200 py-1 last:border-0"
+          className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-[11px] md:text-xs border-b border-dashed border-gray-200 py-1.5 last:border-0 gap-1 sm:gap-0"
         >
           <div className="flex items-center gap-1">
             <span className="text-gray-400 font-normal">[{roleName}]</span>
             <span className="font-semibold text-gray-700">{name}</span>
           </div>
-          {isRejected ? (
-            <span className="text-red-600 font-bold">
-              [반려] {formatHistoryDate(history?.approvedAt)}
-            </span>
-          ) : isApproved ? (
-            <span className="text-green-600 font-bold">
-              [승인] {formatHistoryDate(history?.approvedAt)}
-            </span>
-          ) : (
-            <span className="text-gray-400">[대기]</span>
-          )}
+          <div className="flex items-center">
+            {isRejected ? (
+              <span className="text-red-600 font-bold whitespace-nowrap">
+                [반려] {formatHistoryDate(history?.approvedAt)}
+              </span>
+            ) : isApproved ? (
+              <span className="text-green-600 font-bold whitespace-nowrap">
+                [승인] {formatHistoryDate(history?.approvedAt)}
+              </span>
+            ) : (
+              <span className="text-gray-400 font-medium">[대기]</span>
+            )}
+          </div>
         </div>
       );
     });
@@ -249,15 +251,19 @@ function SharedBoxContent() {
     return <div className="p-6 text-gray-500">로딩 중...</div>;
 
   return (
-    <div className="p-6 w-full">
-      <div className="bg-white border rounded-2xl shadow-sm p-6">
-        {/* 상단 필터 영역 */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-purple-600">📭 수신/공유함</h2>
+    <div className="p-4 md:p-6 w-full min-w-0">
+      {" "}
+      {/* min-w-0으로 부모 flex 레이아웃 붕괴 방지 */}
+      <div className="bg-white border rounded-2xl shadow-sm p-4 md:p-6 overflow-hidden">
+        {/* 상단 필터 영역: 태블릿 이하에서 줄바꿈 대응 */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
+          <h2 className="text-xl md:text-2xl font-bold text-purple-600 whitespace-nowrap">
+            📭 수신/공유함
+          </h2>
           <select
             value={filterType}
             onChange={handleFilterChange}
-            className="border p-2 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-purple-200 outline-none cursor-pointer"
+            className="w-full sm:w-auto border p-2 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-purple-200 outline-none cursor-pointer"
           >
             <option value="all">전체 보기</option>
             <option value="vacation">휴가</option>
@@ -279,34 +285,41 @@ function SharedBoxContent() {
               {list.map((item) => (
                 <li
                   key={item.id}
-                  className="py-3 px-2 hover:bg-gray-50 rounded group cursor-pointer"
+                  className="py-3 px-1 md:px-2 hover:bg-gray-50 rounded group cursor-pointer"
                   onClick={() => handleItemClick(item)}
                 >
-                  <div className="flex justify-between items-center w-full">
-                    <div className="flex items-center gap-3">
+                  <div className="flex justify-between items-center w-full gap-3">
+                    <div className="flex items-start md:items-center gap-3 flex-1 min-w-0">
                       <span
-                        className={`px-2 py-1 text-xs font-bold rounded ${
+                        className={`shrink-0 px-2 py-1 text-[10px] md:text-xs font-bold rounded ${
                           colorClass[item.type] || "bg-gray-200"
                         }`}
                       >
                         {typeLabels[item.type] || item.type}
                       </span>
                       <div className="min-w-0 flex-1">
-                        {/* ✅ [수정 3] 긴 텍스트 말줄임 처리 (line-clamp-2) */}
-                        <p className="text-gray-800 font-medium group-hover:text-purple-600 transition-colors line-clamp-2 break-keep">
+                        <p className="text-sm md:text-base text-gray-800 font-medium group-hover:text-purple-600 transition-colors line-clamp-2 break-keep">
                           {item.message}
                         </p>
-                        <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                          <span>보낸사람: {item.fromUserName}</span>
-                          <span className="text-gray-300">|</span>
+                        <p className="text-[10px] md:text-xs text-gray-400 mt-0.5 flex flex-wrap items-center gap-1">
+                          <span className="whitespace-nowrap">
+                            보낸사람: {item.fromUserName}
+                          </span>
+                          <span className="text-gray-300 hidden md:inline">
+                            |
+                          </span>
                           <span className="text-gray-500">
                             {formatCustomDate(item.createdAt)}
                           </span>
                         </p>
                       </div>
                     </div>
-                    <span className="text-xs text-gray-400">
-                      {item.type.includes("vacation") ? "상세보기" : "바로가기"}{" "}
+                    <span className="shrink-0 text-[10px] md:text-xs text-gray-400 whitespace-nowrap">
+                      <span className="hidden sm:inline">
+                        {item.type.includes("vacation")
+                          ? "상세보기"
+                          : "바로가기"}
+                      </span>{" "}
                       &gt;
                     </span>
                   </div>
@@ -314,20 +327,20 @@ function SharedBoxContent() {
               ))}
             </ul>
 
-            <div className="flex justify-center items-center gap-4 mt-6 py-2">
+            <div className="flex justify-center items-center gap-2 md:gap-4 mt-6 py-2">
               <button
                 onClick={handlePrevPage}
                 disabled={currentPage === 1}
-                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg border text-xs md:text-sm font-medium transition-colors ${
                   currentPage === 1
                     ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                    : "bg-white text-gray-700 hover:bg-gray-50 hover:text-purple-600 border-gray-300"
+                    : "bg-white text-gray-700 hover:bg-gray-50 hover:text-purple-600 border-gray-300 shadow-sm"
                 }`}
               >
                 ◀ 이전
               </button>
 
-              <span className="text-sm font-medium text-gray-600">
+              <span className="text-xs md:text-sm font-medium text-gray-600 whitespace-nowrap">
                 Page{" "}
                 <span className="text-purple-600 font-bold">{currentPage}</span>{" "}
                 / {totalPages}
@@ -336,10 +349,10 @@ function SharedBoxContent() {
               <button
                 onClick={handleNextPage}
                 disabled={currentPage === totalPages}
-                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg border text-xs md:text-sm font-medium transition-colors ${
                   currentPage === totalPages
                     ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                    : "bg-white text-gray-700 hover:bg-gray-50 hover:text-purple-600 border-gray-300"
+                    : "bg-white text-gray-700 hover:bg-gray-50 hover:text-purple-600 border-gray-300 shadow-sm"
                 }`}
               >
                 다음 ▶
@@ -348,29 +361,40 @@ function SharedBoxContent() {
           </>
         )}
       </div>
-
-      {/* ✅ 휴가 상세 모달 */}
+      {/* ✅ 휴가 상세 모달 반응형 최적화 */}
       {isModalOpen && selectedVacation && (
         <VacationModal onClose={() => setIsModalOpen(false)}>
-          <div className="flex flex-col gap-6">
-            <h3 className="text-xl font-bold text-gray-800 border-b pb-4">
+          <div className="flex flex-col gap-6 w-full max-h-[85vh] overflow-y-auto pr-1">
+            <h3 className="text-lg md:text-xl font-bold text-gray-800 border-b pb-4 sticky top-0 bg-white">
               ✅ 휴가 상세 정보
             </h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="block text-gray-500 font-bold mb-1">
-                  신청자
-                </span>
-                <p className="text-gray-800">{selectedVacation.userName}</p>
+            {/* 그리드를 태블릿/모바일에서는 1열, 데스크톱 이상에서는 2열로 조정 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+              <div className="space-y-4">
+                <div>
+                  <span className="block text-gray-500 font-bold mb-1">
+                    신청자
+                  </span>
+                  <p className="text-gray-800 font-medium">
+                    {selectedVacation.userName}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="block text-gray-500 font-bold mb-1">
+                    사용일수
+                  </span>
+                  <p className="text-gray-800 font-medium">
+                    {selectedVacation.daysUsed}일
+                  </p>
+                </div>
               </div>
 
-              {/* ✅ [수정] 상태 영역에 결재 진행 현황 통합 */}
-              <div className="row-span-2">
+              <div className="md:row-span-2">
                 <span className="block text-gray-500 font-bold mb-1">상태</span>
-                <div className="bg-gray-50 p-2 rounded border border-gray-200">
-                  {/* 메인 상태 뱃지 */}
+                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 shadow-sm">
                   <span
-                    className={`inline-block mb-2 px-2 py-0.5 rounded text-xs font-bold ${
+                    className={`inline-block mb-3 px-2 py-0.5 rounded text-[10px] md:text-xs font-bold ${
                       selectedVacation.status.includes("승인")
                         ? "bg-green-100 text-green-700"
                         : selectedVacation.status.includes("반려")
@@ -381,7 +405,6 @@ function SharedBoxContent() {
                     {selectedVacation.status}
                   </span>
 
-                  {/* 세부 결재 라인 */}
                   <div className="flex flex-col gap-1">
                     {renderApproverRow(
                       "1차",
@@ -399,24 +422,16 @@ function SharedBoxContent() {
                 </div>
               </div>
 
-              {/* 나머지 정보들 */}
-              <div>
-                <span className="block text-gray-500 font-bold mb-1">
-                  사용일수
-                </span>
-                <p className="text-gray-800">{selectedVacation.daysUsed}일</p>
-              </div>
-
-              <div className="col-span-2">
+              <div className="md:col-span-1">
                 <span className="block text-gray-500 font-bold mb-1">기간</span>
-                <p className="text-gray-800">
+                <p className="text-gray-800 font-medium">
                   {selectedVacation.startDate} ~ {selectedVacation.endDate}
                 </p>
               </div>
 
-              <div className="col-span-2">
+              <div className="md:col-span-2">
                 <span className="block text-gray-500 font-bold mb-1">종류</span>
-                <p className="text-gray-800">
+                <p className="text-gray-800 font-medium">
                   {Array.isArray(selectedVacation.types) &&
                   selectedVacation.types.length > 0
                     ? selectedVacation.types.join(", ")
@@ -427,7 +442,7 @@ function SharedBoxContent() {
 
             <div>
               <span className="block text-gray-500 font-bold mb-2">사유</span>
-              <div className="bg-gray-50 p-4 rounded-lg text-gray-700 text-sm min-h-[80px] border">
+              <div className="bg-gray-50 p-4 rounded-lg text-gray-700 text-sm min-h-[80px] border leading-relaxed">
                 {selectedVacation.reason}
               </div>
             </div>
@@ -445,7 +460,7 @@ function SharedBoxContent() {
                           key={idx}
                           className="text-sm border-b border-yellow-200 last:border-0 pb-2 last:pb-0"
                         >
-                          <div className="flex justify-between items-center mb-1">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-1 gap-1">
                             <span className="font-bold text-gray-800">
                               {history.approver}
                               <span
@@ -458,11 +473,11 @@ function SharedBoxContent() {
                                 ({history.status})
                               </span>
                             </span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-[10px] text-gray-500">
                               {formatHistoryDate(history.approvedAt)}
                             </span>
                           </div>
-                          <p className="text-gray-700 whitespace-pre-wrap">
+                          <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
                             {history.comment}
                           </p>
                         </div>
@@ -472,10 +487,10 @@ function SharedBoxContent() {
                 </div>
               )}
 
-            <div className="flex justify-end mt-4 pt-4 border-t">
+            <div className="flex justify-end mt-4 pt-4 border-t sticky bottom-0 bg-white">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm cursor-pointer"
+                className="w-full sm:w-auto px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-bold text-sm cursor-pointer shadow-sm"
               >
                 닫기
               </button>

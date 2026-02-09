@@ -110,14 +110,14 @@ export default function WeeklyDetailPage() {
 
   if (!isAuthorized) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] gap-6 bg-white border rounded-2xl shadow-sm mx-auto max-w-2xl mt-10 p-10">
-        <div className="text-7xl">🚫</div>
-        <h2 className="text-3xl font-bold text-gray-800">
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-6 bg-white border rounded-2xl shadow-sm mx-auto w-[90%] max-w-2xl mt-10 p-6 md:p-10">
+        <div className="text-5xl md:text-7xl">🚫</div>
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-800 text-center">
           접근 권한이 없습니다
         </h2>
         <button
           onClick={() => router.back()}
-          className="px-8 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 transition-colors font-bold text-lg"
+          className="w-full sm:w-auto px-8 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 transition-colors font-bold text-base md:text-lg"
         >
           뒤로가기
         </button>
@@ -276,41 +276,39 @@ function AuthorizedContent({
   };
 
   return (
-    <div className="flex flex-col gap-6 p-4 max-w-[80%] mx-auto pb-20">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-6 p-3 md:p-4 w-full lg:max-w-[80%] mx-auto pb-20">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <button
           onClick={() => router.back()}
-          className="px-5 py-2.5 bg-white border rounded-lg hover:bg-gray-50 text-base font-medium transition-colors cursor-pointer"
+          className="w-fit px-5 py-2.5 bg-white border rounded-lg hover:bg-gray-50 text-sm md:text-base font-medium transition-colors cursor-pointer"
         >
           ◀ 목록으로 돌아가기
         </button>
-        <div className="text-lg text-gray-600 font-medium">
+        <div className="text-sm md:text-lg text-gray-600 font-medium">
           작성일: {new Date(weekly.createdAt).toLocaleString()}
         </div>
       </div>
 
       <section className="bg-white border-2 border-[#519d9e] rounded-2xl shadow-lg overflow-hidden">
         {/* 주간 보고서 헤더 */}
-        <div className="bg-[#519d9e] px-8 py-5 flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-bold text-white flex items-center gap-3">
-              {weekly.title}
-            </h2>
-          </div>
+        <div className="bg-[#519d9e] px-5 md:px-8 py-4 md:py-5 flex justify-between items-center gap-4">
+          <h2 className="text-xl md:text-3xl font-bold text-white leading-tight">
+            {weekly.title}
+          </h2>
         </div>
 
-        {/* 관련 일일 업무 섹션 */}
-        <div className="flex items-center gap-4 mt-6 px-8">
+        {/* 관련 일일 업무 섹션 헤더 */}
+        <div className="flex items-center gap-2 md:gap-4 mt-6 px-5 md:px-8">
           <div className="h-[2px] flex-1 bg-gray-300"></div>
-          <span className="text-gray-700 text-xl font-bold">
+          <span className="text-gray-700 text-base md:text-xl font-bold whitespace-nowrap">
             전주 일일 업무 내역
           </span>
           <div className="h-[2px] flex-1 bg-gray-300"></div>
         </div>
 
-        <section className="flex flex-col gap-6 p-8">
+        <section className="flex flex-col gap-6 p-4 md:p-8">
           {isDailyLoading ? (
-            <p className="text-center text-gray-400 py-10 text-xl">
+            <p className="text-center text-gray-400 py-10 text-lg md:text-xl">
               일일 업무 내역 로딩 중...
             </p>
           ) : relatedDailys.length > 0 ? (
@@ -319,9 +317,9 @@ function AuthorizedContent({
                 key={daily.id}
                 className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200"
               >
-                <div className="bg-gray-50 px-6 py-4 border-b flex justify-between items-center rounded-t-xl">
-                  <div className="flex items-center gap-4">
-                    <span className="bg-gray-200 text-gray-800 text-base font-bold px-3 py-1.5 rounded">
+                <div className="bg-gray-50 px-4 md:px-6 py-3 md:py-4 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 rounded-t-xl">
+                  <div className="flex items-center gap-3 md:gap-4">
+                    <span className="bg-gray-200 text-gray-800 text-xs md:text-base font-bold px-2 md:px-3 py-1 md:py-1.5 rounded whitespace-nowrap">
                       {
                         ["일", "월", "화", "수", "목", "금", "토"][
                           new Date(daily.createdAt).getDay()
@@ -329,20 +327,20 @@ function AuthorizedContent({
                       }
                       요일
                     </span>
-                    <h3 className="text-xl font-bold text-gray-800">
+                    <h3 className="text-base md:text-xl font-bold text-gray-800 line-clamp-1">
                       {daily.title}
                     </h3>
                   </div>
 
-                  <div className="flex items-center gap-4">
-                    <span className="text-base text-gray-600">
+                  <div className="flex items-center justify-between w-full sm:w-auto gap-4">
+                    <span className="text-xs md:text-base text-gray-600">
                       {new Date(daily.createdAt).toLocaleDateString()}
                     </span>
                     {daily.userName === myName && (
                       <Link
                         href={`/main/work/daily/edit/${daily.id}`}
                         prefetch={false}
-                        className="text-sm px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-100 text-gray-700 transition-colors"
+                        className="text-xs px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-100 text-gray-700 transition-colors"
                       >
                         수정
                       </Link>
@@ -350,20 +348,22 @@ function AuthorizedContent({
                   </div>
                 </div>
 
-                <div className="p-8">
+                <div className="p-4 md:p-8">
                   <div
-                    className="prose-editor text-lg text-gray-800 leading-relaxed"
+                    className="prose-editor text-base md:text-lg text-gray-800 leading-relaxed overflow-x-auto"
                     dangerouslySetInnerHTML={{ __html: daily.content }}
                   />
                   {daily.fileUrl && (
-                    <div className="mt-6 pt-4 border-t border-dashed border-gray-200">
+                    <div className="mt-4 md:mt-6 pt-4 border-t border-dashed border-gray-200">
                       <a
                         href={daily.fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-base text-blue-700 hover:underline bg-blue-50 px-3 py-2 rounded font-medium"
+                        className="inline-flex items-center gap-2 text-sm md:text-base text-blue-700 hover:underline bg-blue-50 px-3 py-2 rounded font-medium max-w-full"
                       >
-                        📎 {daily.fileName || "첨부파일 다운로드"}
+                        <span className="truncate">
+                          📎 {daily.fileName || "첨부파일 다운로드"}
+                        </span>
                       </a>
                     </div>
                   )}
@@ -371,45 +371,45 @@ function AuthorizedContent({
               </div>
             ))
           ) : (
-            <div className="text-center py-16 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-gray-500 text-lg">
+            <div className="text-center py-10 md:py-16 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-gray-500 text-base md:text-lg px-4">
               해당 주간에 작성된 일일 업무 보고가 없습니다.
             </div>
           )}
         </section>
 
         {/* 금주 업무 보고 섹션 */}
-        <div className="bg-[#519d9e] px-8 py-5 flex justify-between items-center mt-4">
-          <div>
-            <h2 className="text-3xl font-bold text-white flex items-center gap-3">
-              금주 업무 보고
-              <span className="text-lg font-normal opacity-90 bg-white/20 px-3 py-1 rounded">
-                {weekly.userName}
-              </span>
-            </h2>
-          </div>
+        <div className="bg-[#519d9e] px-5 md:px-8 py-4 md:py-5 flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 gap-4">
+          <h2 className="text-xl md:text-3xl font-bold text-white flex flex-wrap items-center gap-2 md:gap-3">
+            금주 업무 보고
+            <span className="text-xs md:text-lg font-normal opacity-90 bg-white/20 px-2 md:px-3 py-0.5 md:py-1 rounded">
+              {weekly.userName}
+            </span>
+          </h2>
           {weekly.userName === myName && (
             <Link
               href={`/main/work/weekly/edit/${weekly.id}`}
               prefetch={false}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-base font-medium border border-white/30 transition-colors"
+              className="w-full sm:w-auto text-center px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm md:text-base font-medium border border-white/30 transition-colors"
             >
               수정하기
             </Link>
           )}
         </div>
 
-        <div className="p-10">
+        <div className="p-5 md:p-10">
           <div
-            className="prose-editor max-w-none text-xl text-gray-900 leading-loose"
+            className="prose-editor max-w-none text-base md:text-xl text-gray-900 leading-relaxed md:leading-loose overflow-x-auto"
             dangerouslySetInnerHTML={{ __html: weekly.content }}
           />
           {weekly.fileUrl && (
-            <div className="mt-10 pt-6 border-t">
-              <p className="text-base text-gray-600 font-bold mb-2">첨부파일</p>
+            <div className="mt-6 md:mt-10 pt-6 border-t">
+              <p className="text-sm md:text-base text-gray-600 font-bold mb-2">
+                첨부파일
+              </p>
               <a
                 href={weekly.fileUrl}
                 target="_blank"
-                className="text-blue-700 hover:underline text-lg flex items-center gap-2 font-medium"
+                className="text-blue-700 hover:underline text-base md:text-lg flex items-center gap-2 font-medium break-all"
               >
                 📎 {weekly.fileName || "다운로드"}
               </a>
@@ -417,18 +417,17 @@ function AuthorizedContent({
           )}
 
           {/* ✅ 코멘트 섹션 */}
-          <div className="mt-16 pt-10 border-t border-gray-200">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">
+          <div className="mt-10 md:mt-16 pt-6 md:pt-10 border-t border-gray-200">
+            <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-6">
               💬 코멘트 ({comments.length})
             </h3>
 
-            <ul className="space-y-6 mb-8">
+            <ul className="space-y-4 md:space-y-6 mb-8">
               {comments.map((c) => (
                 <CommentItemView
                   key={c.id}
                   comment={c}
                   myName={myName}
-                  // ✅ [수정] 타입 명시로 Implicit any 오류 해결
                   onDelete={(id: string) => {
                     if (confirm("삭제하시겠습니까?"))
                       deleteCommentMutation.mutate(id);
@@ -442,7 +441,7 @@ function AuthorizedContent({
                 />
               ))}
               {comments.length === 0 && (
-                <li className="text-lg text-gray-400 text-center py-6">
+                <li className="text-base md:text-lg text-gray-400 text-center py-6">
                   등록된 코멘트가 없습니다.
                 </li>
               )}
@@ -450,7 +449,7 @@ function AuthorizedContent({
 
             <form onSubmit={handleAddComment} className="flex flex-col gap-4">
               <textarea
-                className="w-full border p-4 rounded-xl focus:ring-2 focus:ring-[#519d9e] outline-none resize-none text-lg"
+                className="w-full border p-3 md:p-4 rounded-xl focus:ring-2 focus:ring-[#519d9e] outline-none resize-none text-base md:text-lg"
                 rows={3}
                 placeholder="코멘트를 입력하세요..."
                 value={commentText}
@@ -460,7 +459,7 @@ function AuthorizedContent({
                 <button
                   type="submit"
                   disabled={addCommentMutation.isPending}
-                  className="px-6 py-3 bg-[#519d9e] text-white rounded-xl text-lg font-bold hover:bg-[#407f80] transition-colors cursor-pointer disabled:bg-gray-400"
+                  className="w-full sm:w-auto px-6 py-3 bg-[#519d9e] text-white rounded-xl text-base md:text-lg font-bold hover:bg-[#407f80] transition-colors cursor-pointer disabled:bg-gray-400"
                 >
                   {addCommentMutation.isPending ? "등록 중..." : "등록하기"}
                 </button>
@@ -489,18 +488,18 @@ function CommentItemView({
   const [text, setText] = useState(comment.content);
 
   return (
-    <li className="bg-gray-50 p-6 rounded-xl group border border-gray-100">
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex flex-col">
-          <span className="font-bold text-gray-800 text-lg">
+    <li className="bg-gray-50 p-4 md:p-6 rounded-xl group border border-gray-100">
+      <div className="flex justify-between items-start mb-3 gap-2">
+        <div className="flex flex-col min-w-0">
+          <span className="font-bold text-gray-800 text-base md:text-lg truncate">
             {comment.userName}
           </span>
-          <span className="text-sm text-gray-500">
+          <span className="text-xs md:text-sm text-gray-500">
             {new Date(comment.createdAt).toLocaleString()}
           </span>
         </div>
         {comment.userName === myName && !isEditing && (
-          <div className="flex gap-3 text-sm">
+          <div className="flex gap-3 text-xs md:text-sm shrink-0">
             <button
               onClick={() => setIsEditing(true)}
               className="text-gray-500 hover:text-blue-600 transition-colors"
@@ -519,12 +518,12 @@ function CommentItemView({
       {isEditing ? (
         <div className="flex flex-col gap-3">
           <textarea
-            className="w-full border p-3 rounded-lg text-lg focus:outline-none focus:ring-1 focus:ring-blue-300"
+            className="w-full border p-3 rounded-lg text-base md:text-lg focus:outline-none focus:ring-1 focus:ring-blue-300"
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={3}
           />
-          <div className="flex justify-end gap-3 text-sm">
+          <div className="flex justify-end gap-2 text-xs md:text-sm">
             <button
               onClick={() => setIsEditing(false)}
               className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
@@ -543,7 +542,7 @@ function CommentItemView({
           </div>
         </div>
       ) : (
-        <p className="text-lg text-gray-800 whitespace-pre-wrap leading-relaxed">
+        <p className="text-base md:text-lg text-gray-800 whitespace-pre-wrap leading-relaxed break-words">
           {comment.content}
         </p>
       )}

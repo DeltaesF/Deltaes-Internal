@@ -52,7 +52,6 @@ function DailyContent() {
       fetchMyDailys(userName || "", role || "", currentPage, ITEMS_PER_PAGE),
     enabled: !!userName,
     placeholderData: (prev) => prev, // 로딩 중 이전 데이터 유지 (깜빡임 방지)
-    refetchOnMount: true,
   });
 
   const dailyList = data?.list || [];

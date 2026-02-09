@@ -203,23 +203,25 @@ function CompletedApprovalContent() {
       return (
         <div
           key={name}
-          className="flex justify-between items-center text-xs border-b border-dashed border-gray-200 py-1 last:border-0"
+          className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-[11px] md:text-xs border-b border-dashed border-gray-200 py-1.5 last:border-0 gap-1 sm:gap-0"
         >
           <div className="flex items-center gap-1">
             <span className="text-gray-400 font-normal">[{roleName}]</span>
             <span className="font-semibold text-gray-700">{name}</span>
           </div>
-          {isRejected ? (
-            <span className="text-red-600 font-bold">
-              [반려] {formatHistoryDate(history?.approvedAt)}
-            </span>
-          ) : isApproved ? (
-            <span className="text-green-600 font-bold">
-              [승인] {formatHistoryDate(history?.approvedAt)}
-            </span>
-          ) : (
-            <span className="text-gray-400">[대기]</span>
-          )}
+          <div className="flex items-center">
+            {isRejected ? (
+              <span className="text-red-600 font-bold whitespace-nowrap">
+                [반려] {formatHistoryDate(history?.approvedAt)}
+              </span>
+            ) : isApproved ? (
+              <span className="text-green-600 font-bold whitespace-nowrap">
+                [승인] {formatHistoryDate(history?.approvedAt)}
+              </span>
+            ) : (
+              <span className="text-gray-400 font-medium">[대기]</span>
+            )}
+          </div>
         </div>
       );
     });
@@ -228,10 +230,15 @@ function CompletedApprovalContent() {
   if (isLoading && !data) return <div className="p-6">로딩 중...</div>;
 
   return (
-    <div className="p-6 w-full">
-      <div className="bg-white border rounded-2xl shadow-sm px-6 py-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-green-600">✅ 결재 완료함</h2>
+    <div className="p-3 md:p-6 w-full min-w-0">
+      {" "}
+      {/* min-w-0: 부모 flex 레이아웃 붕괴 방지 */}
+      <div className="bg-white border rounded-2xl shadow-sm px-4 md:px-6 py-4 w-full overflow-hidden">
+        {/* 상단 필터 영역: 모바일 세로 배치 대응 */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+          <h2 className="text-xl md:text-2xl font-bold text-green-600 whitespace-nowrap">
+            ✅ 결재 완료함
+          </h2>
 
           <select
             value={filterType}
@@ -239,7 +246,7 @@ function CompletedApprovalContent() {
               setFilterType(e.target.value);
               setCurrentPage(1);
             }}
-            className="border p-2 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-green-200 outline-none cursor-pointer"
+            className="w-full sm:w-auto border p-2 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-green-200 outline-none cursor-pointer"
           >
             <option value="all">전체 보기</option>
             <option value="vacation">휴가</option>
@@ -259,35 +266,36 @@ function CompletedApprovalContent() {
                 <li
                   key={item.id}
                   onClick={() => handleItemClick(item)}
-                  className="py-4 px-3 hover:bg-green-50 rounded-lg cursor-pointer transition-colors group"
+                  className="py-4 px-1 md:px-3 hover:bg-green-50 rounded-lg cursor-pointer transition-colors group"
                 >
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center gap-3 w-full">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        {getCategoryBadge(item)}
-                        <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        <div className="shrink-0">{getCategoryBadge(item)}</div>
+                        <span className="bg-green-100 text-green-700 text-[10px] md:text-xs font-bold px-2 py-0.5 rounded shrink-0">
                           {item.status}
                         </span>
-                        <span className="font-bold text-gray-800">
+                        <span className="font-bold text-gray-800 text-sm md:text-base truncate">
                           {item.userName}
                         </span>
                       </div>
 
                       <div className="ml-1">
                         {item.category === "vacation" ? (
-                          <div className="text-sm text-gray-600 flex items-center gap-2">
-                            <span>
+                          <div className="text-xs md:text-sm text-gray-600 flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="shrink-0 font-medium">
                               {item.startDate} ~ {item.endDate}
                             </span>
-                            <span className="text-black text-xs truncate max-w-[400px]">
+                            <span className="text-gray-400 hidden md:inline">
+                              |
+                            </span>
+                            <span className="text-gray-500 text-[11px] md:text-xs truncate max-w-full sm:max-w-[300px] lg:max-w-[400px]">
                               📝 {item.reason}
                             </span>
                           </div>
                         ) : (
-                          /* ✅ [수정됨] 품의서/보고서/외근 통합 표시 로직 */
-                          <div className="text-sm text-gray-600 flex items-center gap-2">
-                            {/* 1. 날짜 표시: implementDate가 있으면 쓰고, 없으면 createdAt(작성일) 사용 */}
-                            <span>
+                          <div className="text-xs md:text-sm text-gray-600 flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="shrink-0 font-medium">
                               {item.implementDate
                                 ? item.implementDate
                                 : new Date(item.createdAt)
@@ -299,9 +307,10 @@ function CompletedApprovalContent() {
                                     .replace(/\. /g, "-")
                                     .replace(/\./g, "")}
                             </span>
-
-                            {/* 2. 제목 표시: 항상 표시되도록 변경 */}
-                            <span className="text-black text-xs truncate max-w-[400px] font-medium">
+                            <span className="text-gray-400 hidden md:inline">
+                              |
+                            </span>
+                            <span className="text-black text-[11px] md:text-xs truncate max-w-full sm:max-w-[300px] lg:max-w-[400px] font-medium">
                               {item.title || "제목 없음"}
                             </span>
                           </div>
@@ -309,7 +318,7 @@ function CompletedApprovalContent() {
                       </div>
                     </div>
 
-                    <span className="text-xs text-green-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    <span className="shrink-0 text-[11px] md:text-xs text-green-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap hidden sm:inline">
                       상세보기 →
                     </span>
                   </div>
@@ -318,15 +327,15 @@ function CompletedApprovalContent() {
             </ul>
 
             {/* 페이지네이션 */}
-            <div className="flex justify-center items-center gap-4 mt-6 py-2">
+            <div className="flex justify-center items-center gap-2 md:gap-4 mt-8 py-2">
               <button
                 onClick={() => currentPage > 1 && setCurrentPage((p) => p - 1)}
                 disabled={currentPage === 1}
-                className="px-4 py-2 bg-white border rounded hover:bg-gray-50 text-sm disabled:opacity-50"
+                className="px-3 py-1.5 md:px-4 md:py-2 bg-white border rounded-lg hover:bg-gray-50 text-xs md:text-sm disabled:opacity-50 shadow-sm"
               >
                 ◀ 이전
               </button>
-              <span className="text-sm text-gray-600">
+              <span className="text-xs md:text-sm text-gray-600 whitespace-nowrap">
                 Page{" "}
                 <span className="font-bold text-green-600">{currentPage}</span>{" "}
                 / {totalPages}
@@ -336,7 +345,7 @@ function CompletedApprovalContent() {
                   currentPage < totalPages && setCurrentPage((p) => p + 1)
                 }
                 disabled={currentPage === totalPages}
-                className="px-4 py-2 bg-white border rounded hover:bg-gray-50 text-sm disabled:opacity-50"
+                className="px-3 py-1.5 md:px-4 md:py-2 bg-white border rounded-lg hover:bg-gray-50 text-xs md:text-sm disabled:opacity-50 shadow-sm"
               >
                 다음 ▶
               </button>
@@ -344,37 +353,38 @@ function CompletedApprovalContent() {
           </>
         )}
       </div>
-
-      {/* ✅ 휴가 상세 모달 */}
+      {/* ✅ 휴가 상세 모달 반응형 최적화 */}
       {selectedVacation && (
         <VacationModal onClose={() => setSelectedVacation(null)}>
-          <div className="flex flex-col gap-6">
-            <h3 className="text-xl font-bold text-gray-800 border-b pb-4">
+          <div className="flex flex-col gap-6 w-full max-h-[85vh] overflow-y-auto pr-1">
+            <h3 className="text-lg md:text-xl font-bold text-gray-800 border-b pb-4 sticky top-0 bg-white z-10">
               ✅ 결재 완료 상세
             </h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            {/* 그리드를 모바일 1열, 태블릿 이상 2열로 조정 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
               <div>
-                <span className="block text-gray-500 font-bold mb-1">
+                <span className="block text-gray-500 font-bold mb-1 text-xs md:text-sm">
                   신청자
                 </span>
-                <p className="text-gray-800">{selectedVacation.userName}</p>
+                <p className="text-gray-800 font-medium">
+                  {selectedVacation.userName}
+                </p>
               </div>
 
-              <div className="row-span-2">
-                <span className="block text-gray-500 font-bold mb-1">상태</span>
-                <div className="bg-gray-50 p-3 rounded border border-gray-200">
+              <div className="sm:row-span-2">
+                <span className="block text-gray-500 font-bold mb-1 text-xs md:text-sm">
+                  결재 상태
+                </span>
+                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 shadow-sm">
                   <span
-                    className={`inline-block mb-2 px-2 py-0.5 rounded text-xs font-bold ${
+                    className={`inline-block mb-3 px-2 py-0.5 rounded text-[10px] md:text-xs font-bold ${
                       selectedVacation.status.includes("승인")
                         ? "bg-green-100 text-green-700"
-                        : selectedVacation.status.includes("반려")
-                        ? "bg-red-100 text-red-700"
-                        : "bg-yellow-100 text-yellow-700"
+                        : "bg-red-100 text-red-700"
                     }`}
                   >
                     {selectedVacation.status}
                   </span>
-
                   <div className="flex flex-col gap-1">
                     {renderApproverRow(
                       "1차",
@@ -393,42 +403,55 @@ function CompletedApprovalContent() {
               </div>
 
               <div>
-                <span className="block text-gray-500 font-bold mb-1">기간</span>
-                <p className="text-gray-800">
+                <span className="block text-gray-500 font-bold mb-1 text-xs md:text-sm">
+                  기간
+                </span>
+                <p className="text-gray-800 font-medium break-keep">
                   {selectedVacation.startDate} ~ {selectedVacation.endDate}
                 </p>
               </div>
-              <div className="col-span-2">
-                <span className="block text-gray-500 font-bold mb-1">사유</span>
-                <div className="bg-gray-50 p-3 rounded text-gray-700">
+
+              <div className="sm:col-span-2">
+                <span className="block text-gray-500 font-bold mb-1 text-xs md:text-sm">
+                  사유
+                </span>
+                <div className="bg-gray-50 p-4 rounded-lg text-gray-700 leading-relaxed border border-gray-100">
                   {selectedVacation.reason}
                 </div>
               </div>
             </div>
 
-            {/* 코멘트 표시 */}
+            {/* 코멘트 표시 최적화 */}
             {selectedVacation.approvalHistory &&
               selectedVacation.approvalHistory.some((h) => h.comment) && (
-                <div className="bg-yellow-50 p-3 rounded border border-yellow-100 mt-2">
+                <div className="bg-yellow-50/50 p-3 rounded-lg border border-yellow-100 mt-2">
+                  <span className="block text-gray-500 font-bold mb-2 text-xs md:text-sm">
+                    결재 의견
+                  </span>
                   {selectedVacation.approvalHistory.map(
                     (h, i) =>
                       h.comment && (
                         <div
                           key={i}
-                          className="text-sm border-b border-yellow-200 last:border-0 pb-2 mb-2 last:mb-0 last:pb-0"
+                          className="text-xs md:text-sm border-b border-yellow-200 last:border-0 pb-2 mb-2 last:mb-0 last:pb-0"
                         >
-                          <span className="font-bold">{h.approver}</span>:{" "}
-                          {h.comment}
+                          <span className="font-bold text-gray-800">
+                            {h.approver}
+                          </span>
+                          :{" "}
+                          <p className="inline text-gray-700 italic">
+                            {h.comment}
+                          </p>
                         </div>
                       )
                   )}
                 </div>
               )}
 
-            <div className="flex justify-end pt-4 border-t">
+            <div className="flex justify-end pt-4 border-t sticky bottom-0 bg-white">
               <button
                 onClick={() => setSelectedVacation(null)}
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                className="w-full sm:w-auto px-6 py-2.5 bg-gray-200 rounded-lg hover:bg-gray-300 text-sm font-bold text-gray-700 transition-colors shadow-sm"
               >
                 닫기
               </button>

@@ -394,7 +394,6 @@ export default function Individual() {
       {/* 3. 캘린더 영역: 너비 유동적 조절 및 모바일 높이 최적화 */}
       <div className="bg-white shadow-md border rounded-2xl p-4 md:p-8 w-full max-w-7xl mb-10">
         <div className="flex items-center gap-2 mb-6">
-          <div className="w-1.5 h-6 bg-[#519d9e] rounded-full"></div>
           <h2 className="text-lg md:text-xl font-bold text-gray-800">
             📅 {userName}님의 일정
           </h2>

@@ -248,28 +248,32 @@ function PendingApprovalContent() {
     const third = getStepStatus("3차", approvers?.third);
 
     return (
-      <div className="mt-3 flex flex-wrap gap-2 items-center">
+      <div className="mt-3 flex flex-wrap gap-2 items-center min-w-0">
         {first && (
           <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${first.color}`}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] md:text-xs whitespace-nowrap ${first.color}`}
           >
             <span className="font-bold">1차:</span>{" "}
             <span>{first.approver}</span> <span>({first.status})</span>
           </div>
         )}
-        {second && <span className="text-gray-300 text-xs">▶</span>}
+        {second && (
+          <span className="text-gray-300 text-xs hidden sm:inline">▶</span>
+        )}
         {second && (
           <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${second.color}`}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] md:text-xs whitespace-nowrap ${second.color}`}
           >
             <span className="font-bold">2차:</span>{" "}
             <span>{second.approver}</span> <span>({second.status})</span>
           </div>
         )}
-        {third && <span className="text-gray-300 text-xs">▶</span>}
+        {third && (
+          <span className="text-gray-300 text-xs hidden sm:inline">▶</span>
+        )}
         {third && (
           <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${third.color}`}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] md:text-xs whitespace-nowrap ${third.color}`}
           >
             <span className="font-bold">3차:</span>{" "}
             <span>{third.approver}</span> <span>({third.status})</span>
@@ -290,17 +294,22 @@ function PendingApprovalContent() {
   if (isLoading) return <div className="p-6">로딩 중...</div>;
 
   return (
-    <div className="p-6 w-full">
-      <div className="bg-white border rounded-2xl shadow-sm px-6 py-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-red-500">⏳ 결재 대기함</h2>
+    <div className="p-3 md:p-6 w-full min-w-0">
+      {" "}
+      {/* min-w-0 추가: flex 하위 요소 밀림 방지 */}
+      <div className="bg-white border rounded-2xl shadow-sm p-4 md:p-6 overflow-hidden">
+        {/* 상단 필터 영역: 모바일 세로 배치 대응 */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
+          <h2 className="text-xl md:text-2xl font-bold text-red-500 whitespace-nowrap">
+            ⏳ 결재 대기함
+          </h2>
           <select
             value={filterType}
             onChange={(e) => {
               setFilterType(e.target.value);
               setCurrentPage(1);
             }}
-            className="border p-2 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-red-200 outline-none cursor-pointer"
+            className="w-full sm:w-auto border p-2 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-red-200 outline-none cursor-pointer"
           >
             <option value="all">전체 보기</option>
             <option value="vacation">휴가</option>
@@ -314,12 +323,10 @@ function PendingApprovalContent() {
             대기 중인 결재 문서가 없습니다.
           </p>
         ) : (
-          <ul className="divide-y">
+          <ul className="divide-y divide-gray-100">
             {currentItems.map((item) => {
               const isReportOrApproval =
                 item.category === "report" || item.category === "approval";
-
-              // 문서 종류에 따른 뱃지 색상
               const badgeColor =
                 item.category === "vacation"
                   ? "bg-orange-100 text-orange-700"
@@ -333,8 +340,6 @@ function PendingApprovalContent() {
                   ? "보고서"
                   : "품의서";
 
-              // ✅ [추가] 내 결재 상태 판별 로직
-              // 1. 현재 문서 상태와 내 이름이 있는 결재 단계가 일치하는지 (내 차례인지) 확인
               const isMyTurn =
                 (item.status === "1차 결재 대기" &&
                   item.approvers?.first?.includes(userName || "")) ||
@@ -342,8 +347,6 @@ function PendingApprovalContent() {
                   item.approvers?.second?.includes(userName || "")) ||
                 (item.status === "3차 결재 대기" &&
                   item.approvers?.third?.includes(userName || ""));
-
-              // 2. 이미 결재 히스토리에 내 이름이 있는지 확인 (이미 승인했는지)
               const alreadyProcessed = item.approvalHistory?.some(
                 (h) => h.approver === userName
               );
@@ -352,65 +355,64 @@ function PendingApprovalContent() {
                 <li
                   key={item.id}
                   onClick={() => handleItemClick(item)}
-                  className="py-4 px-3 hover:bg-red-50 rounded-lg cursor-pointer transition-colors group border-b last:border-0 border-gray-100"
+                  className="py-4 px-1 md:px-3 hover:bg-red-50 rounded-lg cursor-pointer transition-colors group border-b last:border-0 border-gray-100"
                 >
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-start w-full gap-2">
                     <div className="flex-1 min-w-0">
-                      {/* 상단 정보 */}
-                      <div className="flex items-center gap-2 mb-1">
+                      {/* 상단 뱃지 및 정보 라인: 텍스트 겹침 방지 */}
+                      <div className="flex flex-wrap items-center gap-1.5 mb-2">
                         <span
-                          className={`text-xs font-bold px-2 py-0.5 rounded ${badgeColor}`}
+                          className={`text-[10px] md:text-xs font-bold px-2 py-0.5 rounded shrink-0 ${badgeColor}`}
                         >
                           {typeName}
                         </span>
 
-                        {/* ✅ [추가 및 수정] 내 상태에 따른 배지 표시 */}
                         {isMyTurn ? (
-                          <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded animate-pulse">
+                          <span className="bg-red-500 text-white text-[9px] md:text-[10px] font-bold px-2 py-0.5 rounded animate-pulse shrink-0">
                             결재 필요
                           </span>
                         ) : alreadyProcessed ? (
-                          <span className="bg-gray-400 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                          <span className="bg-gray-400 text-white text-[9px] md:text-[10px] font-bold px-2 py-0.5 rounded shrink-0">
                             승인 완료(대기중)
                           </span>
                         ) : item.userName === userName ? (
-                          <span className="bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                          <span className="bg-blue-500 text-white text-[9px] md:text-[10px] font-bold px-2 py-0.5 rounded shrink-0">
                             기안 문서
                           </span>
                         ) : (
-                          <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded">
+                          <span className="bg-blue-100 text-blue-700 text-[10px] md:text-xs font-bold px-2 py-0.5 rounded shrink-0">
                             {item.status}
                           </span>
                         )}
 
-                        <span className="font-bold text-gray-800 ml-1">
+                        <span className="font-bold text-gray-800 text-sm md:text-base ml-1 truncate max-w-[100px] sm:max-w-none">
                           {item.userName}
                         </span>
-                        <span className="text-xs text-gray-400 ml-2">
+                        <span className="text-[10px] md:text-xs text-gray-400 whitespace-nowrap">
                           {new Date(item.createdAt).toLocaleDateString()}
                         </span>
                       </div>
 
-                      {/* 내용 */}
+                      {/* 내용 영역: 말줄임 처리 적용 */}
                       <div className="mt-2 pl-1">
                         {item.category === "vacation" ? (
-                          <div className="text-sm text-gray-600">
-                            <p>
+                          <div className="text-xs md:text-sm text-gray-600">
+                            <p className="font-medium">
                               📅 {item.startDate} ~ {item.endDate} (
                               {item.daysUsed}일)
                             </p>
-                            <p className="text-xs text-gray-400 mt-1 truncate">
+                            <p className="text-[11px] md:text-xs text-gray-400 mt-1 truncate">
                               {item.reason}
                             </p>
                           </div>
                         ) : (
-                          <p className="text-base font-bold text-gray-800 truncate">
+                          <p className="text-sm md:text-base font-bold text-gray-800 truncate">
                             📄 {item.title || "제목 없음"}
                           </p>
                         )}
                       </div>
 
-                      {/* ✅ 보고서/품의서일 때만 결재선 블록 표시 */}
+                      {/* 결재선 블록: flex-wrap으로 좁은 화면 대응 */}
                       {isReportOrApproval && renderProgressBlock(item)}
                     </div>
                   </div>
@@ -419,75 +421,83 @@ function PendingApprovalContent() {
             })}
           </ul>
         )}
-        <Pagination
-          totalItems={filteredList.length}
-          itemsPerPage={ITEMS_PER_PAGE}
-          currentPage={currentPage}
-        />
-      </div>
 
-      {/* 휴가 모달 (기존 유지) */}
+        {/* 하단 페이지네이션 간격 조절 */}
+        <div className="mt-4">
+          <Pagination
+            totalItems={filteredList.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            currentPage={currentPage}
+          />
+        </div>
+      </div>
+      {/* 휴가 모달 반응형 최적화 */}
       {selectedVacation && (
         <VacationModal onClose={() => setSelectedVacation(null)}>
-          <div className="flex flex-col gap-6">
-            <h3 className="text-xl font-bold text-gray-800 border-b pb-4">
+          <div className="flex flex-col gap-5 md:gap-6 w-full max-h-[85vh] overflow-y-auto pr-1">
+            <h3 className="text-lg md:text-xl font-bold text-gray-800 border-b pb-4 sticky top-0 bg-white z-10">
               📝 휴가 신청 상세
             </h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-500 font-bold block mb-1">
                   신청자
                 </span>
-                {selectedVacation.userName}
+                <p className="font-medium">{selectedVacation.userName}</p>
               </div>
               <div>
                 <span className="text-gray-500 font-bold block mb-1">기간</span>
-                {selectedVacation.startDate} ~ {selectedVacation.endDate}
+                <p className="font-medium whitespace-nowrap">
+                  {selectedVacation.startDate} ~ {selectedVacation.endDate}
+                </p>
               </div>
-              <div className="col-span-2">
+              <div className="col-span-1 sm:col-span-2">
                 <span className="text-gray-500 font-bold block mb-1">사유</span>
-                <div className="bg-gray-50 p-3 rounded text-gray-700 min-h-[60px]">
+                <div className="bg-gray-50 p-3 rounded text-gray-700 min-h-[60px] border border-gray-100 text-xs md:text-sm">
                   {selectedVacation.reason}
                 </div>
               </div>
             </div>
+
             {(role === "admin" || role === "supervisor") &&
               selectedVacation.userName !== userName && (
-                <div>
-                  <label className="block text-gray-500 font-bold mb-2 text-sm">
+                <div className="animate-in fade-in slide-in-from-top-2">
+                  <label className="block text-gray-500 font-bold mb-2 text-xs md:text-sm">
                     결재 의견
                   </label>
                   <textarea
-                    className="w-full border p-3 rounded-lg text-sm resize-none outline-none"
+                    className="w-full border p-3 rounded-lg text-sm resize-none outline-none focus:ring-2 focus:ring-red-100 transition-all"
                     rows={3}
+                    placeholder="결재 또는 반려 의견을 입력하세요..."
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
                   />
                 </div>
               )}
-            <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+
+            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4 pt-4 border-t sticky bottom-0 bg-white">
               <button
                 onClick={() => setSelectedVacation(null)}
-                className="px-4 py-2 bg-gray-200 rounded-lg text-sm hover:bg-gray-300"
+                className="w-full sm:w-auto px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
               >
                 닫기
               </button>
               {(role === "admin" || role === "supervisor") &&
                 selectedVacation.userName !== userName && (
-                  <>
+                  <div className="flex gap-2 w-full sm:w-auto">
                     <button
                       onClick={() => handleVacationProcess("reject")}
-                      className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-bold hover:bg-red-600"
+                      className="flex-1 sm:flex-none px-5 py-2.5 bg-red-500 text-white rounded-lg text-sm font-bold hover:bg-red-600 transition-colors shadow-sm shadow-red-100"
                     >
                       반려
                     </button>
                     <button
                       onClick={() => handleVacationProcess("approve")}
-                      className="px-6 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700"
+                      className="flex-1 sm:flex-none px-7 py-2.5 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 transition-colors shadow-sm shadow-green-100"
                     >
                       승인
                     </button>
-                  </>
+                  </div>
                 )}
             </div>
           </div>
