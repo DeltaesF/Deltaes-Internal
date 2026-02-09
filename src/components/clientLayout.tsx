@@ -76,18 +76,24 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const isLoginPage = pathname === "/login" || pathname === "/";
 
   return (
-    <div className="flex w-full min-h-screen">
+    <div className="flex w-full min-h-screen relative">
       {/* ✅ 로그인 페이지가 아닐 때만 사이드바 표시 */}
       {!isLoginPage && <Sidebar />}
 
       {/* 메인 콘텐츠 영역 */}
-      <div
-        className={`flex-1 ${
-          !isLoginPage ? "ml-[12%] w-[88%] p-6" : "w-full"
-        } bg-gray-50 h-screen overflow-y-auto`}
+      <main
+        className={`flex-1 transition-all duration-300 bg-gray-50 min-h-screen ${
+          !isLoginPage
+            ? "ml-0 md:ml-[240px] lg:ml-[280px]" // 태블릿 이상부터 사이드바 너비만큼 왼쪽 여백 확보
+            : "w-full"
+        }`}
       >
+        {/* 기존의 h-screen overflow-y-auto는 
+          내부 FullCalendar와 충돌하거나 스크롤바가 이중으로 생길 수 있으므로 
+          최상위 min-h-screen 구조를 권장합니다.
+      */}
         {children}
-      </div>
+      </main>
     </div>
   );
 }

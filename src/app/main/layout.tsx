@@ -7,8 +7,9 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex-1 min-h-screen bg-gray-50 overflow-x-hidden">
-      <div className="w-full h-full p-4 md:p-8 lg:p-10">{children}</div>
+    // 기존 p-4 md:p-8 대신 가로 너비 제한과 반응형 패딩만 유지
+    <div className="w-full h-full p-3 md:p-6 lg:p-10 mx-auto max-w-[1600px]">
+      {children}
     </div>
   );
 }
