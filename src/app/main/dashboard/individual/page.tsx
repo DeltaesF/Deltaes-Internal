@@ -348,11 +348,10 @@ export default function Individual() {
   // =====================================================================
 
   return (
-    <div className="flex flex-col gap-6 md:gap-10 mt-2 md:mt-6 items-center w-full">
-      {/* 로그인 시간 표시 UI */}
-      {/* [반응형 수정] max-w-[1200px] -> max-w-7xl, justify-end -> justify-center md:justify-end */}
+    <div className="flex flex-col gap-6 md:gap-10 mt-2 md:mt-6 items-center w-full px-4 md:px-0">
+      {/* 1. 접속 시간 표시 UI: 모바일은 중앙, 데스크톱은 우측 정렬 */}
       <div className="w-full max-w-7xl flex justify-center md:justify-end">
-        <div className="text-xs md:text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full shadow-sm">
+        <div className="text-[10px] md:text-sm text-gray-500 bg-white border border-gray-100 px-3 py-1.5 rounded-full shadow-sm">
           🕒 접속 시간:{" "}
           <span className="font-semibold text-gray-700">
             {loginTime || "-"}
@@ -360,9 +359,8 @@ export default function Individual() {
         </div>
       </div>
 
-      {/* 4개의 카드 그리드 */}
-      {/* [반응형 수정] grid-cols-4 -> grid-cols-2 lg:grid-cols-4 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 w-full max-w-7xl">
+      {/* 2. 대시보드 카드 그리드: 모바일(2열) / 태블릿 이상(4열) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 w-full max-w-7xl">
         <DashboardCard
           title="결재 요청"
           count={approvalRequests.length}
@@ -393,14 +391,17 @@ export default function Individual() {
         />
       </div>
 
-      {/* 캘린더 영역 */}
-      {/* [반응형 수정] w-[1200px] -> w-full max-w-7xl */}
-      <div className="bg-white shadow-md border rounded-2xl p-4 md:p-6 w-full max-w-7xl">
-        <h2 className="text-base md:text-lg font-semibold mb-4">
-          📅 {userName}님의 일정
-        </h2>
-        {/* [반응형 수정] 높이 조정 (모바일은 조금 더 작게) */}
-        <div className="h-[500px] md:h-[600px]">
+      {/* 3. 캘린더 영역: 너비 유동적 조절 및 모바일 높이 최적화 */}
+      <div className="bg-white shadow-md border rounded-2xl p-4 md:p-8 w-full max-w-7xl mb-10">
+        <div className="flex items-center gap-2 mb-6">
+          <div className="w-1.5 h-6 bg-[#519d9e] rounded-full"></div>
+          <h2 className="text-lg md:text-xl font-bold text-gray-800">
+            📅 {userName}님의 일정
+          </h2>
+        </div>
+
+        {/* FullCalendar 반응형 높이 (모바일 500px, 데스크톱 700px) */}
+        <div className="h-[500px] md:h-[700px] w-full overflow-hidden">
           <FullCalendar
             plugins={[dayGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
@@ -410,7 +411,7 @@ export default function Individual() {
             headerToolbar={{
               left: "prev,next today",
               center: "title",
-              right: "dayGridMonth,dayGridWeek,dayGridDay",
+              right: "dayGridMonth,dayGridWeek", // 모바일 가독성을 위해 Day 뷰 제외 권장
             }}
             dateClick={handleDateClick}
             eventClick={(info) => {
@@ -423,7 +424,7 @@ export default function Individual() {
         </div>
       </div>
 
-      {/* ======================= 모달 영역 ======================= */}
+      {/* ======================= 모달 영역 (반응형 레이아웃 포함) ======================= */}
 
       {/* 1. 결재 요청 모달 */}
       {modalType === "pending" && (
@@ -440,18 +441,17 @@ export default function Individual() {
                 <div
                   key={v.id}
                   onClick={() => router.push("/main/my-approval/pending")}
-                  className="bg-white p-3 border rounded-lg hover:bg-red-50 hover:border-red-200 transition-all cursor-pointer flex justify-between items-center group"
+                  className="bg-white p-4 border rounded-xl hover:bg-red-50 hover:border-red-200 transition-all cursor-pointer flex justify-between items-center group shadow-sm"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="bg-red-100 text-red-600 text-[10px] md:text-xs font-bold px-2 py-0.5 rounded">
                         {v.status}
                       </span>
-                      <span className="font-semibold text-gray-800">
+                      <span className="font-semibold text-gray-800 text-sm md:text-base">
                         {v.userName}
                       </span>
-                      {/* 문서 종류 뱃지 */}
-                      <span className="text-xs text-gray-500 border px-1.5 py-0.5 rounded bg-gray-100 font-medium">
+                      <span className="text-[10px] md:text-xs text-gray-500 border px-1.5 py-0.5 rounded bg-gray-50 font-medium">
                         {v.docType === "report"
                           ? "보고서"
                           : v.docType === "approval"
@@ -459,11 +459,10 @@ export default function Individual() {
                           : "휴가"}
                       </span>
                     </div>
-                    {/* 내용 표시 (헬퍼 함수 사용) */}
-                    {getCardContent(v)}
+                    <div className="text-sm truncate">{getCardContent(v)}</div>
                   </div>
                   {canApprove && (
-                    <span className="text-xs text-red-400 font-medium group-hover:text-red-600 whitespace-nowrap ml-2">
+                    <span className="text-xs text-red-400 font-medium group-hover:text-red-600 whitespace-nowrap ml-3 hidden md:inline">
                       결재하기 →
                     </span>
                   )}
@@ -474,7 +473,7 @@ export default function Individual() {
             <EmptyState message="대기 중인 결재 요청이 없습니다." />
           )}
           {approvalRequests.length > 5 && (
-            <p className="text-center text-xs text-gray-400 mt-2">
+            <p className="text-center text-xs text-gray-400 mt-3 italic">
               ...외 {approvalRequests.length - 5}건이 더 있습니다.
             </p>
           )}
@@ -489,13 +488,15 @@ export default function Individual() {
           moreLink="/main/my-approval/shared"
         >
           {workReports.length > 0 ? (
-            workReports.map((noti) => (
-              <NotificationItem
-                key={noti.id}
-                noti={noti}
-                onClose={() => setModalType(null)}
-              />
-            ))
+            <div className="space-y-3">
+              {workReports.map((noti) => (
+                <NotificationItem
+                  key={noti.id}
+                  noti={noti}
+                  onClose={() => setModalType(null)}
+                />
+              ))}
+            </div>
           ) : (
             <EmptyState message="오늘 작성된 업무 보고가 없습니다." />
           )}
@@ -510,59 +511,42 @@ export default function Individual() {
           moreLink="/main/my-approval/completed"
         >
           {completedList.length > 0 ? (
-            completedList.slice(0, 5).map((v) => (
-              <div
-                key={v.id}
-                onClick={() => router.push("/main/my-approval/completed")}
-                className="bg-gray-50 p-3 border rounded-lg hover:bg-green-50 hover:border-green-200 transition-all cursor-pointer group"
-              >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">
-                        승인완료
-                      </span>
-                      <span className="font-semibold text-gray-700">
-                        {v.userName}
-                      </span>
-                    </div>
-                    {v.category === "vacation" ? (
-                      <div className="text-sm text-gray-600 flex items-center gap-2">
-                        <span>
-                          {v.startDate} ~ {v.endDate}
+            <div className="space-y-3">
+              {completedList.slice(0, 5).map((v) => (
+                <div
+                  key={v.id}
+                  onClick={() => router.push("/main/my-approval/completed")}
+                  className="bg-gray-50 p-4 border rounded-xl hover:bg-green-50 hover:border-green-200 transition-all cursor-pointer group shadow-sm"
+                >
+                  <div className="flex justify-between items-center">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="bg-green-100 text-green-700 text-[10px] md:text-xs font-bold px-2 py-0.5 rounded">
+                          승인완료
                         </span>
-                        {v.reason && (
-                          <span className="text-black text-xs truncate max-w-[250px]">
-                            📝 {v.reason}
+                        <span className="font-semibold text-gray-700 text-sm md:text-base">
+                          {v.userName}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-600 truncate">
+                        {v.category === "vacation" ? (
+                          <span className="flex items-center gap-2">
+                            {v.startDate} ~ {v.endDate}
+                          </span>
+                        ) : (
+                          <span className="font-medium text-gray-800">
+                            📄 {v.title || "제목 없음"}
                           </span>
                         )}
                       </div>
-                    ) : (
-                      <div className="text-sm text-gray-600 flex items-center gap-2">
-                        <span>
-                          {v.implementDate
-                            ? v.implementDate
-                            : new Date(v.createdAt)
-                                .toLocaleDateString("ko-KR", {
-                                  year: "numeric",
-                                  month: "2-digit",
-                                  day: "2-digit",
-                                })
-                                .replace(/\. /g, "-")
-                                .replace(/\./g, "")}
-                        </span>
-                        <span className="text-black text-xs truncate max-w-[250px] font-medium">
-                          {v.title || "제목 없음"}
-                        </span>
-                      </div>
-                    )}
+                    </div>
+                    <span className="text-xs text-green-500 font-medium hidden md:inline opacity-0 group-hover:opacity-100 transition-opacity">
+                      상세보기 →
+                    </span>
                   </div>
-                  <span className="text-xs text-green-400 font-medium group-hover:text-green-600 opacity-0 group-hover:opacity-100">
-                    상세보기 →
-                  </span>
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           ) : (
             <EmptyState message="완료된 결재 내역이 없습니다." />
           )}
@@ -577,15 +561,15 @@ export default function Individual() {
           moreLink="/main/my-approval/shared"
         >
           {sharedContents.length > 0 ? (
-            sharedContents
-              .slice(0, 5)
-              .map((noti) => (
+            <div className="space-y-3">
+              {sharedContents.slice(0, 5).map((noti) => (
                 <NotificationItem
                   key={noti.id}
                   noti={noti}
                   onClose={() => setModalType(null)}
                 />
-              ))
+              ))}
+            </div>
           ) : (
             <EmptyState message="공유된 내용이 없습니다." />
           )}

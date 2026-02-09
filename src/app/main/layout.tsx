@@ -7,32 +7,8 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex w-full min-h-screen bg-gray-50">
-      {/* ❗ 사이드바는 상위(RootLayout)에 이미 있으므로 여기서는 렌더링하지 않습니다.
-      ❗ margin-left(ml-...)도 상위에서 처리되므로 여기서는 넣지 않습니다. (PC 밀림 방지)
-    */}
-
-      <div
-        className="
-        flex-1 
-        w-full 
-        transition-all duration-300
-        
-        /* 📱 모바일: 햄버거 버튼에 가리지 않게 상단 여백 추가 */
-        pt-16 px-4
-
-        /* 💻 태블릿/PC: 상단 여백 원상복구, 내부 패딩만 적용 */
-        md:pt-8 md:px-8
-        
-        /* 🚨 태블릿(md) 가림 해결: 
-           상위 레이아웃의 10% 여백이 태블릿에선 너무 좁아서 사이드바가 가립니다.
-           태블릿 구간에서만 왼쪽 패딩을 추가로 줍니다. 
-        */
-        md:pl-[160px] lg:pl-0
-      "
-      >
-        {children}
-      </div>
+    <div className="flex-1 min-h-screen bg-gray-50 overflow-x-hidden">
+      <div className="w-full h-full p-4 md:p-8 lg:p-10">{children}</div>
     </div>
   );
 }

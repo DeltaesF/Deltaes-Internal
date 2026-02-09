@@ -17,8 +17,8 @@ const db = getFirestore();
 
 // 업데이트할 데이터의 타입 정의
 interface UpdatePayload {
-  title: string;
-  content: string;
+  title?: string;
+  content?: string;
   updatedAt: FieldValue;
 
   // 상태 변경용
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
       `[Report Update] 요청 수신: ID=${id}, User=${userName}, Status=${status}`
     );
 
-    if (!id || !userName || !title) {
+    if (!id || !userName) {
       return NextResponse.json({ error: "필수 항목 누락" }, { status: 400 });
     }
 
@@ -116,8 +116,6 @@ export async function POST(req: Request) {
 
     // UpdatePayload 타입 사용
     const updateData: UpdatePayload = {
-      title,
-      content,
       updatedAt: FieldValue.serverTimestamp(),
     };
 
@@ -126,7 +124,8 @@ export async function POST(req: Request) {
       updateData.status = status;
     }
 
-    // 코멘트
+    // [수정 3] title과 content는 값이 있을 때만 업데이트
+    if (title) updateData.title = title;
     if (content) updateData.content = content;
 
     // 값이 있는 경우에만 필드 추가 (undefined 체크)
