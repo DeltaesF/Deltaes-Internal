@@ -123,7 +123,7 @@ function VacationListContent() {
     if (currentPage < totalPages) setCurrentPage((prev) => prev + 1);
   };
 
-  // ✅ 결재 라인 렌더링 헬퍼
+  // ✅ 결재 라인 렌더링 헬퍼 (반응형 대응)
   const renderApprovalLine = (item: VacationResponse) => {
     const history = item.approvalHistory || [];
     const renderRow = (approvers: string[] = [], stepName: string) => {
@@ -133,7 +133,7 @@ function VacationListContent() {
         return (
           <div
             key={`${stepName}-${name}`}
-            className="flex justify-between items-center text-xs border-b border-dashed border-gray-200 py-1 last:border-0"
+            className="flex justify-between items-center text-[11px] md:text-xs border-b border-dashed border-gray-200 py-1.5 last:border-0"
           >
             <div className="flex items-center gap-1">
               <span className="text-gray-400 font-normal">[{stepName}]</span>
@@ -141,7 +141,7 @@ function VacationListContent() {
             </div>
             {h ? (
               <span
-                className={`font-bold ${
+                className={`font-bold whitespace-nowrap ${
                   h.status === "반려" ? "text-red-600" : "text-green-600"
                 }`}
               >
@@ -173,37 +173,38 @@ function VacationListContent() {
     return <div className="p-10 text-center">로딩 중...</div>;
 
   return (
-    <div className="flex flex-col w-full p-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-4 mb-6">
+    <div className="flex flex-col w-full p-4 md:p-6 lg:max-w-5xl mx-auto min-w-0">
+      {/* 상단 헤더: 모바일에서 간격 조절 */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4 mb-6">
         <button
           onClick={() => router.back()}
-          className="px-3 py-1.5 border rounded-lg hover:bg-gray-100 text-sm font-medium text-gray-600 cursor-pointer"
+          className="w-fit px-3 py-1.5 border rounded-lg hover:bg-gray-100 text-xs md:text-sm font-medium text-gray-600 cursor-pointer transition-colors"
         >
           ◀ 뒤로가기
         </button>
-        <h2 className="text-2xl font-bold text-gray-800">
+        <h2 className="text-xl md:text-2xl font-bold text-gray-800">
           📋 나의 휴가 사용 내역
         </h2>
       </div>
 
-      <div className="bg-white border rounded-xl shadow-sm p-6">
+      <div className="bg-white border rounded-xl shadow-sm p-4 md:p-6 overflow-hidden">
         {list.length === 0 ? (
-          <div className="p-10 text-center text-gray-400">
+          <div className="py-20 text-center text-gray-400 text-sm">
             신청한 휴가 내역이 없습니다.
           </div>
         ) : (
           <>
-            <div className="divide-y">
+            <div className="divide-y divide-gray-100">
               {list.map((item) => (
                 <div
                   key={item.id}
                   onClick={() => setSelectedVacation(item)}
-                  className="p-3 hover:bg-gray-50 transition-colors cursor-pointer rounded-lg"
+                  className="py-4 md:p-3 hover:bg-gray-50 transition-colors cursor-pointer rounded-lg group"
                 >
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-3">
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-3 flex-1 min-w-0">
                       <span
-                        className={`px-2.5 py-1 rounded text-xs font-bold ${
+                        className={`w-fit px-2.5 py-1 rounded text-[10px] md:text-xs font-bold shrink-0 ${
                           item.status === "최종 승인 완료"
                             ? "bg-green-100 text-green-700"
                             : item.status.includes("반려")
@@ -213,9 +214,9 @@ function VacationListContent() {
                       >
                         {item.status}
                       </span>
-                      <h3 className="text-lg font-bold text-gray-800">
+                      <h3 className="text-base md:text-lg font-bold text-gray-800 truncate">
                         {item.types}{" "}
-                        <span className="text-sm font-normal text-gray-500">
+                        <span className="text-xs md:text-sm font-normal text-gray-500">
                           ({item.daysUsed}일)
                         </span>
                       </h3>
@@ -227,24 +228,25 @@ function VacationListContent() {
                           e.stopPropagation();
                           handleCancel(item.id);
                         }}
-                        className="px-3 py-1 bg-white border border-red-200 text-red-500 text-xs font-bold rounded hover:bg-red-50 transition-colors"
+                        className="shrink-0 px-2.5 py-1 bg-white border border-red-200 text-red-500 text-[10px] md:text-xs font-bold rounded hover:bg-red-50 transition-colors"
                       >
                         취소
                       </button>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600 bg-gray-50 p-2 rounded-lg mt-2">
-                    <div>
-                      <span className="block text-xs font-bold text-gray-400 mb-1">
+                  {/* 카드 내부 정보: 태블릿 가변 그리드 */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 text-xs md:text-sm text-gray-600 bg-gray-50 p-3 rounded-lg mt-3">
+                    <div className="min-w-0">
+                      <span className="block text-[10px] font-bold text-gray-400 mb-0.5">
                         기간
                       </span>
-                      <p className="font-medium text-gray-800">
+                      <p className="font-medium text-gray-800 break-keep">
                         {item.startDate} ~ {item.endDate}
                       </p>
                     </div>
-                    <div>
-                      <span className="block text-xs font-bold text-gray-400 mb-1">
+                    <div className="min-w-0">
+                      <span className="block text-[10px] font-bold text-gray-400 mb-0.5">
                         사유
                       </span>
                       <p className="text-gray-700 truncate">
@@ -256,12 +258,12 @@ function VacationListContent() {
               ))}
             </div>
 
-            {/* ✅ 페이지네이션 버튼 */}
-            <div className="flex justify-center items-center gap-4 mt-2 py-2 border-t pt-4">
+            {/* 페이지네이션: 터치 대응 간격 확대 */}
+            <div className="flex justify-center items-center gap-2 md:gap-4 mt-6 py-2 border-t pt-6">
               <button
                 onClick={handlePrevPage}
                 disabled={currentPage === 1}
-                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg border text-xs md:text-sm font-medium transition-colors ${
                   currentPage === 1
                     ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
                     : "bg-white text-gray-700 hover:bg-gray-50 hover:text-blue-600 border-gray-300"
@@ -270,7 +272,7 @@ function VacationListContent() {
                 ◀ 이전
               </button>
 
-              <span className="text-sm font-medium text-gray-600">
+              <span className="text-xs md:text-sm font-medium text-gray-600 whitespace-nowrap px-1">
                 Page{" "}
                 <span className="text-blue-600 font-bold">{currentPage}</span> /{" "}
                 {totalPages}
@@ -279,7 +281,7 @@ function VacationListContent() {
               <button
                 onClick={handleNextPage}
                 disabled={currentPage === totalPages}
-                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg border text-xs md:text-sm font-medium transition-colors ${
                   currentPage === totalPages
                     ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
                     : "bg-white text-gray-700 hover:bg-gray-50 hover:text-blue-600 border-gray-300"
@@ -292,20 +294,22 @@ function VacationListContent() {
         )}
       </div>
 
-      {/* ✅ 상세 모달 */}
+      {/* ✅ 상세 모달: 내부 콘텐츠 반응형 그리드 적용 */}
       {selectedVacation && (
         <VacationModal onClose={() => setSelectedVacation(null)}>
-          <div className="flex flex-col gap-6">
-            <h3 className="text-xl font-bold text-gray-800 border-b pb-4">
+          <div className="flex flex-col gap-5 md:gap-6 w-full max-h-[80vh] overflow-y-auto pr-1 custom-scrollbar">
+            <h3 className="text-lg md:text-xl font-bold text-gray-800 border-b pb-4 sticky top-0 bg-white z-10">
               📝 휴가 신청 상세
             </h3>
 
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="col-span-2 row-span-2 sm:col-span-1">
-                <span className="block text-gray-500 font-bold mb-1">상태</span>
-                <div className="bg-gray-50 p-3 rounded border border-gray-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 text-sm">
+              <div className="sm:row-span-2">
+                <span className="block text-gray-500 font-bold mb-1.5 text-xs md:text-sm">
+                  결재 상태
+                </span>
+                <div className="bg-gray-50 p-3 md:p-4 rounded-xl border border-gray-200 shadow-sm">
                   <span
-                    className={`inline-block mb-2 px-2 py-0.5 rounded text-xs font-bold ${
+                    className={`inline-block mb-3 px-2 py-0.5 rounded text-[10px] md:text-xs font-bold ${
                       selectedVacation.status === "최종 승인 완료"
                         ? "bg-green-100 text-green-700"
                         : selectedVacation.status.includes("반려")
@@ -319,21 +323,29 @@ function VacationListContent() {
                 </div>
               </div>
 
-              <div className="col-span-2 sm:col-span-1">
-                <span className="block text-gray-500 font-bold mb-1">기간</span>
-                <p className="text-gray-800">
+              <div>
+                <span className="block text-gray-500 font-bold mb-1 text-xs md:text-sm">
+                  기간
+                </span>
+                <p className="text-gray-800 font-medium">
                   {selectedVacation.startDate} ~ {selectedVacation.endDate}
                 </p>
               </div>
-              <div className="col-span-2 sm:col-span-1">
-                <span className="block text-gray-500 font-bold mb-1">
+
+              <div>
+                <span className="block text-gray-500 font-bold mb-1 text-xs md:text-sm">
                   사용일수
                 </span>
-                <p className="text-gray-800">{selectedVacation.daysUsed}일</p>
+                <p className="text-gray-800 font-medium">
+                  {selectedVacation.daysUsed}일
+                </p>
               </div>
-              <div className="col-span-2">
-                <span className="block text-gray-500 font-bold mb-1">종류</span>
-                <p className="text-gray-800">
+
+              <div className="sm:col-span-1">
+                <span className="block text-gray-500 font-bold mb-1 text-xs md:text-sm">
+                  종류
+                </span>
+                <p className="text-gray-800 font-medium">
                   {Array.isArray(selectedVacation.types)
                     ? selectedVacation.types.join(", ")
                     : selectedVacation.types}
@@ -342,8 +354,10 @@ function VacationListContent() {
             </div>
 
             <div>
-              <span className="block text-gray-500 font-bold mb-2">사유</span>
-              <div className="bg-gray-50 p-4 rounded-lg text-gray-700 text-sm min-h-[80px] border">
+              <span className="block text-gray-500 font-bold mb-2 text-xs md:text-sm">
+                사유
+              </span>
+              <div className="bg-gray-50 p-4 rounded-lg text-gray-700 text-sm min-h-[80px] border border-gray-100 leading-relaxed italic">
                 {selectedVacation.reason || "내용 없음"}
               </div>
             </div>
@@ -352,21 +366,21 @@ function VacationListContent() {
             {selectedVacation.approvalHistory &&
               selectedVacation.approvalHistory.some((h) => h.comment) && (
                 <div>
-                  <span className="block text-gray-500 font-bold mb-2">
+                  <span className="block text-gray-500 font-bold mb-2 text-xs md:text-sm">
                     결재 의견
                   </span>
-                  <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 flex flex-col gap-2">
+                  <div className="bg-yellow-50/50 p-3 md:p-4 rounded-xl border border-yellow-100 flex flex-col gap-3">
                     {selectedVacation.approvalHistory.map((history, idx) =>
                       history.comment ? (
                         <div
                           key={idx}
-                          className="text-sm border-b border-yellow-200 last:border-0 pb-2 last:pb-0"
+                          className="text-xs md:text-sm border-b border-yellow-100 last:border-0 pb-3 last:pb-0"
                         >
-                          <div className="flex justify-between items-center mb-1">
+                          <div className="flex justify-between items-center mb-1.5 flex-wrap gap-1">
                             <span className="font-bold text-gray-800">
                               {history.approver}
                               <span
-                                className={`ml-1 text-xs ${
+                                className={`ml-1 text-[10px] md:text-xs ${
                                   history.status === "반려"
                                     ? "text-red-600"
                                     : "text-green-600"
@@ -375,11 +389,11 @@ function VacationListContent() {
                                 ({history.status})
                               </span>
                             </span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-[10px] text-gray-500 font-normal">
                               {formatDate(history.approvedAt)}
                             </span>
                           </div>
-                          <p className="text-gray-700 whitespace-pre-wrap">
+                          <p className="text-gray-700 whitespace-pre-wrap italic">
                             {history.comment}
                           </p>
                         </div>
@@ -389,18 +403,18 @@ function VacationListContent() {
                 </div>
               )}
 
-            <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4 pt-4 border-t sticky bottom-0 bg-white">
               {selectedVacation.status.includes("대기") && (
                 <button
                   onClick={() => handleCancel(selectedVacation.id)}
-                  className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors font-medium text-sm"
+                  className="w-full sm:w-auto px-5 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors font-bold text-sm shadow-sm"
                 >
                   신청 취소
                 </button>
               )}
               <button
                 onClick={() => setSelectedVacation(null)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
+                className="w-full sm:w-auto px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-bold text-sm"
               >
                 닫기
               </button>

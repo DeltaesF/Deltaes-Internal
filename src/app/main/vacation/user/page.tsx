@@ -116,53 +116,64 @@ export default function UserV() {
   });
 
   return (
-    <div className="flex flex-col gap-4 w-full">
-      {/* 🔹 상단 헤더 & 버튼 (전체 현황 링크 삭제됨) */}
-      <div className="flex justify-between items-center">
+    <div className="flex flex-col gap-4 w-full px-4 md:px-0">
+      {/* 🔹 상단 헤더 & 버튼 */}
+      <div className="flex justify-between items-center mt-2">
+        <h2 className="text-xl md:text-2xl font-bold text-gray-800 hidden md:block">
+          휴가 관리
+        </h2>
         <Link
           href="/main/vacation/write"
           prefetch={false}
-          className="ml-auto px-4 py-2 rounded-xl bg-[#519d9e] text-white hover:bg-[#407f80] transition-colors text-sm font-bold shadow-md"
+          className="ml-auto px-4 py-2 md:px-5 md:py-2.5 rounded-xl bg-[#519d9e] text-white hover:bg-[#407f80] transition-colors text-xs md:text-sm font-bold shadow-md whitespace-nowrap"
         >
           + 휴가 신청하기
         </Link>
       </div>
 
-      {/* 🔹 통계 카드 */}
-      <div className="grid grid-cols-2 gap-6 w-full max-w-[1200px] mx-auto">
+      {/* 🔹 통계 카드 - 모바일 grid-cols-1, 태블릿 이상 grid-cols-2 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full max-w-[1200px] mx-auto">
         {/* 잔여 연차 */}
-        <div className="bg-white shadow-sm border border-gray-200 rounded-2xl p-8 flex flex-col items-center justify-center gap-2 group">
-          <span className="text-gray-500 font-medium">잔여 휴가</span>
-          <p className="text-5xl font-extrabold text-[#519d9e]">
+        <div className="bg-white shadow-sm border border-gray-200 rounded-2xl p-6 md:p-8 flex flex-col items-center justify-center gap-2 group">
+          <span className="text-gray-500 text-sm md:text-base font-medium">
+            잔여 휴가
+          </span>
+          <p className="text-4xl md:text-5xl font-extrabold text-[#519d9e]">
             {userStats.remainingVacation ?? 0}{" "}
-            <span className="text-lg font-normal text-gray-400">일</span>
+            <span className="text-base md:text-lg font-normal text-gray-400">
+              일
+            </span>
           </p>
         </div>
 
-        {/* 사용 연차 (클릭 시 이력 요약 모달) */}
+        {/* 사용 연차 */}
         <div
-          className="bg-white shadow-sm border border-gray-200 rounded-2xl p-8 flex flex-col items-center justify-center gap-2 cursor-pointer group hover:bg-gray-50 hover:border-gray-300 transition-all"
+          className="bg-white shadow-sm border border-gray-200 rounded-2xl p-6 md:p-8 flex flex-col items-center justify-center gap-2 cursor-pointer group hover:bg-gray-50 hover:border-gray-300 transition-all"
           onClick={() => setShowHistoryModal(true)}
         >
           <div className="flex items-center gap-2">
-            <span className="text-gray-500 font-medium">총 사용 휴가</span>
-            <span className="bg-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded-full group-hover:bg-white transition-colors">
+            <span className="text-gray-500 text-sm md:text-base font-medium">
+              총 사용 휴가
+            </span>
+            <span className="bg-gray-100 text-gray-500 text-[10px] md:text-xs px-2 py-0.5 rounded-full group-hover:bg-white transition-colors">
               내역 보기 &gt;
             </span>
           </div>
-          <p className="text-5xl font-extrabold text-gray-700">
+          <p className="text-4xl md:text-5xl font-extrabold text-gray-700">
             {userStats.usedVacation ?? 0}{" "}
-            <span className="text-lg font-normal text-gray-400">일</span>
+            <span className="text-base md:text-lg font-normal text-gray-400">
+              일
+            </span>
           </p>
         </div>
       </div>
 
-      {/* 🔹 캘린더 영역 */}
-      <div className="bg-white shadow-md border rounded-2xl p-6 w-full max-w-[1200px] mx-auto">
-        <h3 className="text-lg font-bold mb-4 text-gray-700">
+      {/* 🔹 캘린더 영역 - 모바일 패딩 축소 및 높이 조절 */}
+      <div className="bg-white shadow-md border rounded-2xl p-4 md:p-6 w-full max-w-[1200px] mx-auto mb-10">
+        <h3 className="text-base md:text-lg font-bold mb-4 text-gray-700">
           📅 휴가 일정 캘린더
         </h3>
-        <div className="h-[600px]">
+        <div className="h-[500px] md:h-[600px]">
           <FullCalendar
             plugins={[dayGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
@@ -181,12 +192,12 @@ export default function UserV() {
 
       {/* ==================== 모달 영역 ==================== */}
 
-      {/* 휴가 신청 이력 요약 모달 (최근 5건만 표시) */}
+      {/* 휴가 신청 이력 요약 모달 */}
       {showHistoryModal && (
-        <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl p-6 w-[500px] flex flex-col shadow-2xl">
+        <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-xl p-5 md:p-6 w-full max-w-[500px] flex flex-col shadow-2xl">
             <div className="flex justify-between items-center mb-4 border-b pb-3">
-              <h3 className="text-xl font-bold text-gray-800">
+              <h3 className="text-lg md:text-xl font-bold text-gray-800">
                 최근 휴가 신청 내역
               </h3>
               <button
@@ -197,18 +208,18 @@ export default function UserV() {
               </button>
             </div>
 
-            <div className="mb-4 overflow-y-auto flex-1 max-h-[400px]">
+            <div className="mb-4 overflow-y-auto flex-1 max-h-[60vh] md:max-h-[400px]">
               {myVacations.length > 0 ? (
                 <ul className="divide-y border rounded-lg">
                   {myVacations.map((v) => (
                     <li
                       key={v.id}
-                      className="py-3 px-4 bg-white flex justify-between items-center"
+                      className="py-3 px-3 md:px-4 bg-white flex justify-between items-center"
                     >
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span
-                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            className={`text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
                               v.status === "최종 승인 완료"
                                 ? "bg-green-100 text-green-700"
                                 : v.status.includes("반려")
@@ -218,22 +229,22 @@ export default function UserV() {
                           >
                             {v.status}
                           </span>
-                          <span className="font-semibold text-gray-700 text-sm">
+                          <span className="font-semibold text-gray-700 text-xs md:text-sm truncate">
                             {v.types}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-[11px] md:text-xs text-gray-500">
                           {v.startDate} ~ {v.endDate}
                         </p>
                       </div>
-                      <span className="text-sm font-bold text-gray-800">
+                      <span className="text-xs md:text-sm font-bold text-gray-800 ml-2">
                         {v.daysUsed}일
                       </span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-center text-gray-400 py-6 bg-gray-50 rounded-lg">
+                <p className="text-center text-gray-400 py-6 bg-gray-50 rounded-lg text-sm">
                   신청한 휴가 내역이 없습니다.
                 </p>
               )}
@@ -242,17 +253,16 @@ export default function UserV() {
             <div className="flex gap-2">
               <button
                 onClick={() => setShowHistoryModal(false)}
-                className="flex-1 bg-gray-200 py-2.5 rounded-lg hover:bg-gray-300 font-medium text-gray-600 text-sm transition-colors cursor-pointer"
+                className="flex-1 bg-gray-200 py-2 md:py-2.5 rounded-lg hover:bg-gray-300 font-medium text-gray-600 text-xs md:text-sm transition-colors cursor-pointer"
               >
                 닫기
               </button>
-              {/* ✅ [전체 보기] 버튼 -> list 페이지로 이동 */}
               <Link
                 href="/main/vacation/list"
                 prefetch={false}
-                className="flex-1 bg-[#519d9e] flex items-center justify-center py-2.5 rounded-lg hover:bg-[#407f80] font-medium text-white text-sm transition-colors"
+                className="flex-1 bg-[#519d9e] flex items-center justify-center py-2 md:py-2.5 rounded-lg hover:bg-[#407f80] font-medium text-white text-xs md:text-sm transition-colors text-center"
               >
-                전체/상세 내역 보기 →
+                전체 내역 보기 →
               </Link>
             </div>
           </div>

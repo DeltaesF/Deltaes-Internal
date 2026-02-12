@@ -173,12 +173,15 @@ export default function VacationWritePage() {
   const datesList = getDatesArray(startDate, endDate);
 
   return (
-    <div className="p-6 border rounded-xl bg-white shadow-sm mt-6 max-w-5xl mx-auto h-full">
-      <h2 className="text-xl font-bold mb-6">📝 휴가원 작성</h2>
+    <div className="p-4 md:p-6 border rounded-xl bg-white shadow-sm mt-4 md:mt-6 max-w-5xl mx-auto h-full">
+      <h2 className="text-lg md:text-xl font-bold mb-6">📝 휴가원 작성</h2>
 
-      <div className="flex gap-10">
+      {/* [반응형 수정] flex-col (모바일) -> lg:flex-row (데스크톱) */}
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-10">
+        {/* 왼쪽 폼 영역 */}
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-4">
-          <div className="flex gap-4">
+          {/* [반응형 수정] 시작일/종료일 가로 배치 유지 혹은 좁은 화면에서 세로 전환 */}
+          <div className="flex flex-col sm:flex-row gap-4">
             <label className="flex-1 cursor-pointer font-medium text-gray-700">
               시작일
               <input
@@ -186,7 +189,7 @@ export default function VacationWritePage() {
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 onClick={(e) => e.currentTarget.showPicker()}
-                className="border p-2 w-full rounded cursor-pointer mt-1"
+                className="border p-2 w-full rounded cursor-pointer mt-1 outline-none focus:ring-1 focus:ring-[#519d9e]"
               />
             </label>
             <label className="flex-1 cursor-pointer font-medium text-gray-700">
@@ -196,7 +199,7 @@ export default function VacationWritePage() {
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 onClick={(e) => e.currentTarget.showPicker()}
-                className="border p-2 w-full rounded cursor-pointer mt-1"
+                className="border p-2 w-full rounded cursor-pointer mt-1 outline-none focus:ring-1 focus:ring-[#519d9e]"
               />
             </label>
           </div>
@@ -217,10 +220,9 @@ export default function VacationWritePage() {
                     key={date}
                     className="flex justify-between items-center bg-white px-3 py-2 rounded border shadow-sm"
                   >
-                    <span className="text-sm font-medium text-gray-600">
+                    <span className="text-xs md:text-sm font-medium text-gray-600">
                       {date}
                     </span>
-                    {/* ✅ [수정] 드롭다운 옵션 변경 */}
                     <select
                       value={types[idx] || "연차"}
                       onChange={(e) => {
@@ -228,7 +230,7 @@ export default function VacationWritePage() {
                         newTypes[idx] = e.target.value as DayType;
                         setTypes(newTypes);
                       }}
-                      className="border p-1 rounded text-sm outline-none bg-gray-50 focus:bg-white focus:ring-1 focus:ring-[#519d9e] cursor-pointer"
+                      className="border p-1 rounded text-xs md:text-sm outline-none bg-gray-50 focus:bg-white focus:ring-1 focus:ring-[#519d9e] cursor-pointer"
                     >
                       <option value="연차">연차</option>
                       <option value="오전반차">오전 반차</option>
@@ -257,30 +259,40 @@ export default function VacationWritePage() {
           </button>
         </form>
 
-        <div className="w-[300px] flex flex-col gap-4">
-          <div className="border p-4 rounded bg-gray-50">
-            <h4 className="font-bold text-sm text-gray-600 mb-2">1차 결재자</h4>
-            <p className="text-sm font-semibold text-gray-800">
-              {firstApprovers[0] || (
-                <span className="text-gray-400">지정되지 않음</span>
-              )}
-            </p>
-          </div>
-          <div className="border p-4 rounded bg-gray-50">
-            <h4 className="font-bold text-sm text-gray-600 mb-2">2차 결재자</h4>
-            <p className="text-sm font-semibold text-gray-800">
-              {secondApprovers[0] || (
-                <span className="text-gray-400">지정되지 않음</span>
-              )}
-            </p>
-          </div>
-          <div className="border p-4 rounded bg-gray-50">
-            <h4 className="font-bold text-sm text-gray-600 mb-2">3차 결재자</h4>
-            <p className="text-sm font-semibold text-gray-800">
-              {thirdApprovers[0] || (
-                <span className="text-gray-400">지정되지 않음</span>
-              )}
-            </p>
+        {/* 오른쪽 결재자 정보 영역 [반응형 수정] 너비 자동 조절 */}
+        <div className="w-full lg:w-[300px] flex flex-col gap-4">
+          {/* 결재자 카드들 */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-4">
+            <div className="border p-4 rounded bg-gray-50">
+              <h4 className="font-bold text-sm text-gray-600 mb-2">
+                1차 결재자
+              </h4>
+              <p className="text-sm font-semibold text-gray-800">
+                {firstApprovers[0] || (
+                  <span className="text-gray-400">지정되지 않음</span>
+                )}
+              </p>
+            </div>
+            <div className="border p-4 rounded bg-gray-50">
+              <h4 className="font-bold text-sm text-gray-600 mb-2">
+                2차 결재자
+              </h4>
+              <p className="text-sm font-semibold text-gray-800">
+                {secondApprovers[0] || (
+                  <span className="text-gray-400">지정되지 않음</span>
+                )}
+              </p>
+            </div>
+            <div className="border p-4 rounded bg-gray-50">
+              <h4 className="font-bold text-sm text-gray-600 mb-2">
+                3차 결재자
+              </h4>
+              <p className="text-sm font-semibold text-gray-800">
+                {thirdApprovers[0] || (
+                  <span className="text-gray-400">지정되지 않음</span>
+                )}
+              </p>
+            </div>
           </div>
 
           <div
@@ -309,7 +321,8 @@ export default function VacationWritePage() {
       {showSharedModal && (
         <VacationModal onClose={() => setShowSharedModal(false)}>
           <h3 className="text-lg font-bold mb-4">공유자 선택</h3>
-          <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+          {/* [반응형 수정] grid-cols-2 (모바일) -> grid-cols-3 (데스크톱) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[300px] overflow-y-auto custom-scrollbar">
             {allEmployees
               .filter(
                 (e) =>
@@ -321,15 +334,15 @@ export default function VacationWritePage() {
               .map((emp) => (
                 <label
                   key={emp.id}
-                  className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded cursor-pointer"
+                  className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded cursor-pointer text-sm"
                 >
                   <input
                     type="checkbox"
                     checked={sharedList.includes(emp.userName)}
                     onChange={() => handleToggleShared(emp.userName)}
-                    className="accent-[#519d9e]"
+                    className="accent-[#519d9e] shrink-0"
                   />
-                  {emp.userName}
+                  <span className="truncate">{emp.userName}</span>
                 </label>
               ))}
           </div>
