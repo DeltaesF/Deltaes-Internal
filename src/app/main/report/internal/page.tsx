@@ -65,98 +65,99 @@ function InternalReportContent() {
     return <div className="p-10 text-center">로딩 중...</div>;
 
   return (
-    <div className="flex flex-col w-full p-6">
-      <div className="bg-white border rounded-2xl shadow-sm p-6">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-2xl font-bold text-gray-800">사내 교육 보고서</h2>
+    <div className="flex flex-col w-full p-4 md:p-6 min-w-0">
+      <div className="bg-white border rounded-2xl shadow-sm p-4 md:p-6">
+        {/* 상단 헤더 영역: 모바일에서는 세로로 배치될 수 있도록 gap 추가 */}
+        <div className="flex justify-between items-center mb-5 gap-4">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-800 truncate">
+            사내 교육 보고서
+          </h2>
           <Link
             href="/main/report/internal/write"
             prefetch={false}
-            className="px-4 py-2 bg-[#519d9e] text-white rounded-lg hover:bg-[#407f80] transition-colors font-bold text-sm"
+            className="px-3 py-2 md:px-4 md:py-2 bg-[#519d9e] text-white rounded-xl hover:bg-[#407f80] transition-colors font-bold text-xs md:text-sm whitespace-nowrap"
           >
             보고서 작성 ✎
           </Link>
         </div>
 
-        {/* 리스트 테이블 */}
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm">
-                <th className="py-3 px-4 text-left">제목</th>
-                <th className="py-3 px-4 text-center w-32">작성자</th>
-                <th className="py-3 px-4 text-center w-32">작성일</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="py-10 text-center text-gray-400">
-                    등록된 보고서가 없습니다.
-                  </td>
-                </tr>
-              ) : (
-                list.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+        {/* 리스트 영역: 일일 보고서 스타일 적용 */}
+        {list.length === 0 ? (
+          <div className="py-20 text-center text-gray-400 text-sm">
+            등록된 보고서가 없습니다.
+          </div>
+        ) : (
+          <>
+            <ul className="w-full">
+              {list.map((item) => (
+                <li
+                  key={item.id}
+                  className="border-b border-gray-400 group hover:bg-gray-50 transition-colors"
+                >
+                  <Link
+                    href={`/main/report/${item.id}`}
+                    prefetch={false}
+                    className="flex justify-between items-center w-full py-2 px-1 gap-4"
                   >
-                    <td className="py-3 px-4">
-                      {/* 통합 상세 페이지로 이동 */}
-                      <Link
-                        href={`/main/report/${item.id}`}
-                        prefetch={false}
-                        className="block w-full"
-                      >
-                        <span className="text-gray-800 hover:text-[#519d9e] font-medium transition-colors">
-                          {item.title}
-                        </span>
-                      </Link>
-                    </td>
-                    <td className="py-3 px-4 text-center text-sm text-gray-600">
-                      {item.userName}
-                    </td>
-                    <td className="py-3 px-4 text-center text-sm text-gray-500">
-                      {new Date(item.createdAt).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    {/* 왼쪽 영역: 제목이 길어지면 줄여줌 */}
+                    <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
+                      <p className="text-sm md:text-[15px] text-gray-800 truncate group-hover:text-[#519d9e] transition-colors font-medium ">
+                        {item.title}
+                      </p>
+                    </div>
 
-        {/* ✅ 페이지네이션 버튼 (shared 스타일 적용) */}
-        <div className="flex justify-center items-center gap-4 mt-6 py-2 border-t border-gray-100">
-          <button
-            onClick={handlePrevPage}
-            disabled={currentPage === 1}
-            className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-              currentPage === 1
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                : "bg-white text-gray-700 hover:bg-gray-50 hover:text-[#519d9e] border-gray-300"
-            }`}
-          >
-            ◀ 이전
-          </button>
+                    {/* 오른쪽 영역: 작성자와 날짜 (공간 부족 시 shrink 보호) */}
+                    <div className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-gray-500 shrink-0">
+                      <span className="sm:hidden font-semibold text-gray-700 bg-gray-100  rounded max-w-[60px]">
+                        {item.userName}
+                      </span>
+                      <span className="whitespace-nowrap text-gray-400">
+                        {new Date(item.createdAt).toLocaleDateString("ko-KR", {
+                          year: "2-digit",
+                          month: "2-digit",
+                          day: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
 
-          <span className="text-sm font-medium text-gray-600">
-            Page <span className="text-[#519d9e] font-bold">{currentPage}</span>{" "}
-            / {totalPages}
-          </span>
+            {/* 페이지네이션 버튼: 기기별 패딩 조절 */}
+            <div className="flex justify-center items-center gap-2 md:gap-4 mt-8 py-2">
+              <button
+                onClick={handlePrevPage}
+                disabled={currentPage === 1}
+                className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg border text-xs md:text-sm font-medium transition-colors cursor-pointer ${
+                  currentPage === 1
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                    : "bg-white text-gray-700 hover:bg-gray-50 hover:text-[#519d9e] border-gray-300 shadow-sm"
+                }`}
+              >
+                ◀ 이전
+              </button>
 
-          <button
-            onClick={handleNextPage}
-            disabled={currentPage === totalPages}
-            className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-              currentPage === totalPages
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                : "bg-white text-gray-700 hover:bg-gray-50 hover:text-[#519d9e] border-gray-300"
-            }`}
-          >
-            다음 ▶
-          </button>
-        </div>
+              <span className="text-xs md:text-sm font-medium text-gray-600 whitespace-nowrap">
+                Page{" "}
+                <span className="text-[#519d9e] font-bold">{currentPage}</span>{" "}
+                / {totalPages}
+              </span>
+
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg border text-xs md:text-sm font-medium transition-colors cursor-pointer ${
+                  currentPage === totalPages
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                    : "bg-white text-gray-700 hover:bg-gray-50 hover:text-[#519d9e] border-gray-300 shadow-sm"
+                }`}
+              >
+                다음 ▶
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

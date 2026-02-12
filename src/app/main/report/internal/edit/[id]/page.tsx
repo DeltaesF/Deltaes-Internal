@@ -124,14 +124,17 @@ export default function InternalReportEditPage() {
     return <div className="p-10 text-center">데이터 불러오는 중...</div>;
 
   return (
-    <div className="p-6 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6">
+    <div className="p-4 md:p-6 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-4 md:mt-6">
+      {/* 상단 뒤로가기 버튼 */}
       <button
         onClick={() => router.back()}
-        className="mb-4 px-4 py-2 border rounded hover:bg-gray-100 text-sm cursor-pointer"
+        className="mb-4 px-4 py-2 border rounded hover:bg-gray-100 text-sm cursor-pointer transition-colors"
       >
         취소
       </button>
-      <h2 className="text-2xl font-bold mb-6">사내 교육 보고서</h2>
+      <h2 className="text-xl md:text-2xl font-bold mb-6 text-gray-800">
+        사내 교육 보고서
+      </h2>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         <div className="space-y-4">
@@ -143,12 +146,13 @@ export default function InternalReportEditPage() {
               type="text"
               name="title"
               value={form.title}
-              readOnly // 제목은 보통 수정 불가 (정책에 따라 변경 가능)
-              className="w-full border p-2 rounded bg-gray-100 text-gray-600"
+              readOnly
+              className="w-full border p-2 rounded bg-gray-100 text-gray-600 outline-none cursor-not-allowed"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* 교육명 / 교육 장소 - 태블릿(lg) 미만에서는 1열 배치 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">
                 교육명
@@ -158,7 +162,7 @@ export default function InternalReportEditPage() {
                 name="educationName"
                 value={form.educationName}
                 onChange={handleChange}
-                className="w-full border p-2 rounded"
+                className="w-full border p-2 rounded focus:ring-1 focus:ring-[#519d9e] outline-none"
               />
             </div>
             <div>
@@ -170,31 +174,32 @@ export default function InternalReportEditPage() {
                 name="educationPlace"
                 value={form.educationPlace}
                 onChange={handleChange}
-                className="w-full border p-2 rounded"
+                className="w-full border p-2 rounded focus:ring-1 focus:ring-[#519d9e] outline-none"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* 교육 기간 / 교육 시간 - 태블릿(lg) 미만에서는 1열 배치하여 겹침 방지 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">
                 교육 기간
               </label>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="date"
                   name="startDate"
                   value={form.startDate}
                   onChange={handleChange}
-                  className="border p-2 rounded w-full"
+                  className="border p-2 rounded flex-1 min-w-[120px] text-sm md:text-base"
                 />
-                <span>~</span>
+                <span className="shrink-0 text-gray-400">~</span>
                 <input
                   type="date"
                   name="endDate"
                   value={form.endDate}
                   onChange={handleChange}
-                  className="border p-2 rounded w-full"
+                  className="border p-2 rounded flex-1 min-w-[120px] text-sm md:text-base"
                 />
               </div>
             </div>
@@ -207,21 +212,23 @@ export default function InternalReportEditPage() {
                 name="educationTime"
                 value={form.educationTime}
                 onChange={handleChange}
-                className="w-full border p-2 rounded"
+                placeholder="예: 13:00 ~ 16:20"
+                className="w-full border p-2 rounded focus:ring-1 focus:ring-[#519d9e] outline-none"
               />
             </div>
           </div>
         </div>
 
-        <div className="border p-4 rounded-lg">
+        {/* 유용성 평가 - 모바일에서 줄바꿈이 일어날 수 있도록 flex-wrap 적용 */}
+        <div className="border p-4 rounded-lg overflow-hidden">
           <label className="block text-sm font-bold text-gray-700 mb-3">
             유용성 평가
           </label>
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-x-6 gap-y-3">
             {["매우좋음", "좋음", "보통", "부족", "매우부족"].map((opt) => (
               <label
                 key={opt}
-                className="flex items-center gap-2 cursor-pointer"
+                className="flex items-center gap-2 cursor-pointer shrink-0"
               >
                 <input
                   type="radio"
@@ -231,7 +238,7 @@ export default function InternalReportEditPage() {
                   onChange={handleChange}
                   className="accent-[#519d9e] w-4 h-4"
                 />
-                <span className="text-sm text-gray-700">{opt}</span>
+                <span className="text-sm text-gray-700 font-medium">{opt}</span>
               </label>
             ))}
           </div>
@@ -241,14 +248,19 @@ export default function InternalReportEditPage() {
           <label className="block text-sm font-bold text-gray-700 mb-2">
             내용
           </label>
-          <Editor content={content} onChange={setContent} />
+          {/* 에디터가 화면 밖으로 나가지 않도록 감싸줌 */}
+          <div className="min-h-[300px] bg-white">
+            <Editor content={content} onChange={setContent} />
+          </div>
         </div>
 
         <button
           type="submit"
           disabled={isLoading}
-          className={`px-4 py-3 rounded text-white font-bold transition-colors cursor-pointer ${
-            isLoading ? "bg-gray-400" : "bg-[#519d9e] hover:bg-[#407f80]"
+          className={`w-full sm:w-auto self-end px-10 py-3 rounded text-white font-bold transition-colors shadow-sm cursor-pointer ${
+            isLoading
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-[#519d9e] hover:bg-[#407f80]"
           }`}
         >
           {isLoading ? "수정 중..." : "수정 완료"}

@@ -112,7 +112,8 @@ export default function ExternalReportWritePage() {
   };
 
   return (
-    <div className="p-6 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-6">
+    <div className="p-4 md:p-6 border rounded-xl bg-white shadow-sm max-w-4xl mx-auto mt-4 md:mt-6">
+      {/* 상단 뒤로가기 버튼 - 모바일 터치 편의성 유지 */}
       <button
         onClick={handleCancel}
         className="mb-4 px-4 py-2 border rounded hover:bg-gray-100 cursor-pointer text-sm text-gray-600 transition-colors"
@@ -120,16 +121,18 @@ export default function ExternalReportWritePage() {
         ◀ 취소하고 돌아가기
       </button>
 
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">
+      <h2 className="text-xl md:text-2xl font-bold mb-6 text-gray-800">
         외부 교육 보고서 작성
       </h2>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        {/* 1. 기본 정보 (작성자) */}
         <div className="p-4 bg-gray-50 rounded-lg border">
           <span className="block text-xs text-gray-500 mb-1">작성자</span>
           <div className="font-bold text-gray-700">{userName}</div>
         </div>
 
+        {/* 2. 교육 정보 입력 */}
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">
@@ -144,7 +147,8 @@ export default function ExternalReportWritePage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* 교육명 / 교육 장소 - 태블릿(lg) 구간까지 1열 유지하여 사이드바 공간 확보 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">
                 교육명
@@ -171,54 +175,57 @@ export default function ExternalReportWritePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* 교육 기간 / 교육 시간 - 1024px 미만 1열 처리 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">
                 교육 기간
               </label>
-              <div className="flex items-center gap-2">
+              {/* 좁은 화면에서 날짜 input이 찌그러지지 않도록 flex-wrap 및 최소너비 적용 */}
+              <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="date"
                   name="startDate"
                   value={form.startDate}
                   onChange={handleChange}
-                  className="border p-2 rounded w-full"
+                  className="border p-2 rounded flex-1 min-w-[120px] text-sm md:text-base"
                 />
-                <span>~</span>
+                <span className="shrink-0 text-gray-500">~</span>
                 <input
                   type="date"
                   name="endDate"
                   value={form.endDate}
                   onChange={handleChange}
-                  className="border p-2 rounded w-full"
+                  className="border p-2 rounded flex-1 min-w-[120px] text-sm md:text-base"
                 />
               </div>
             </div>
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">
-                교육 시간
+                교육 시간 (총 시간)
               </label>
               <input
                 type="text"
                 name="educationTime"
                 value={form.educationTime}
                 onChange={handleChange}
-                placeholder="예: 13:00 ~ 16:20, 10:00 ~ 12:00"
+                placeholder="예: 13:00 ~ 16:20"
                 className="w-full border p-2 rounded focus:ring-2 focus:ring-[#519d9e] outline-none"
               />
             </div>
           </div>
         </div>
 
-        <div className="border p-4 rounded-lg">
+        {/* 3. 유용성 평가 - flex-wrap으로 모바일 줄바꿈 대응 */}
+        <div className="border p-4 rounded-lg overflow-hidden">
           <label className="block text-sm font-bold text-gray-700 mb-3">
             업무 수행상 유용성
           </label>
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-x-6 gap-y-3">
             {["매우좋음", "좋음", "보통", "부족", "매우부족"].map((opt) => (
               <label
                 key={opt}
-                className="flex items-center gap-2 cursor-pointer"
+                className="flex items-center gap-2 cursor-pointer shrink-0"
               >
                 <input
                   type="radio"
@@ -234,25 +241,27 @@ export default function ExternalReportWritePage() {
           </div>
         </div>
 
-        <div>
+        {/* 4. 내용 (에디터) */}
+        <div className="min-h-[300px]">
           <label className="block text-sm font-bold text-gray-700 mb-2">
             교육 내용 요약
           </label>
           <Editor content={content} onChange={setContent} />
         </div>
 
+        {/* 하단 버튼 영역 */}
         <div className="flex justify-end gap-3 mt-4">
           <button
             type="button"
             onClick={handleCancel}
-            className="px-4 py-2 bg-gray-200 rounded text-gray-700 font-bold hover:bg-gray-300 transition-colors cursor-pointer"
+            className="px-4 py-2 bg-gray-200 rounded text-gray-700 font-bold hover:bg-gray-300 transition-colors cursor-pointer text-sm md:text-base"
           >
             취소
           </button>
           <button
             type="submit"
             disabled={isLoading}
-            className="px-6 py-2 bg-[#519d9e] text-white rounded font-bold hover:bg-[#407f80] transition-colors shadow-md cursor-pointer"
+            className="px-6 py-2 bg-[#519d9e] text-white rounded font-bold hover:bg-[#407f80] transition-colors shadow-md cursor-pointer text-sm md:text-base disabled:bg-gray-400"
           >
             {isLoading ? "저장 중..." : "작성 완료"}
           </button>
