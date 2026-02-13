@@ -262,32 +262,47 @@ export default function ApprovalDetailPage() {
     if (!element) return;
 
     try {
+      // 🚨 필터 함수: 'exclude-from-pdf' 클래스가 있는 태그는 PDF에서 제외함
+      const filter = (node: HTMLElement) => {
+        if (node.classList?.contains("exclude-from-pdf")) return false;
+        return true;
+      };
+
       // 1. 이미지 변환
       const imgData = await toPng(element, {
-        quality: 0.95,
+        quality: 1,
+        pixelRatio: 2,
         backgroundColor: "white",
+        filter: filter,
+        style: {
+          borderRadius: "0",
+          boxShadow: "none",
+          border: "none",
+        },
       });
 
       // 2. PDF 생성 (A4)
       const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
       const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
-
       const imgProps = pdf.getImageProperties(imgData);
 
-      // 3. 이미지 사이즈 계산 (기본: 너비 기준 꽉 채우기)
-      let imgWidth = pdfWidth;
-      let imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      // 210mm 꽉 채우지 말고 좌우 5mm 정도 여유를 줍니다.
+      const margin = 5;
+      const usableWidth = pdfWidth - margin * 2;
+      let imgWidth = usableWidth;
+      let imgHeight = (imgProps.height * usableWidth) / imgProps.width;
 
-      // 🚨 핵심: 만약 높이가 A4보다 길다면? -> 높이 기준으로 다시 축소!
+      // 높이가 A4 초과 시 축소 로직 유지
       if (imgHeight > pdfHeight) {
+        // 상하 여유 20mm
         imgHeight = pdfHeight;
-        imgWidth = (imgProps.width * pdfHeight) / imgProps.height;
+        imgWidth = (imgProps.width * imgHeight) / imgProps.height;
       }
 
-      // 4. 가로 중앙 정렬 (너비가 줄어들었을 경우를 대비)
+      // 3. 중앙 정렬 위치 계산
       const x = (pdfWidth - imgWidth) / 2;
-      const y = 0; // 상단부터 시작
+      const y = 10; // 상단에서 10mm 띄움
 
       // 5. 페이지 추가 없이 한 번에 그리기
       pdf.addImage(imgData, "PNG", x, y, imgWidth, imgHeight);
@@ -302,6 +317,7 @@ export default function ApprovalDetailPage() {
       alert("PDF 변환 중 오류가 발생했습니다.");
     }
   };
+
   if (isLoading) return <div className="p-10 text-center">로딩 중...</div>;
   if (!approval)
     return <div className="p-10 text-center">문서를 찾을 수 없습니다.</div>;
@@ -374,7 +390,7 @@ export default function ApprovalDetailPage() {
   // [2] 렌더링 헬퍼: 구매 품의서 뷰
   // ----------------------------------------------------------------
   const renderPurchaseView = () => (
-    <div ref={pdfRef} className="space-y-8 text-sm">
+    <div className="space-y-8 text-sm">
       {/* Table 1: 기본 정보 */}
       <table className="w-full border-collapse border border-gray-300">
         <tbody>
@@ -611,7 +627,7 @@ export default function ApprovalDetailPage() {
 
       {/* 첨부파일 영역 */}
       {approval.attachments && approval.attachments.length > 0 && (
-        <div className="mt-6 border p-4 rounded-lg bg-gray-50">
+        <div className="mt-6 border p-4 rounded-lg bg-gray-50 exclude-from-pdf">
           <h3 className="font-bold text-gray-700 mb-3 text-sm">📎 첨부파일</h3>
           <ul className="space-y-2">
             {approval.attachments.map((file, idx) => (
@@ -956,215 +972,227 @@ export default function ApprovalDetailPage() {
 
   return (
     <div className="p-8 border rounded-xl bg-white shadow-sm w-5xl mx-auto mt-6 mb-20">
-      {/* 1. 헤더 */}
-      <div className="flex justify-between items-center mb-6 border-b pb-4">
-        <h2 className="text-2xl font-bold text-gray-800">{pageTitle}</h2>
-        <div className="flex gap-2">
-          <Link
-            href={listPath}
-            prefetch={false}
-            className="px-3 py-1.5 border rounded hover:bg-gray-100 text-sm flex items-center"
-          >
-            목록으로
-          </Link>
-          {userName === approval.userName && (
+      {/* 실제 PDF로 캡처할 내용물 (여기서부터 ref 시작) */}
+      {/* p-2 정도의 여백을 주어 테이블 테두리가 짤리지 않게 보호합니다. */}
+      <div ref={pdfRef} className="bg-white p-2">
+        {/* 1. 헤더 */}
+        <div className="flex justify-between items-center mb-6 border-b pb-4 exclude-from-pdf">
+          <h2 className="text-2xl font-bold text-gray-800">{pageTitle}</h2>
+          <div className="flex gap-2 exclude-from-pdf">
             <Link
-              href={editPath}
+              href={listPath}
               prefetch={false}
-              className="px-3 py-1.5 bg-[#519d9e] text-white rounded hover:bg-[#407f80] text-sm flex items-center"
+              className="px-3 py-1.5 border rounded hover:bg-gray-100 text-sm flex items-center "
             >
-              수정
+              목록으로
             </Link>
-          )}
-        </div>
-      </div>
-
-      {/* 타이틀 및 결재선 영역 */}
-      <div className="mb-6 flex flex-col md:flex-row justify-between items-start gap-4">
-        {/* 왼쪽: 제목 및 정보 */}
-        <div className="flex-1">
-          <div className="flex items-center flex-wrap gap-2 mb-2">
-            <h3 className="text-xl font-semibold text-gray-700 flex items-center">
-              {/* 통합 외근/출장 문서일 경우에만 배지 표시 */}
-              {approval.approvalType === "integrated_outside" && (
-                <span
-                  className={`mr-2 font-bold whitespace-nowrap ${
-                    // 보고서 타입(_report)이면 보라색, 아니면 청록색
-                    approval.workType?.includes("report")
-                      ? "text-purple-600"
-                      : "text-[#519d9e]"
-                  }`}
-                >
-                  {/* 4가지 workType에 따라 정확한 말머리 표시 */}
-                  {approval.workType === "outside" && "[외근]"}
-                  {approval.workType === "trip" && "[출장]"}
-                  {approval.workType === "outside_report" && "[외근보고]"}
-                  {approval.workType === "trip_report" && "[출장보고]"}
-                </span>
-              )}
-              {approval.title}
-            </h3>
+            {userName === approval.userName && (
+              <Link
+                href={editPath}
+                prefetch={false}
+                className="px-3 py-1.5 bg-[#519d9e] text-white rounded hover:bg-[#407f80] text-sm flex items-center"
+              >
+                수정
+              </Link>
+            )}
           </div>
-
-          <p className="text-sm text-gray-500">
-            {/* 날짜 표시 로직 */}
-            {approval.approvalType === "integrated_outside" &&
-            approval.implementDate
-              ? `날짜: ${new Date(approval.implementDate).toLocaleDateString()}`
-              : `작성일: ${new Date(approval.createdAt).toLocaleDateString()}`}
-            <span className="mx-2">|</span>
-            작성자:{" "}
-            <span className="font-medium text-gray-700">
-              {approval.userName}
-            </span>
-          </p>
         </div>
 
-        {/* ✅ [오른쪽 수정] PDF 버튼과 결재 라인을 세로로 배치 */}
-        <div className="flex-shrink-0 flex flex-col items-end gap-3">
-          {/* 🖨️ PDF 버튼 (구매/판매 품의서일 때만 표시) */}
-          {(approvalType === "purchase" || approvalType === "sales") && (
-            <button
-              onClick={handleDownloadPdf}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 text-white rounded hover:bg-gray-700 text-xs font-bold transition-colors shadow-sm cursor-pointer"
-            >
-              <span>📥</span> PDF 저장
-            </button>
-          )}
-
-          {/* 결재 라인 박스 */}
-          {renderApprovalLineBox()}
-        </div>
-      </div>
-
-      {/* 2. 상세 정보 렌더링 (타입 분기) */}
-      {approval.approvalType === "integrated_outside" ? (
-        renderIntegratedView()
-      ) : approvalType === "vehicle" ? (
-        // 🚗 차량 신청서 뷰
-        <>
-          <table className="w-full border-collapse border border-gray-300 mb-8 text-sm">
-            <tbody>
-              <tr>
-                <th className="bg-gray-100 border p-3 w-32">신청자</th>
-                <td className="border p-3">{approval.userName}</td>
-                <th className="bg-gray-100 border p-3 w-32">소속</th>
-                <td className="border p-3">{approval.department}</td>
-              </tr>
-              <tr>
-                <th className="bg-gray-100 border p-3 w-32">연락처</th>
-                <td className="border p-3">{approval.contact || "-"}</td>
-                <th className="bg-gray-100 border p-3 w-32">구분</th>
-                <td className="border p-3">
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={approval.isExternalWork}
-                        readOnly
-                        className="accent-[#519d9e]"
-                      />{" "}
-                      외근
-                    </label>
-                    <label className="flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={approval.isVehicleUse}
-                        readOnly
-                        className="accent-[#519d9e]"
-                      />{" "}
-                      법인차량
-                    </label>
-                    <label className="flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={approval.isPersonalVehicle}
-                        readOnly
-                        className="accent-[#519d9e]"
-                      />{" "}
-                      개인차량
-                    </label>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <th className="bg-gray-100 border p-3">이용차량</th>
-                <td className="border p-3" colSpan={3}>
-                  {approval.vehicleModel || "-"}
-                </td>
-              </tr>
-              <tr>
-                <th className="bg-gray-100 border p-3">시행일자</th>
-                <td className="border p-3">{approval.implementDate || "-"}</td>
-                <th className="bg-gray-100 border p-3">외근/차량 사용일시</th>
-                <td className="border p-3">{approval.usagePeriod || "-"}</td>
-              </tr>
-              <tr>
-                <th className="bg-gray-100 border p-3">사용목적</th>
-                <td className="border p-3" colSpan={3}>
-                  {approval.purpose || approval.title}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div className="mb-4">
-            <h3 className="text-lg font-bold mb-2 border-l-4 border-[#519d9e] pl-2">
-              상세 내용
-            </h3>
-            <div
-              className="prose-editor min-h-[150px] p-4 bg-gray-50 rounded-lg border"
-              dangerouslySetInnerHTML={{ __html: approval.content }}
-            />
-          </div>
-
-          <div className="border rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
-            <h4 className="font-bold mb-2">📌 법인차량 이용수칙</h4>
-            <ul className="list-decimal list-inside space-y-1 text-[14px]">
-              <li>개인적인 목적으로 이용 신청 불가 (*행사계획서 별첨)</li>
-              <li>
-                이용에 따른 유류비는 법인카드 사용 (주유한 영수증 보관
-                필수/주유량과 단가 확인)
-              </li>
-              <li>
-                운전자는 만 26세 이상 운전면허 소지자여야 함 (자동차보험
-                연령한정특약 조건)
-              </li>
-              <li>운전자 면허증 사본 제출</li>
-              <li>차량운행일지 반드시 작성 (차량에 비치되어 있음)</li>
-              <li>차량은 이용자가 직접 수령, 청소 완료 후 직접 반납</li>
-              <li>
-                사고 발생 시 법인(070-8255-6004)에 보고 후 이용자가 처리비용
-                부담
-              </li>
-              <li>
-                도로교통법 등의 위반으로 인한 과태료 및 기타 법적인 책임은
-                이용자임을 유의
-              </li>
-              <li>
-                기타 사고 및 고장 발생 시 이용자가 수리비용과 기타정비에 대한
-                책임을 짐
-              </li>
-              <li>위의 사항은 결재 후 임의로 변경할 수 없음</li>
-            </ul>
-            <div className="mt-4 flex items-center gap-2 border-t pt-2">
-              <p>※ 위 작성자는 법인차량 이용수칙을 확인하고 동의하였습니다.</p>
+        {/* 타이틀 및 결재선 영역 */}
+        <div className="mb-6 flex flex-col md:flex-row justify-between items-start gap-4">
+          {/* 왼쪽: 제목 및 정보 */}
+          <div className="flex-1">
+            <div className="flex items-center flex-wrap gap-2 mb-2">
+              <h3 className="text-xl font-semibold text-gray-700 flex items-center">
+                {/* 통합 외근/출장 문서일 경우에만 배지 표시 */}
+                {approval.approvalType === "integrated_outside" && (
+                  <span
+                    className={`mr-2 font-bold whitespace-nowrap ${
+                      // 보고서 타입(_report)이면 보라색, 아니면 청록색
+                      approval.workType?.includes("report")
+                        ? "text-purple-600"
+                        : "text-[#519d9e]"
+                    }`}
+                  >
+                    {/* 4가지 workType에 따라 정확한 말머리 표시 */}
+                    {approval.workType === "outside" && "[외근]"}
+                    {approval.workType === "trip" && "[출장]"}
+                    {approval.workType === "outside_report" && "[외근보고]"}
+                    {approval.workType === "trip_report" && "[출장보고]"}
+                  </span>
+                )}
+                {approval.title}
+              </h3>
             </div>
-            <p className="text-right mt-2 text-[14px] text-gray-700">
-              신청인: {approval.userName}
+
+            <p className="text-sm text-gray-500">
+              {/* 날짜 표시 로직 */}
+              {approval.approvalType === "integrated_outside" &&
+              approval.implementDate
+                ? `날짜: ${new Date(
+                    approval.implementDate
+                  ).toLocaleDateString()}`
+                : `작성일: ${new Date(
+                    approval.createdAt
+                  ).toLocaleDateString()}`}
+              <span className="mx-2">|</span>
+              작성자:{" "}
+              <span className="font-medium text-gray-700">
+                {approval.userName}
+              </span>
             </p>
           </div>
-        </>
-      ) : (
-        // 🛒 구매 품의서 뷰
-        renderPurchaseView()
-      )}
+
+          {/* ✅ [오른쪽 수정] PDF 버튼과 결재 라인을 세로로 배치 */}
+          <div className="flex-shrink-0 flex flex-col items-end gap-3">
+            {/* 🖨️ PDF 버튼 (구매/판매 품의서일 때만 표시) */}
+            {(approvalType === "purchase" || approvalType === "sales") && (
+              <button
+                onClick={handleDownloadPdf}
+                className="exclude-from-pdf flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 text-white rounded hover:bg-gray-700 text-xs font-bold transition-colors shadow-sm cursor-pointer"
+              >
+                <span>📥</span> PDF 저장
+              </button>
+            )}
+
+            {/* 결재 라인 박스 */}
+            {renderApprovalLineBox()}
+          </div>
+        </div>
+
+        {/* 2. 상세 정보 렌더링 (타입 분기) */}
+        {approval.approvalType === "integrated_outside" ? (
+          renderIntegratedView()
+        ) : approvalType === "vehicle" ? (
+          // 🚗 차량 신청서 뷰
+          <>
+            <table className="w-full border-collapse border border-gray-300 mb-8 text-sm">
+              <tbody>
+                <tr>
+                  <th className="bg-gray-100 border p-3 w-32">신청자</th>
+                  <td className="border p-3">{approval.userName}</td>
+                  <th className="bg-gray-100 border p-3 w-32">소속</th>
+                  <td className="border p-3">{approval.department}</td>
+                </tr>
+                <tr>
+                  <th className="bg-gray-100 border p-3 w-32">연락처</th>
+                  <td className="border p-3">{approval.contact || "-"}</td>
+                  <th className="bg-gray-100 border p-3 w-32">구분</th>
+                  <td className="border p-3">
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-1">
+                        <input
+                          type="checkbox"
+                          checked={approval.isExternalWork}
+                          readOnly
+                          className="accent-[#519d9e]"
+                        />{" "}
+                        외근
+                      </label>
+                      <label className="flex items-center gap-1">
+                        <input
+                          type="checkbox"
+                          checked={approval.isVehicleUse}
+                          readOnly
+                          className="accent-[#519d9e]"
+                        />{" "}
+                        법인차량
+                      </label>
+                      <label className="flex items-center gap-1">
+                        <input
+                          type="checkbox"
+                          checked={approval.isPersonalVehicle}
+                          readOnly
+                          className="accent-[#519d9e]"
+                        />{" "}
+                        개인차량
+                      </label>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <th className="bg-gray-100 border p-3">이용차량</th>
+                  <td className="border p-3" colSpan={3}>
+                    {approval.vehicleModel || "-"}
+                  </td>
+                </tr>
+                <tr>
+                  <th className="bg-gray-100 border p-3">시행일자</th>
+                  <td className="border p-3">
+                    {approval.implementDate || "-"}
+                  </td>
+                  <th className="bg-gray-100 border p-3">외근/차량 사용일시</th>
+                  <td className="border p-3">{approval.usagePeriod || "-"}</td>
+                </tr>
+                <tr>
+                  <th className="bg-gray-100 border p-3">사용목적</th>
+                  <td className="border p-3" colSpan={3}>
+                    {approval.purpose || approval.title}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div className="mb-4">
+              <h3 className="text-lg font-bold mb-2 border-l-4 border-[#519d9e] pl-2">
+                상세 내용
+              </h3>
+              <div
+                className="prose-editor min-h-[150px] p-4 bg-gray-50 rounded-lg border"
+                dangerouslySetInnerHTML={{ __html: approval.content }}
+              />
+            </div>
+
+            <div className="border rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
+              <h4 className="font-bold mb-2">📌 법인차량 이용수칙</h4>
+              <ul className="list-decimal list-inside space-y-1 text-[14px]">
+                <li>개인적인 목적으로 이용 신청 불가 (*행사계획서 별첨)</li>
+                <li>
+                  이용에 따른 유류비는 법인카드 사용 (주유한 영수증 보관
+                  필수/주유량과 단가 확인)
+                </li>
+                <li>
+                  운전자는 만 26세 이상 운전면허 소지자여야 함 (자동차보험
+                  연령한정특약 조건)
+                </li>
+                <li>운전자 면허증 사본 제출</li>
+                <li>차량운행일지 반드시 작성 (차량에 비치되어 있음)</li>
+                <li>차량은 이용자가 직접 수령, 청소 완료 후 직접 반납</li>
+                <li>
+                  사고 발생 시 법인(070-8255-6004)에 보고 후 이용자가 처리비용
+                  부담
+                </li>
+                <li>
+                  도로교통법 등의 위반으로 인한 과태료 및 기타 법적인 책임은
+                  이용자임을 유의
+                </li>
+                <li>
+                  기타 사고 및 고장 발생 시 이용자가 수리비용과 기타정비에 대한
+                  책임을 짐
+                </li>
+                <li>위의 사항은 결재 후 임의로 변경할 수 없음</li>
+              </ul>
+              <div className="mt-4 flex items-center gap-2 border-t pt-2">
+                <p>
+                  ※ 위 작성자는 법인차량 이용수칙을 확인하고 동의하였습니다.
+                </p>
+              </div>
+              <p className="text-right mt-2 text-[14px] text-gray-700">
+                신청인: {approval.userName}
+              </p>
+            </div>
+          </>
+        ) : (
+          // 🛒 구매 품의서 뷰
+          renderPurchaseView()
+        )}
+      </div>
 
       {/* ---------------------------------------------------------------- */}
       {/* ✅ [추가] 결재 진행 이력 및 코멘트 표시 영역 */}
       {/* ---------------------------------------------------------------- */}
       {approval.approvalHistory && approval.approvalHistory.length > 0 && (
-        <div className="mt-12 border-t border-gray-200">
+        <div className="mt-12 border-t border-gray-200 exclude-from-pdf">
           <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
             📋 결재 진행 이력
           </h3>
@@ -1222,7 +1250,7 @@ export default function ApprovalDetailPage() {
               return (
                 <div
                   key={idx}
-                  className="bg-gray-50 border rounded-lg p-4 shadow-sm"
+                  className="bg-gray-50 border rounded-lg p-4 shadow-sm exclude-from-pdf"
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2">
@@ -1262,7 +1290,7 @@ export default function ApprovalDetailPage() {
 
       {/* 3. 결재 처리 (권한 있을 때만) */}
       {canApprove && (
-        <div className="mt-12 pt-8 border-t border-gray-200">
+        <div className="mt-12 pt-8 border-t border-gray-200 exclude-from-pdf">
           <h3 className="text-lg font-bold text-gray-800 mb-4">✅ 결재 처리</h3>
           <div className="bg-gray-50 p-6 rounded-xl border">
             <label className="block text-gray-700 font-bold mb-2 text-sm">

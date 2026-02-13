@@ -223,7 +223,7 @@ export async function POST(req: Request) {
       department,
       approvers: structuredApprovers,
       status: "1차 결재 대기",
-      createdAt: createdAt || FieldValue.serverTimestamp(),
+      createdAt: createdAt || Date.now(),
       attachments: attachments || [],
       resultReport: "",
       approvalHistory: [], // 초기화
