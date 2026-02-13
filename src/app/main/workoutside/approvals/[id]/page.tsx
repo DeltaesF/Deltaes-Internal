@@ -271,13 +271,13 @@ export default function ApprovalDetailPage() {
       // 1. 이미지 변환
       const imgData = await toPng(element, {
         quality: 1,
-        pixelRatio: 2,
         backgroundColor: "white",
         filter: filter,
         style: {
           borderRadius: "0",
           boxShadow: "none",
           border: "none",
+          fontSize: "1.2rem",
         },
       });
 
@@ -288,7 +288,7 @@ export default function ApprovalDetailPage() {
       const imgProps = pdf.getImageProperties(imgData);
 
       // 210mm 꽉 채우지 말고 좌우 5mm 정도 여유를 줍니다.
-      const margin = 5;
+      const margin = 10;
       const usableWidth = pdfWidth - margin * 2;
       let imgWidth = usableWidth;
       let imgHeight = (imgProps.height * usableWidth) / imgProps.width;
@@ -302,7 +302,7 @@ export default function ApprovalDetailPage() {
 
       // 3. 중앙 정렬 위치 계산
       const x = (pdfWidth - imgWidth) / 2;
-      const y = 10; // 상단에서 10mm 띄움
+      const y = 20; // 상단에서 10mm 띄움
 
       // 5. 페이지 추가 없이 한 번에 그리기
       pdf.addImage(imgData, "PNG", x, y, imgWidth, imgHeight);
