@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 
@@ -24,7 +24,8 @@ const fetchReports = async (
   page: number,
   limit: number,
   userName: string,
-  role: string
+  role: string,
+  filterName: string
 ) => {
   const res = await fetch("/api/approvals/list", {
     method: "POST",
@@ -35,6 +36,7 @@ const fetchReports = async (
       userName,
       role,
       approvalType: "sales", // ✅ 판매 품의서 필터링
+      filterName,
     }),
   });
   if (!res.ok) throw new Error("Failed to fetch");
@@ -45,13 +47,21 @@ function SalesReportContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { userName, role } = useSelector((state: RootState) => state.auth);
+  // ✅ 필터 상태 추가 (기본값: "all")
+  const [filterName, setFilterName] = useState("all");
   const currentPage = Number(searchParams.get("page")) || 1;
   const ITEMS_PER_PAGE = 12;
 
   const { data, isLoading } = useQuery<ApiResponse>({
-    queryKey: ["approvals", "sales", currentPage, userName, role],
+    queryKey: ["approvals", "sales", currentPage, userName, role, filterName],
     queryFn: () =>
-      fetchReports(currentPage, ITEMS_PER_PAGE, userName || "", role || "user"),
+      fetchReports(
+        currentPage,
+        ITEMS_PER_PAGE,
+        userName || "",
+        role || "user",
+        filterName
+      ),
     placeholderData: (prev) => prev,
     enabled: !!userName,
     refetchOnMount: true,
@@ -76,13 +86,30 @@ function SalesReportContent() {
       <div className="bg-white border rounded-2xl shadow-sm p-6">
         <div className="flex justify-between items-center mb-2">
           <h2 className="text-2xl font-bold text-gray-800">판매 품의서 목록</h2>
-          <Link
-            href="/main/workoutside/approvals/sales/write"
-            prefetch={false}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-bold text-sm"
-          >
-            품의서 작성 ✎
-          </Link>
+          {/* ✅ 필터와 버튼을 하나의 그룹으로 묶음 */}
+          <div className="flex items-center gap-2">
+            <select
+              value={filterName}
+              onChange={(e) => {
+                setFilterName(e.target.value);
+                router.push(`?page=1`);
+              }}
+              className="px-3 py-2 border rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-indigo-200 outline-none cursor-pointer"
+            >
+              <option value="all">전체</option>
+              <option value="정진환 영업대표 ">정진환 영업대표</option>
+              <option value="이설 영업대표">이설 영업대표</option>
+              <option value="박병우 영업본부장">박병우 영업본부장</option>
+            </select>
+
+            <Link
+              href="/main/workoutside/approvals/sales/write"
+              prefetch={false}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-bold text-sm whitespace-nowrap"
+            >
+              품의서 작성 ✎
+            </Link>
+          </div>
         </div>
 
         {/* 리스트 테이블 (구매와 동일) */}

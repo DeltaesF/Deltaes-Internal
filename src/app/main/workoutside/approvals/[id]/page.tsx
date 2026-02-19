@@ -491,10 +491,10 @@ export default function ApprovalDetailPage() {
         <table className="w-full border-collapse border border-gray-300 text-center">
           <thead className="bg-gray-100">
             <tr>
-              <th className="border p-3 w-32">구분</th>
-              <th className="border p-3">원안</th>
-              <th className="border p-3">수정</th>
-              <th className="border p-3">비고 (통합)</th>
+              <th className="border p-3 w-[15%]">구분</th>
+              <th className="border p-3 w-[20%]">원안</th>
+              <th className="border p-3 w-[20%]">수정</th>
+              <th className="border p-3 w-[45%]">비고 (통합)</th>
             </tr>
           </thead>
           <tbody>

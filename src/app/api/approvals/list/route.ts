@@ -49,6 +49,7 @@ export async function POST(req: Request) {
       approvalType,
       userName,
       role,
+      filterName,
     } = await req.json();
 
     // ----------------------------------------------------------------
@@ -93,7 +94,6 @@ export async function POST(req: Request) {
     // ----------------------------------------------------------------
     // [3] 데이터 병렬 조회 (메모리 병합)
     // ----------------------------------------------------------------
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const promises: Promise<ApprovalBaseData[]>[] = [];
 
     // (A) 품의서 가져오기
@@ -113,8 +113,26 @@ export async function POST(req: Request) {
           // ✅ [권한 필터링 추가]
           // admin이나 supervisor가 아니면, 작성자(userName)가 본인인 것만 남김
           .filter((item) => {
-            if (role === "admin" || role === "supervisor") return true;
-            return item.userName === userName;
+            // 1️⃣ 권한 필터링 (기존 로직 유지)
+            const isPublicType = [
+              "integrated_outside",
+              "vehicle",
+              "business_trip",
+            ].includes(item.approvalType);
+            const isAuthorized =
+              isPublicType ||
+              role === "admin" ||
+              role === "supervisor" ||
+              item.userName === userName;
+
+            if (!isAuthorized) return false;
+
+            // 2️⃣ ✅ [추가] 담당자 필터링 (filterName이 "all"이 아닐 경우)
+            if (filterName && filterName !== "all") {
+              return item.userName?.trim() === filterName.trim();
+            }
+
+            return true;
           })
       )
     );
@@ -127,24 +145,17 @@ export async function POST(req: Request) {
 
       promises.push(
         reportsQuery.get().then((snap) =>
-          snap.docs
-            .map((doc) => {
-              const data = doc.data();
-              return {
-                ...data,
-                id: doc.id,
-                userName: data.userName || "", // 확실하게 매핑
-                approvalType: "business_trip",
-                createdAt: toMillis(data.createdAt),
-                implementDate: data.implementDate || null,
-              } as ApprovalBaseData;
-            })
-            // ✅ [권한 필터링 추가]
-            // admin이나 supervisor가 아니면, 작성자(userName)가 본인인 것만 남김
-            .filter((item) => {
-              if (role === "admin" || role === "supervisor") return true;
-              return item.userName === userName;
-            })
+          snap.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              ...data,
+              id: doc.id,
+              userName: data.userName || "", // 확실하게 매핑
+              approvalType: "business_trip",
+              createdAt: toMillis(data.createdAt),
+              implementDate: data.implementDate || null,
+            } as ApprovalBaseData;
+          })
         )
       );
     }

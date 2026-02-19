@@ -146,19 +146,17 @@ function AuthorizedContent({
 
   // 날짜 계산 로직
   const weeklyDate = new Date(weekly.createdAt);
-  const dayOfWeek = weeklyDate.getDay();
+  const dayOfWeek = weeklyDate.getDay(); // 0(일) ~ 6(토)
 
-  const targetDate = new Date(weeklyDate);
-  if (dayOfWeek <= 2) {
-    targetDate.setDate(targetDate.getDate() - 7);
-  }
+  // 1. 작성일이 포함된 주의 '월요일'을 먼저 구합니다.
+  const thisMonday = new Date(weeklyDate);
+  const diffToThisMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // 일요일이면 -6, 그외는 1-요일
+  thisMonday.setDate(weeklyDate.getDate() + diffToThisMon);
+  thisMonday.setHours(0, 0, 0, 0);
 
-  const targetDay = targetDate.getDay();
-  const diffToMon =
-    targetDate.getDate() - targetDay + (targetDay === 0 ? -6 : 1);
-  const monday = new Date(targetDate);
-  monday.setDate(diffToMon);
-  monday.setHours(0, 0, 0, 0);
+  // 2. 주간 보고서는 언제나 '직전 주'의 데이터를 보여줘야 하므로 무조건 7일을 뺍니다.
+  const monday = new Date(thisMonday);
+  monday.setDate(thisMonday.getDate() - 7);
 
   const friday = new Date(monday);
   friday.setDate(monday.getDate() + 4);
