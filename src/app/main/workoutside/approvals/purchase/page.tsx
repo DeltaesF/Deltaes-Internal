@@ -22,7 +22,12 @@ interface ApiResponse {
   totalCount: number;
 }
 
-const fetchReports = async (page: number, limit: number, userName: string) => {
+const fetchReports = async (
+  page: number,
+  limit: number,
+  userName: string,
+  role: string
+) => {
   const res = await fetch("/api/approvals/list", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -30,6 +35,7 @@ const fetchReports = async (page: number, limit: number, userName: string) => {
       page,
       limit,
       userName, // API 호출을 위해 추가
+      role,
       approvalType: "purchase", // purchase 타입으로 요청
     }),
   });
@@ -40,14 +46,15 @@ const fetchReports = async (page: number, limit: number, userName: string) => {
 function PurchaseReportContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { userName } = useSelector((state: RootState) => state.auth);
+  const { userName, role } = useSelector((state: RootState) => state.auth);
 
   const currentPage = Number(searchParams.get("page")) || 1;
   const ITEMS_PER_PAGE = 12; // ✅ 읽기 비용 최적화
 
   const { data, isLoading } = useQuery<ApiResponse>({
-    queryKey: ["approvals", "purchase", currentPage, userName],
-    queryFn: () => fetchReports(currentPage, ITEMS_PER_PAGE, userName || ""),
+    queryKey: ["approvals", "purchase", currentPage, userName, role],
+    queryFn: () =>
+      fetchReports(currentPage, ITEMS_PER_PAGE, userName || "", role || "user"),
     placeholderData: (prev) => prev, // ✅ 로딩 중 이전 데이터 유지
     enabled: !!userName,
     refetchOnMount: true,

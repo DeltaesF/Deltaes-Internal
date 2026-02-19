@@ -1,9 +1,11 @@
 "use client";
 
+import { RootState } from "@/store";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { useSelector } from "react-redux";
 
 // 타입 정의
 interface ReportItem {
@@ -24,7 +26,12 @@ interface ApiResponse {
   totalCount: number;
 }
 
-const fetchReports = async (page: number, limit: number) => {
+const fetchReports = async (
+  page: number,
+  limit: number,
+  userName: string,
+  role: string
+) => {
   const res = await fetch("/api/approvals/list", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -33,6 +40,8 @@ const fetchReports = async (page: number, limit: number) => {
       limit,
       // ✅ [핵심 수정] 통합 타입('integrated_outside')을 포함하여 조회
       approvalType: ["integrated_outside", "vehicle", "business_trip"],
+      userName,
+      role,
     }),
   });
   if (!res.ok) throw new Error("Failed to fetch reports");
@@ -43,12 +52,15 @@ function VehicleReportContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const { userName, role } = useSelector((state: RootState) => state.auth);
+
   const currentPage = Number(searchParams.get("page")) || 1;
   const ITEMS_PER_PAGE = 12;
 
   const { data, isLoading } = useQuery<ApiResponse>({
-    queryKey: ["approvals", "vehicle_integrated", currentPage], // 쿼리 키 변경
-    queryFn: () => fetchReports(currentPage, ITEMS_PER_PAGE),
+    queryKey: ["approvals", "vehicle_integrated", currentPage, userName, role], // 키 변경
+    queryFn: () =>
+      fetchReports(currentPage, ITEMS_PER_PAGE, userName || "", role || "user"),
     placeholderData: (prev) => prev,
     refetchOnMount: true,
   });

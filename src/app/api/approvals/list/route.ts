@@ -7,6 +7,18 @@ import {
   DocumentData,
 } from "firebase-admin/firestore";
 
+// ✅ 인터페이스 정의: any를 대체하기 위해 공통 필드를 정의합니다.
+interface ApprovalBaseData {
+  id: string;
+  userName: string; // 👈 필수 필드로 지정
+  title: string;
+  status: string;
+  createdAt: number;
+  approvalType: string;
+  implementDate?: string | null;
+  [key: string]: unknown; // 기타 동적 필드 허용
+}
+
 if (!getApps().length) {
   initializeApp({
     credential: cert({
@@ -31,7 +43,13 @@ const toMillis = (val: unknown): number => {
 
 export async function POST(req: Request) {
   try {
-    const { page = 1, limit = 12, approvalType } = await req.json();
+    const {
+      page = 1,
+      limit = 12,
+      approvalType,
+      userName,
+      role,
+    } = await req.json();
 
     // ----------------------------------------------------------------
     // [1] userApprovals 쿼리 (품의서/신청서)
@@ -76,21 +94,28 @@ export async function POST(req: Request) {
     // [3] 데이터 병렬 조회 (메모리 병합)
     // ----------------------------------------------------------------
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const promises: Promise<any[]>[] = [];
+    const promises: Promise<ApprovalBaseData[]>[] = [];
 
     // (A) 품의서 가져오기
     promises.push(
       approvalsQuery.get().then((snap) =>
-        snap.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            createdAt: toMillis(data.createdAt),
-            // implementDate가 있으면 가져오고 없으면 null
-            implementDate: data.implementDate || null,
-          };
-        })
+        snap.docs
+          .map((doc) => {
+            const data = doc.data();
+            return {
+              ...data,
+              id: doc.id,
+              userName: data.userName || "", // 확실하게 매핑
+              createdAt: toMillis(data.createdAt),
+              implementDate: data.implementDate || null,
+            } as ApprovalBaseData; // ✅ 타입 단언 (Assertion)
+          })
+          // ✅ [권한 필터링 추가]
+          // admin이나 supervisor가 아니면, 작성자(userName)가 본인인 것만 남김
+          .filter((item) => {
+            if (role === "admin" || role === "supervisor") return true;
+            return item.userName === userName;
+          })
       )
     );
 
@@ -102,18 +127,24 @@ export async function POST(req: Request) {
 
       promises.push(
         reportsQuery.get().then((snap) =>
-          snap.docs.map((doc) => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              ...data,
-              // 프론트엔드 구분을 위해 approvalType 매핑
-              approvalType: "business_trip",
-              createdAt: toMillis(data.createdAt),
-              // 보고서는 tripPeriod 등을 implementDate 처럼 쓸 수도 있음 (필요 시 로직 추가)
-              implementDate: data.implementDate || null,
-            };
-          })
+          snap.docs
+            .map((doc) => {
+              const data = doc.data();
+              return {
+                ...data,
+                id: doc.id,
+                userName: data.userName || "", // 확실하게 매핑
+                approvalType: "business_trip",
+                createdAt: toMillis(data.createdAt),
+                implementDate: data.implementDate || null,
+              } as ApprovalBaseData;
+            })
+            // ✅ [권한 필터링 추가]
+            // admin이나 supervisor가 아니면, 작성자(userName)가 본인인 것만 남김
+            .filter((item) => {
+              if (role === "admin" || role === "supervisor") return true;
+              return item.userName === userName;
+            })
         )
       );
     }

@@ -278,7 +278,7 @@ export default function ApprovalDetailPage() {
           borderRadius: "0",
           boxShadow: "none",
           border: "none",
-          fontSize: "1.2rem",
+          fontSize: "1.4rem",
         },
       });
 
@@ -396,16 +396,13 @@ export default function ApprovalDetailPage() {
   // [2] 렌더링 헬퍼: 구매 품의서 뷰
   // ----------------------------------------------------------------
   const renderPurchaseView = () => (
-    <div className="space-y-8 text-sm">
+    <div className="space-y-8 text-[20px]">
       {/* Table 1: 기본 정보 */}
       <table className="w-full border-collapse border border-gray-300">
         <tbody>
           <tr>
             <th className="bg-gray-100 border p-3 w-32">일련번호</th>
-            <td
-              className="border p-3 font-mono text-xs text-gray-600"
-              colSpan={3}
-            >
+            <td className="border p-3 font-mono" colSpan={3}>
               {approval.serialNumber}
             </td>
           </tr>
@@ -441,7 +438,7 @@ export default function ApprovalDetailPage() {
             <th className="bg-gray-100 border p-3">납품일</th>
             <td className="border p-3">
               <div className="mb-1">{approval.deliveryDate}</div>
-              <div className="text-xs">
+              <div className="text-sm">
                 수금 미결:{" "}
                 <span className="font-bold">{approval.paymentPending}</span>
                 {approval.paymentPending === "유" &&
@@ -453,7 +450,7 @@ export default function ApprovalDetailPage() {
             <th className="bg-gray-100 border p-3">청구일</th>
             <td className="border p-3">
               <div className="mb-1">{approval.billingDate}</div>
-              <div className="text-xs">
+              <div className="text-sm">
                 현금 수금:{" "}
                 <span className="font-bold">{approval.cashCollection}</span> 후{" "}
                 {approval.cashCollectionDays}일
@@ -464,7 +461,7 @@ export default function ApprovalDetailPage() {
             <th className="bg-gray-100 border p-3">수금일</th>
             <td className="border p-3">
               <div className="mb-1">{approval.collectionDate}</div>
-              <div className="text-xs">
+              <div className="text-sm">
                 어음 수금:{" "}
                 <span className="font-bold">{approval.noteCollection}</span> 후{" "}
                 {approval.noteCollectionDays}일
@@ -491,7 +488,7 @@ export default function ApprovalDetailPage() {
 
       {/* Table 2: 금액 정보 */}
       {approval.priceData && (
-        <table className="w-full border-collapse border border-gray-300 text-center text-sm">
+        <table className="w-full border-collapse border border-gray-300 text-center">
           <thead className="bg-gray-100">
             <tr>
               <th className="border p-3 w-32">구분</th>
@@ -543,7 +540,7 @@ export default function ApprovalDetailPage() {
 
       {/* Table 3: 비용 정보 */}
       {approval.costData && (
-        <table className="w-full border-collapse border border-gray-300 text-center text-sm">
+        <table className="w-full border-collapse border border-gray-300 text-center">
           <thead className="bg-gray-100">
             <tr>
               <th className="border p-3 w-32">비용 항목</th>
@@ -668,7 +665,7 @@ export default function ApprovalDetailPage() {
 
     return (
       <>
-        <table className="w-full border-collapse border border-gray-300 mb-8 text-sm">
+        <table className="w-full border-collapse border border-gray-300 mb-8 text-[18px]">
           <tbody>
             {/* 1. 구분 및 이동방법 */}
             <tr>
@@ -1009,7 +1006,7 @@ export default function ApprovalDetailPage() {
           {/* 왼쪽: 제목 및 정보 */}
           <div className="flex-1">
             <div className="flex items-center flex-wrap gap-2 mb-2">
-              <h3 className="text-xl font-semibold text-gray-700 flex items-center">
+              <h3 className="text-3xl font-semibold text-gray-700 flex items-center">
                 {/* 통합 외근/출장 문서일 경우에만 배지 표시 */}
                 {approval.approvalType === "integrated_outside" && (
                   <span
@@ -1031,7 +1028,7 @@ export default function ApprovalDetailPage() {
               </h3>
             </div>
 
-            <p className="text-sm text-gray-500">
+            <p className="text-[20px]">
               {/* 날짜 표시 로직 */}
               {approval.approvalType === "integrated_outside" &&
               approval.implementDate

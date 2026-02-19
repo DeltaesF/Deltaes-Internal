@@ -20,7 +20,12 @@ interface ApiResponse {
   totalCount: number;
 }
 
-const fetchReports = async (page: number, limit: number, userName: string) => {
+const fetchReports = async (
+  page: number,
+  limit: number,
+  userName: string,
+  role: string
+) => {
   const res = await fetch("/api/approvals/list", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -28,6 +33,7 @@ const fetchReports = async (page: number, limit: number, userName: string) => {
       page,
       limit,
       userName,
+      role,
       approvalType: "sales", // ✅ 판매 품의서 필터링
     }),
   });
@@ -38,13 +44,14 @@ const fetchReports = async (page: number, limit: number, userName: string) => {
 function SalesReportContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { userName } = useSelector((state: RootState) => state.auth);
+  const { userName, role } = useSelector((state: RootState) => state.auth);
   const currentPage = Number(searchParams.get("page")) || 1;
   const ITEMS_PER_PAGE = 12;
 
   const { data, isLoading } = useQuery<ApiResponse>({
-    queryKey: ["approvals", "sales", currentPage, userName],
-    queryFn: () => fetchReports(currentPage, ITEMS_PER_PAGE, userName || ""),
+    queryKey: ["approvals", "sales", currentPage, userName, role],
+    queryFn: () =>
+      fetchReports(currentPage, ITEMS_PER_PAGE, userName || "", role || "user"),
     placeholderData: (prev) => prev,
     enabled: !!userName,
     refetchOnMount: true,
