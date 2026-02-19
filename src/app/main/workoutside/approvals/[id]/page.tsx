@@ -271,6 +271,7 @@ export default function ApprovalDetailPage() {
       // 1. 이미지 변환
       const imgData = await toPng(element, {
         quality: 1,
+        pixelRatio: 2,
         backgroundColor: "white",
         filter: filter,
         style: {
@@ -282,9 +283,15 @@ export default function ApprovalDetailPage() {
       });
 
       // 2. PDF 생성 (A4)
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
-      const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
+      const pdf = new jsPDF({
+        orientation: "p",
+        unit: "mm",
+        format: "a4",
+        putOnlyUsedFonts: true,
+      });
+
+      const pdfWidth = 210; // A4 가로 고정
+      const pdfHeight = 297; // A4 세로 고정
       const imgProps = pdf.getImageProperties(imgData);
 
       // 210mm 꽉 채우지 말고 좌우 5mm 정도 여유를 줍니다.
@@ -295,7 +302,6 @@ export default function ApprovalDetailPage() {
 
       // 높이가 A4 초과 시 축소 로직 유지
       if (imgHeight > pdfHeight) {
-        // 상하 여유 20mm
         imgHeight = pdfHeight;
         imgWidth = (imgProps.width * imgHeight) / imgProps.height;
       }
