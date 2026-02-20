@@ -287,6 +287,11 @@ export default function Individual() {
   // Data Filtering
   // =====================================================================
 
+  // ✅ [추가] 오늘 완료된 결재 내역만 필터링
+  const todayCompletedList = completedList.filter((item) =>
+    isToday(item.createdAt)
+  );
+
   const workReports = notifications.filter(
     (n) => (n.type === "daily" || n.type === "weekly") && isToday(n.createdAt)
   );
@@ -377,7 +382,7 @@ export default function Individual() {
         />
         <DashboardCard
           title="결재 완료"
-          count={completedList.length}
+          count={todayCompletedList.length}
           color="green"
           isActive={modalType === "completed"}
           onClick={() => setModalType("completed")}
@@ -505,13 +510,13 @@ export default function Individual() {
       {/* 3. 결재 완료 모달 */}
       {modalType === "completed" && (
         <ListModalLayout
-          title="결재 완료 내역 (최신 5건)"
+          title="당일 결재 완료 내역 (최신 5건)"
           onClose={() => setModalType(null)}
           moreLink="/main/my-approval/completed"
         >
-          {completedList.length > 0 ? (
+          {todayCompletedList.length > 0 ? (
             <div className="space-y-3">
-              {completedList.slice(0, 5).map((v) => (
+              {todayCompletedList.slice(0, 5).map((v) => (
                 <div
                   key={v.id}
                   onClick={() => router.push("/main/my-approval/completed")}

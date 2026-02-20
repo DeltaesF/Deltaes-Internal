@@ -51,6 +51,11 @@ export default function VacationWritePage() {
   const [showSharedModal, setShowSharedModal] = useState(false);
   const [sharedList, setSharedList] = useState<string[]>([]);
 
+  const [attachments, setAttachments] = useState<
+    { name: string; url: string }[]
+  >([]);
+  const [isUploading, setIsUploading] = useState(false);
+
   const { data: myInfo } = useQuery<MyInfo>({
     queryKey: ["myInfo", userDocId],
     queryFn: () => fetchMyInfo(userDocId!),
@@ -133,6 +138,7 @@ export default function VacationWritePage() {
           types, // ["연차", "오전반차", ...] 형태로 전송됨
           days,
           reason,
+          attachments,
           approvers: {
             first: firstApprovers,
             second: secondApprovers, // 없으면 빈 배열로 전송됨 (OK)
@@ -171,6 +177,42 @@ export default function VacationWritePage() {
   };
 
   const datesList = getDatesArray(startDate, endDate);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      setIsUploading(true);
+      const formData = new FormData();
+      // 여러 파일 대응 가능하도록 설계
+      for (let i = 0; i < files.length; i++) {
+        formData.append("files", files[i]);
+      }
+
+      const res = await fetch("/api/vacation/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        // 기존 첨부파일에 추가
+        setAttachments((prev) => [...prev, ...data.files]);
+      } else {
+        alert("파일 업로드 실패");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("업로드 중 오류 발생");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
 
   return (
     <div className="p-4 md:p-6 border rounded-xl bg-white shadow-sm mt-4 md:mt-6 max-w-5xl mx-auto h-full">
@@ -249,6 +291,44 @@ export default function VacationWritePage() {
             onChange={(e) => setReason(e.target.value)}
             className="border p-3 h-32 rounded resize-none focus:ring-1 focus:ring-[#519d9e] outline-none"
           />
+
+          {/* ✅ 파일 첨부 영역 추가 */}
+          <div className="flex flex-col gap-2">
+            <label className="w-fit flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors text-sm font-medium">
+              <span className="text-lg">📎</span>
+              {isUploading ? "업로드 중..." : "증빙 서류 첨부"}
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleFileChange}
+                disabled={isUploading}
+              />
+            </label>
+
+            {/* 첨부된 파일 리스트 */}
+            {attachments.length > 0 && (
+              <ul className="flex flex-col gap-1 px-1">
+                {attachments.map((file, idx) => (
+                  <li
+                    key={idx}
+                    className="flex justify-between items-center bg-blue-50 px-3 py-2 rounded text-xs border border-blue-100"
+                  >
+                    <span className="truncate text-blue-800 font-medium max-w-[80%]">
+                      {file.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(idx)}
+                      className="text-red-500 hover:text-red-700 font-bold px-1"
+                    >
+                      삭제
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           <button
             type="submit"

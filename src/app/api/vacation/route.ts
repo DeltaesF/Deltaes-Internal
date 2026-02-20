@@ -23,6 +23,12 @@ function getTodayString() {
   return `${year}-${month}-${day}`;
 }
 
+// ✅ 첨부파일 개별 아이템 인터페이스
+interface AttachmentItem {
+  name: string;
+  url: string;
+}
+
 // ✅ [추가] 결재선 구조 인터페이스
 interface ApproverStructure {
   first: string[];
@@ -41,6 +47,7 @@ interface VacationRequestBody {
   // ✅ [수정] 배열이나 객체 둘 다 들어올 수 있게 처리
   approvers: string[] | ApproverStructure;
   userName: string;
+  attachments?: AttachmentItem[];
 }
 
 export async function POST(req: NextRequest) {
@@ -55,6 +62,7 @@ export async function POST(req: NextRequest) {
       reason,
       approvers: rawApprovers, // raw 데이터로 받음
       userName,
+      attachments = [],
     } = body;
 
     const vacationRef = db.collection("vacation").doc(userDocId);
@@ -97,6 +105,7 @@ export async function POST(req: NextRequest) {
       createdAt: FieldValue.serverTimestamp(),
       createdDate: getTodayString(),
       approvalHistory: [], // ✅ 이력 초기화
+      attachments,
     });
 
     const vacationId = newDocRef.id;

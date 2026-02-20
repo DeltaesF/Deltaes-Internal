@@ -18,6 +18,7 @@ interface VacationResponse {
   daysUsed: number;
   reason?: string;
   createdAt: number;
+  attachments?: { name: string; url: string }[];
   approvers: {
     first?: string[];
     second?: string[];
@@ -357,10 +358,41 @@ function VacationListContent() {
               <span className="block text-gray-500 font-bold mb-2 text-xs md:text-sm">
                 사유
               </span>
-              <div className="bg-gray-50 p-4 rounded-lg text-gray-700 text-sm min-h-[80px] border border-gray-100 leading-relaxed italic">
+              <div className="bg-gray-50 px-4 py-1 rounded-lg text-gray-700 text-sm min-h-[20px] border border-gray-100 leading-relaxed italic">
                 {selectedVacation.reason || "내용 없음"}
               </div>
             </div>
+
+            {/* ✅ 증빙 서류(첨부파일) 섹션 추가 */}
+            {selectedVacation.attachments &&
+              selectedVacation.attachments.length > 0 && (
+                <div>
+                  <span className="block text-gray-500 font-bold mb-2 text-xs md:text-sm">
+                    📎 증빙 서류
+                  </span>
+                  <div className="flex flex-col gap-2">
+                    {selectedVacation.attachments.map((file, idx) => (
+                      <a
+                        key={idx}
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 bg-blue-50/50 border border-blue-100 rounded-xl hover:bg-blue-100 transition-colors group"
+                      >
+                        <span className="text-lg">📄</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-blue-800 truncate">
+                            {file.name}
+                          </p>
+                        </div>
+                        <span className="text-blue-300 group-hover:text-blue-600 font-bold">
+                          →
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
 
             {/* 결재 의견(코멘트) */}
             {selectedVacation.approvalHistory &&
